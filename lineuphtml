@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LineUp - AI Barber App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        .nav-item.active {
+            background: linear-gradient(45deg, #6366f1, #8b5cf6);
+            border-radius: 25px;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        .hidden-section {
+            display: none;
+        }
+        .star-rating .star {
+            cursor: pointer;
+            color: #4a4a4a;
+            transition: all 0.2s ease;
+        }
+        .star-rating .star.filled {
+            color: #ffc107;
+            transform: scale(1.1);
+        }
+        .glass-card {
+            background: rgba(28, 28, 28, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .floating-action {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+        .notification.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body class="text-white flex items-center justify-center min-h-screen p-4">
+
+<div id="notification" class="notification bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg">
+    <p id="notification-text"></p>
+</div>
+
+<div class="container glass-card shadow-2xl rounded-3xl p-6 md:p-10 w-full">
+    <header class="text-center mb-8">
+        <div class="flex items-center justify-center mb-4">
+            <h1 class="text-5xl md:text-6xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                LineUp
+            </h1>
+        </div>
+        <p class="text-gray-300 text-lg">Find your perfect cut. Consult the AI. Get a new look.</p>
+        <div class="flex justify-center space-x-4 mt-6">
+            <div class="bg-gray-800 px-4 py-2 rounded-full">
+                <span class="text-gray-400 text-sm">Status: </span>
+                <span id="connection-status" class="text-green-400">Connected</span>
+            </div>
+            <div class="bg-gray-800 px-4 py-2 rounded-full">
+                <span class="text-gray-400 text-sm">Location: </span>
+                <span id="current-location" class="text-blue-400">Not Set</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- User Type Toggle -->
+    <div class="flex justify-center mb-8">
+        <div class="bg-gray-800 rounded-full p-1 flex">
+            <button id="client-mode" class="px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 bg-indigo-600 text-white">
+                I'm a Client
+            </button>
+            <button id="barber-mode" class="px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 text-gray-400 hover:text-white">
+                I'm a Barber
+            </button>
+        </div>
+    </div>
+
+    <!-- Main App Content -->
+    <div id="main-content">
+        <!-- Client Navigation -->
+        <nav class="flex justify-center border-b border-gray-600 mb-8" id="client-nav">
+            <button id="barbers-tab" class="nav-item active flex-1 py-4 px-2 text-center font-medium transition-all duration-300 hover:text-white mx-1">
+                Find Barbers
+            </button>
+            <button id="consultation-tab" class="nav-item flex-1 py-4 px-2 text-center font-medium transition-all duration-300 hover:text-white mx-1">
+                AI Consultation
+            </button>
+            <button id="appointments-tab" class="nav-item flex-1 py-4 px-2 text-center font-medium transition-all duration-300 hover:text-white mx-1">
+                My Appointments
+            </button>
+            <button id="gallery-tab" class="nav-item flex-1 py-4 px-2 text-center font-medium transition-all duration-300 hover:text-white mx-1">
+                Community
+            </button>
+        </nav>
+
+        <!-- Barber Navigation -->
+        <nav class="flex justify-center border-b border-gray-600 mb-8 hidden" id="barber-nav">
+            <button id="dashboard-tab" class="nav-item active flex-1 py-4 px-2 text-center font-medium transition-all duration-300 hover:text-white mx-1">
+                Dashboard
+            </button>
+            <button id="profile-tab" class="nav-item flex-1 py-4 px-2 text-center font-medium transition-all duration-300 hover:text-white mx-1">
+                My Profile
+            </button>
+            <button id="analytics-tab" class="nav-item flex-1 py-4 px-2 text-center font-medium transition-all duration-300 hover:text-white mx-1">
+                Analytics
+            </button>
+        </nav>
+
+        <!-- Find Barbers Section -->
+        <div id="barbers-section">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    Discover Top Barbers
+                </h2>
+                <div class="flex space-x-2">
+                    <select id="sort-filter" class="bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                        <option value="rating">Sort by Rating</option>
+                        <option value="distance">Sort by Distance</option>
+                        <option value="price">Sort by Price</option>
+                        <option value="reviews">Sort by Reviews</option>
+                    </select>
+                    <select id="specialty-filter" class="bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                        <option value="">All Specialties</option>
+                        <option value="Fade">Fade Cuts</option>
+                        <option value="Beard">Beard Styling</option>
+                        <option value="Traditional">Traditional Cuts</option>
+                        <option value="Modern">Modern Styles</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Enhanced Location Input -->
+            <div class="glass-card p-6 rounded-2xl mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-center">Set Your Location</h3>
+                <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
+                    <input type="text" id="manual-location-input" placeholder="Enter city (e.g., Atlanta, New York)" class="flex-1 rounded-lg border-gray-600 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3">
+                    <button id="get-location-btn" class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium py-3 px-8 rounded-lg shadow-lg hover:from-indigo-500 hover:to-purple-500 transition-all duration-300 transform hover:scale-105">
+                        Update Location
+                    </button>
+                    <button id="use-gps-btn" class="bg-gray-700 text-white font-medium py-3 px-8 rounded-lg shadow-lg hover:bg-gray-600 transition-all duration-300">
+                        Use GPS
+                    </button>
+                </div>
+                <p id="location-status" class="text-gray-400 text-center text-sm mt-4"></p>
+            </div>
+            
+            <!-- Search Bar -->
+            <div class="relative mb-6">
+                <input type="text" id="search-input" placeholder="Search barbers by name, specialty, or style..." class="w-full bg-gray-800 border border-gray-600 rounded-lg px-6 py-4 text-white pl-12 focus:border-indigo-500 focus:ring-indigo-500">
+                <svg class="absolute left-4 top-5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </div>
+
+            <div id="barber-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Barber cards will be rendered here -->
+            </div>
+            
+            <!-- Load More Button -->
+            <div class="text-center mt-8">
+                <button id="load-more-btn" class="bg-gray-700 text-white px-8 py-3 rounded-lg hover:bg-gray-600 transition-colors hidden">
+                    Load More Barbers
+                </button>
+            </div>
+        </div>
+
+        <!-- AI Consultation Section -->
+        <div id="consultation-section" class="hidden-section">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent mb-4">
+                    AI Hair Consultation
+                </h2>
+                <p class="text-gray-300">Get personalized haircut recommendations powered by AI</p>
+            </div>
+            
+            <!-- Consultation Steps -->
+            <div class="space-y-6">
+                <!-- Step 1: Personal Information -->
+                <div class="glass-card p-6 rounded-2xl">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-200 flex items-center">
+                        <span class="bg-indigo-600 w-8 h-8 rounded-full flex items-center justify-center text-sm mr-3">1</span>
+                        Tell Us About Yourself
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="user-age" class="block text-sm font-medium text-gray-300 mb-2">Age</label>
+                            <input type="number" id="user-age" placeholder="e.g., 25" class="w-full rounded-lg border-gray-600 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3">
+                        </div>
+                        <div>
+                            <label for="hair-type" class="block text-sm font-medium text-gray-300 mb-2">Hair Type</label>
+                            <select id="hair-type" class="w-full rounded-lg border-gray-600 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3">
+                                <option value="">Select hair type</option>
+                                <option value="straight">Straight</option>
+                                <option value="wavy">Wavy</option>
+                                <option value="curly">Curly</option>
+                                <option value="coily">Coily</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="face-shape" class="block text-sm font-medium text-gray-300 mb-2">Face Shape</label>
+                            <select id="face-shape" class="w-full rounded-lg border-gray-600 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3">
+                                <option value="">Select face shape</option>
+                                <option value="oval">Oval</option>
+                                <option value="round">Round</option>
+                                <option value="square">Square</option>
+                                <option value="heart">Heart</option>
+                                <option value="oblong">Oblong</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="lifestyle" class="block text-sm font-medium text-gray-300 mb-2">Lifestyle</label>
+                            <select id="lifestyle" class="w-full rounded-lg border-gray-600 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3">
+                                <option value="">Select lifestyle</option>
+                                <option value="professional">Professional</option>
+                                <option value="casual">Casual</option>
+                                <option value="creative">Creative</option>
+                                <option value="active">Active</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Photo Upload -->
+                <div class="glass-card p-6 rounded-2xl">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-200 flex items-center">
+                        <span class="bg-indigo-600 w-8 h-8 rounded-full flex items-center justify-center text-sm mr-3">2</span>
+                        Upload Your Photo
+                    </h3>
+                    <p class="text-gray-400 mb-4 text-center">Upload a clear photo of your face for the most accurate recommendations</p>
+                    <div class="flex flex-col items-center justify-center space-y-4">
+                        <input type="file" id="photo-upload" class="hidden" accept="image/*">
+                        <button id="upload-button" class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium py-4 px-8 rounded-lg shadow-lg hover:from-indigo-500 hover:to-purple-500 transition-all duration-300 transform hover:scale-105">
+                            Choose Photo
+                        </button>
+                        <div id="photo-preview" class="hidden">
+                            <img id="preview-image" class="rounded-xl max-h-64 object-contain shadow-md">
+                            <button id="remove-photo" class="mt-2 text-red-400 hover:text-red-300 transition-colors text-sm">Remove Photo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Get Recommendations -->
+                <div class="text-center">
+                    <button id="get-recommendations" class="bg-gradient-to-r from-green-500 to-blue-500 text-white font-bold py-4 px-12 rounded-lg shadow-xl hover:from-green-400 hover:to-blue-400 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Get AI Recommendations
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loading-spinner" class="hidden flex flex-col items-center justify-center space-y-4 my-12">
+                <div class="flex space-x-2">
+                    <div class="w-4 h-4 rounded-full bg-indigo-500 animate-bounce"></div>
+                    <div class="w-4 h-4 rounded-full bg-purple-500 animate-bounce delay-150"></div>
+                    <div class="w-4 h-4 rounded-full bg-blue-500 animate-bounce delay-300"></div>
+                </div>
+                <p class="text-gray-400">Analyzing your features and generating recommendations...</p>
+                <div class="w-64 bg-gray-800 rounded-full h-2">
+                    <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- AI Results -->
+            <div id="ai-results" class="hidden mt-8">
+                <!-- Results will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Barber Profile Section -->
+        <div id="barber-profile-section" class="hidden-section">
+            <button id="back-to-barbers-btn" class="mb-6 flex items-center text-indigo-400 hover:text-indigo-300 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"></path>
+                </svg>
+                Back to Barbers
+            </button>
+            <div id="barber-profile-content">
+                <!-- Profile content will be rendered here -->
+            </div>
+        </div>
+
+        <!-- My Appointments Section -->
+        <div id="my-appointments-section" class="hidden-section">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+                    My Appointments
+                </h2>
+                <button id="refresh-appointments" class="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                    Refresh
+                </button>
+            </div>
+            
+            <!-- Appointment Filters -->
+            <div class="flex space-x-2 mb-6">
+                <button class="appointment-filter active bg-indigo-600 text-white px-4 py-2 rounded-lg" data-filter="all">All</button>
+                <button class="appointment-filter bg-gray-700 text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-600" data-filter="upcoming">Upcoming</button>
+                <button class="appointment-filter bg-gray-700 text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-600" data-filter="completed">Completed</button>
+                <button class="appointment-filter bg-gray-700 text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-600" data-filter="cancelled">Cancelled</button>
+            </div>
+            
+            <div id="appointments-list" class="space-y-4">
+                <!-- Appointments will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Community Section -->
+        <div id="gallery-section" class="hidden-section">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold bg-gradient-to-r from-pink-400 to-red-400 bg-clip-text text-transparent">
+                    Community Feed
+                </h2>
+                <div class="flex space-x-2">
+                    <select id="feed-filter" class="bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white">
+                        <option value="recent">Most Recent</option>
+                        <option value="popular">Most Popular</option>
+                        <option value="following">Following</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Post Creation -->
+            <div class="glass-card p-6 rounded-2xl mb-6">
+                <h3 class="text-xl font-semibold mb-4 text-gray-200">Share Your Style</h3>
+                <div class="space-y-4">
+                    <textarea id="post-caption" placeholder="Write a caption for your photo..." class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white resize-none" rows="3"></textarea>
+                    <div class="flex flex-col items-center justify-center space-y-4">
+                        <input type="file" id="community-photo-upload" class="hidden" accept="image/*">
+                        <button id="community-upload-button" class="bg-gradient-to-r from-pink-600 to-red-600 text-white font-medium py-3 px-8 rounded-lg shadow-lg hover:from-pink-500 hover:to-red-500 transition-all duration-300">
+                            Choose Photo to Share
+                        </button>
+                        <div id="community-photo-preview" class="hidden">
+                            <img id="community-preview-image" class="rounded-xl max-h-48 object-contain shadow-md">
+                            <button id="remove-community-photo" class="mt-2 text-red-400 hover:text-red-300 transition-colors text-sm">Remove Photo</button>
+                        </div>
+                    </div>
+                    <button id="publish-post" class="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white font-medium py-3 rounded-lg shadow-lg hover:from-green-500 hover:to-blue-500 transition-all duration-300 disabled:opacity-50">
+                        Publish Post
+                    </button>
+                </div>
+            </div>
+            
+            <div id="community-feed" class="space-y-6">
+                <!-- Posts will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Barber Dashboard -->
+        <div id="barber-dashboard-section" class="hidden-section">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <div class="glass-card p-6 rounded-2xl text-center">
+                    <div class="text-3xl font-bold text-green-400 mb-2" id="today-earnings">$0</div>
+                    <p class="text-gray-400">Today's Earnings</p>
+                </div>
+                <div class="glass-card p-6 rounded-2xl text-center">
+                    <div class="text-3xl font-bold text-blue-400 mb-2" id="upcoming-appointments">0</div>
+                    <p class="text-gray-400">Upcoming Appointments</p>
+                </div>
+                <div class="glass-card p-6 rounded-2xl text-center">
+                    <div class="text-3xl font-bold text-purple-400 mb-2" id="avg-rating">0.0</div>
+                    <p class="text-gray-400">Average Rating</p>
+                </div>
+            </div>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6">
+                <h3 class="text-xl font-semibold text-gray-200 mb-4">Today's Appointments</h3>
+                <div id="barber-appointments-list" class="space-y-4">
+                    <!-- Appointments will be rendered here -->
+                </div>
+            </div>
+
+            <div class="glass-card p-6 rounded-2xl">
+                <h3 class="text-xl font-semibold text-gray-200 mb-4">Quick Actions</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button id="add-availability" class="bg-indigo-600 text-white p-4 rounded-lg hover:bg-indigo-500 transition-colors">
+                        Add Availability
+                    </button>
+                    <button id="update-prices" class="bg-green-600 text-white p-4 rounded-lg hover:bg-green-500 transition-colors">
+                        Update Prices
+                    </button>
+                    <button id="view-reviews" class="bg-yellow-600 text-white p-4 rounded-lg hover:bg-yellow-500 transition-colors">
+                        View Reviews
+                    </button>
+                    <button id="portfolio-manager" class="bg-purple-600 text-white p-4 rounded-lg hover:bg-purple-500 transition-colors">
+                        Manage Portfolio
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barber Profile Management -->
+        <div id="barber-profile-management-section" class="hidden-section">
+            <h2 class="text-2xl font-semibold text-gray-200 mb-6">Manage Your Profile</h2>
+            
+            <div class="glass-card p-6 rounded-2xl mb-6">
+                <h3 class="text-xl font-semibold text-gray-200 mb-4">Basic Information</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Business Name</label>
+                        <input type="text" id="barber-name" class="w-full rounded-lg border-gray-600 bg-gray-800 text-white p-3" placeholder="Your barber shop name">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Phone Number</label>
+                        <input type="tel" id="barber-phone" class="w-full rounded-lg border-gray-600 bg-gray-800 text-white p-3" placeholder="(555) 123-4567">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Bio</label>
+                        <textarea id="barber-bio" rows="3" class="w-full rounded-lg border-gray-600 bg-gray-800 text-white p-3" placeholder="Tell clients about your experience and style"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Specialties</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button class="specialty-tag bg-gray-700 px-3 py-1 rounded-full text-sm" data-specialty="Fade">Fade</button>
+                            <button class="specialty-tag bg-gray-700 px-3 py-1 rounded-full text-sm" data-specialty="Beard">Beard</button>
+                            <button class="specialty-tag bg-gray-700 px-3 py-1 rounded-full text-sm" data-specialty="Traditional">Traditional</button>
+                            <button class="specialty-tag bg-gray-700 px-3 py-1 rounded-full text-sm" data-specialty="Modern">Modern</button>
+                            <button class="specialty-tag bg-gray-700 px-3 py-1 rounded-full text-sm" data-specialty="Color">Color</button>
+                            <button class="specialty-tag bg-gray-700 px-3 py-1 rounded-full text-sm" data-specialty="Styling">Styling</button>
+                        </div>
+                    </div>
+                </div>
+                <button id="save-profile" class="mt-6 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-500 transition-colors">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div id="barber-analytics-section" class="hidden-section">
+            <h2 class="text-2xl font-semibold text-gray-200 mb-6">Business Analytics</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="glass-card p-6 rounded-2xl">
+                    <h3 class="text-lg font-semibold text-gray-200 mb-4">Revenue Trends</h3>
+                    <div class="h-64 bg-gray-800 rounded-lg flex items-center justify-center">
+                        <p class="text-gray-500">Chart placeholder - Revenue over time</p>
+                    </div>
+                </div>
+                <div class="glass-card p-6 rounded-2xl">
+                    <h3 class="text-lg font-semibold text-gray-200 mb-4">Popular Services</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-300">Fade Cuts</span>
+                            <span class="text-purple-400 font-bold">45%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div class="bg-purple-500 h-2 rounded-full" style="width: 45%;"></div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-300">Beard Trims</span>
+                            <span class="text-green-400 font-bold">25%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div class="bg-green-500 h-2 rounded-full" style="width: 25%;"></div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-300">Traditional Cuts</span>
+                            <span class="text-blue-400 font-bold">20%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div class="bg-blue-500 h-2 rounded-full" style="width: 20%;"></div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-300">Other</span>
+                            <span class="text-gray-400 font-bold">10%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div class="bg-gray-500 h-2 rounded-full" style="width: 10%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Modal for Messages -->
+    <div id="message-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-2xl shadow-lg max-w-sm w-full text-center border border-gray-700">
+            <p id="modal-text" class="text-white font-medium"></p>
+            <button id="modal-close-button" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-500 transition-colors">Close</button>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div id="review-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-2xl shadow-lg max-w-lg w-full text-left border border-gray-700">
+            <h3 class="text-xl font-semibold text-white mb-4">Rate Your Barber</h3>
+            <div class="flex items-center space-x-2 mb-4">
+                <p class="text-gray-400">Give a star rating:</p>
+                <div id="review-stars" class="star-rating flex items-center space-x-1">
+                    <span class="star text-3xl" data-rating="1">★</span>
+                    <span class="star text-3xl" data-rating="2">★</span>
+                    <span class="star text-3xl" data-rating="3">★</span>
+                    <span class="star text-3xl" data-rating="4">★</span>
+                    <span class="star text-3xl" data-rating="5">★</span>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label for="review-text" class="block text-sm font-medium text-gray-300">Your review (optional):</label>
+                <textarea id="review-text" rows="4" class="mt-1 block w-full rounded-md border-gray-600 bg-gray-900 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2" placeholder="Tell us about your experience..."></textarea>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button id="submit-review-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-500 transition-colors">Submit</button>
+                <button id="cancel-review-btn" class="bg-gray-700 text-white px-4 py-2 rounded-full hover:bg-gray-600 transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Booking Modal -->
+    <div id="booking-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-2xl shadow-lg max-w-lg w-full text-left border border-gray-700">
+            <h3 class="text-xl font-semibold text-white mb-4">Book Appointment</h3>
+            <div id="booking-content">
+                <div class="mb-4">
+                    <p class="text-gray-400 mb-2">Select a date:</p>
+                    <input type="date" id="booking-date" class="w-full rounded-md border-gray-600 bg-gray-900 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                </div>
+                <div class="mb-4">
+                    <p class="text-gray-400 mb-2">Select a time slot:</p>
+                    <select id="booking-time" class="w-full rounded-md border-gray-600 bg-gray-900 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                        <option value="10:00 AM">10:00 AM</option>
+                        <option value="11:00 AM">11:00 AM</option>
+                        <option value="1:00 PM">1:00 PM</option>
+                        <option value="2:00 PM">2:00 PM</option>
+                        <option value="3:00 PM">3:00 PM</option>
+                        <option value="4:00 PM">4:00 PM</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button id="submit-booking-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-500 transition-colors">Book Now</button>
+                <button id="cancel-booking-btn" class="bg-gray-700 text-white px-4 py-2 rounded-full hover:bg-gray-600 transition-colors">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Mock Data ---
+    // This data replaces Firebase for offline testing.
+    let mockBarbers = [
+        {
+            id: 'barber1',
+            name: 'Elite Fades & Co.',
+            specialties: ['Fade', 'Modern', 'Beard'],
+            rating: 4.8,
+            reviews: 124,
+            price: 45,
+            location: { latitude: 33.7490, longitude: -84.3880 }, // Atlanta
+            bio: 'Master barbers specializing in sharp fades and modern men\'s styling. We use high-end products and focus on clean lines and precision.',
+            reviewsArray: [
+                { rating: 5, text: 'Best fade I\'ve ever gotten!', userId: 'user1' },
+                { rating: 4, text: 'Great cut, but a little pricey.', userId: 'user2' }
+            ],
+            services: [
+                { name: 'Haircut', price: 45 },
+                { name: 'Beard Trim', price: 20 },
+                { name: 'Hot Shave', price: 30 }
+            ]
+        },
+        {
+            id: 'barber2',
+            name: 'The Vintage Razor',
+            specialties: ['Traditional', 'Beard', 'Hot Shave'],
+            rating: 4.5,
+            reviews: 89,
+            price: 35,
+            location: { latitude: 33.7550, longitude: -84.3900 }, // Downtown Atlanta
+            bio: 'A classic barbershop experience with a modern touch. We specialize in hot towel shaves and timeless haircuts.',
+            reviewsArray: [
+                { rating: 5, text: 'Incredible experience and attention to detail.', userId: 'user3' }
+            ],
+            services: [
+                { name: 'Classic Cut', price: 35 },
+                { name: 'Hot Shave', price: 30 }
+            ]
+        },
+        {
+            id: 'barber3',
+            name: 'Urban Cuts',
+            specialties: ['Modern', 'Styling'],
+            rating: 4.9,
+            reviews: 201,
+            price: 50,
+            location: { latitude: 33.7749, longitude: -84.3650 }, // Midtown Atlanta
+            bio: 'Pushing the boundaries of modern haircutting. Our team stays on top of the latest trends and techniques to give you a unique style.',
+            reviewsArray: [
+                { rating: 5, text: 'Always a great cut, worth every penny!', userId: 'user4' },
+                { rating: 5, text: 'Love the atmosphere and the results.', userId: 'user5' }
+            ],
+            services: [
+                { name: 'Haircut & Styling', price: 50 },
+                { name: 'Fade', price: 40 }
+            ]
+        }
+    ];
+
+    let mockCommunityPosts = [
+        {
+            id: 'post1',
+            username: 'UrbanCuts',
+            imageUrl: 'https://placehold.co/600x600/334155/f1f5f9?text=Clean+Fade',
+            caption: 'Fresh fade and clean lines for a new client! #barberlife #fade',
+            likes: 12,
+            isLiked: false
+        },
+        {
+            id: 'post2',
+            username: 'Client_22',
+            imageUrl: 'https://placehold.co/600x600/475569/94a3b8?text=New+Look',
+            caption: 'Thanks @TheVintageRazor for the new look! Feeling fresh.',
+            likes: 5,
+            isLiked: false
+        },
+        {
+            id: 'post3',
+            username: 'HairGuru',
+            imageUrl: 'https://placehold.co/600x600/0f172a/9ca3af?text=Styling',
+            caption: 'Another satisfied client with a modern textured cut. Swipe for the before shot! #stylist #moderncut',
+            likes: 21,
+            isLiked: false
+        }
+    ];
+
+    let mockAppointments = [
+        { id: 'appt1', barberName: 'Elite Fades & Co.', date: '2025-09-05', time: '10:00 AM' },
+        { id: 'appt2', barberName: 'Urban Cuts', date: '2025-09-10', time: '02:00 PM' }
+    ];
+
+    // --- Core Application Logic ---
+    let userId = 'mockUser123';
+    let userLocation = { latitude: 33.7490, longitude: -84.3880 }; // Default to Atlanta for testing
+    let currentUserRole = 'client';
+    let currentBarberIdToRate = null;
+    let currentBarberIdToBook = null;
+    let selectedRating = 0;
+
+    // Helper functions
+    function createElement(tag, classes = [], content = '') {
+        const element = document.createElement(tag);
+        element.className = classes.join(' ');
+        if (content) element.innerHTML = content;
+        return element;
+    }
+
+    function showModal(message) {
+        document.getElementById('modal-text').textContent = message;
+        document.getElementById('message-modal').classList.remove('hidden');
+        document.getElementById('message-modal').classList.add('flex');
+    }
+
+    function showNotification(message) {
+        const notification = document.getElementById('notification');
+        const text = document.getElementById('notification-text');
+        text.textContent = message;
+        notification.classList.add('show');
+        setTimeout(() => notification.classList.remove('show'), 3000);
+    }
+    
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const distance = R * c;
+        return distance;
+    }
+
+    // --- Section Toggling ---
+    function setActiveTab(tab) {
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => item.classList.remove('active'));
+        tab.classList.add('active');
+    }
+
+    function toggleSection(sectionToShow) {
+        const barbersSection = document.getElementById('barbers-section');
+        const consultationSection = document.getElementById('consultation-section');
+        const barberProfileSection = document.getElementById('barber-profile-section');
+        const appointmentsSection = document.getElementById('my-appointments-section');
+        const gallerySection = document.getElementById('gallery-section');
+        const barberDashboardSection = document.getElementById('barber-dashboard-section');
+        const barberProfileManagementSection = document.getElementById('barber-profile-management-section');
+        const barberAnalyticsSection = document.getElementById('barber-analytics-section');
+        
+        const sections = [barbersSection, consultationSection, barberProfileSection, appointmentsSection, gallerySection, barberDashboardSection, barberProfileManagementSection, barberAnalyticsSection];
+        sections.forEach(sec => sec.classList.add('hidden-section'));
+        
+        const barbersTab = document.getElementById('barbers-tab');
+        const consultationTab = document.getElementById('consultation-tab');
+        const appointmentsTab = document.getElementById('appointments-tab');
+        const galleryTab = document.getElementById('gallery-tab');
+        const dashboardTab = document.getElementById('dashboard-tab');
+        const profileTab = document.getElementById('profile-tab');
+        const analyticsTab = document.getElementById('analytics-tab');
+        
+        switch (sectionToShow) {
+            case 'barbers':
+                barbersSection.classList.remove('hidden-section');
+                setActiveTab(barbersTab);
+                renderBarbers();
+                break;
+            case 'consultation':
+                consultationSection.classList.remove('hidden-section');
+                setActiveTab(consultationTab);
+                break;
+            case 'appointments':
+                appointmentsSection.classList.remove('hidden-section');
+                setActiveTab(appointmentsTab);
+                renderAppointments();
+                break;
+            case 'community':
+                gallerySection.classList.remove('hidden-section');
+                setActiveTab(galleryTab);
+                renderCommunityFeed();
+                break;
+            case 'barber-dashboard':
+                barberDashboardSection.classList.remove('hidden-section');
+                setActiveTab(dashboardTab);
+                renderBarberDashboard();
+                break;
+            case 'barber-profile':
+                barberProfileManagementSection.classList.remove('hidden-section');
+                setActiveTab(profileTab);
+                // Placeholder logic for barber profile management
+                break;
+            case 'barber-analytics':
+                barberAnalyticsSection.classList.remove('hidden-section');
+                setActiveTab(analyticsTab);
+                // Placeholder logic for analytics
+                break;
+        }
+    }
+
+    // --- Client View Functions ---
+    function renderBarbers() {
+        const barberList = document.getElementById('barber-list');
+        barberList.innerHTML = '';
+        if (mockBarbers.length === 0) {
+            barberList.innerHTML = `<p class="text-gray-500 text-center">No barbers found.</p>`;
+            return;
+        }
+
+        let filteredBarbers = [...mockBarbers];
+        
+        const sortBy = document.getElementById('sort-filter').value;
+        const specialty = document.getElementById('specialty-filter').value;
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        
+        if (specialty) {
+            filteredBarbers = filteredBarbers.filter(b => b.specialties.includes(specialty));
+        }
+        
+        if (searchTerm) {
+            filteredBarbers = filteredBarbers.filter(b => 
+                b.name.toLowerCase().includes(searchTerm) || 
+                b.specialties.some(s => s.toLowerCase().includes(searchTerm))
+            );
+        }
+
+        if (userLocation && sortBy === 'distance') {
+            filteredBarbers = filteredBarbers.map(barber => {
+                barber.distance = calculateDistance(userLocation.latitude, userLocation.longitude, barber.location.latitude, userLocation.longitude);
+                return barber;
+            });
+            filteredBarbers.sort((a, b) => a.distance - b.distance);
+        } else if (sortBy === 'rating') {
+             filteredBarbers.sort((a, b) => b.rating - a.rating);
+        } else if (sortBy === 'price') {
+            filteredBarbers.sort((a, b) => a.price - b.price);
+        } else if (sortBy === 'reviews') {
+            filteredBarbers.sort((a, b) => b.reviews - a.reviews);
+        }
+        
+        filteredBarbers.forEach(barber => {
+            const barberCard = createElement('div', ['glass-card', 'p-6', 'rounded-2xl', 'shadow-md', 'hover:shadow-lg', 'transition-shadow', 'cursor-pointer', 'mb-6', 'flex', 'flex-col', 'h-full']);
+            barberCard.addEventListener('click', () => showBarberProfile(barber.id));
+
+            const barberName = createElement('h3', ['text-2xl', 'font-bold', 'bg-gradient-to-r', 'from-blue-300', 'to-purple-300', 'bg-clip-text', 'text-transparent', 'mb-2'], barber.name);
+            const barberSpecialties = createElement('p', ['text-gray-400', 'text-sm', 'mb-2'], `Specialties: ${barber.specialties.join(', ')}`);
+
+            const ratingContainer = createElement('div', ['flex', 'items-center', 'space-x-2', 'mb-4']);
+            const ratingValue = createElement('span', ['text-gray-200', 'font-medium', 'text-xl'], barber.rating.toFixed(1));
+            const reviewsCount = createElement('span', ['text-gray-400', 'text-sm'], `(${barber.reviews} reviews)`);
+            ratingContainer.appendChild(ratingValue);
+            ratingContainer.appendChild(reviewsCount);
+            
+            const priceEl = createElement('p', ['text-white', 'font-bold', 'text-xl', 'mt-auto'], `$${barber.price}`);
+            
+            if (barber.distance) {
+                const distanceEl = createElement('p', ['text-gray-400', 'text-sm', 'mt-auto'], `${barber.distance.toFixed(2)} km away`);
+                barberCard.appendChild(distanceEl);
+            }
+
+            barberCard.appendChild(barberName);
+            barberCard.appendChild(barberSpecialties);
+            barberCard.appendChild(ratingContainer);
+            barberCard.appendChild(priceEl);
+            barberList.appendChild(barberCard);
+        });
+    }
+
+    function showBarberProfile(barberId) {
+        const barbersSection = document.getElementById('barbers-section');
+        const consultationSection = document.getElementById('consultation-section');
+        const barberProfileSection = document.getElementById('barber-profile-section');
+        const appointmentsSection = document.getElementById('my-appointments-section');
+        const gallerySection = document.getElementById('gallery-section');
+        const barberDashboardSection = document.getElementById('barber-dashboard-section');
+        
+        barbersSection.classList.add('hidden-section');
+        consultationSection.classList.add('hidden-section');
+        appointmentsSection.classList.add('hidden-section');
+        gallerySection.classList.add('hidden-section');
+        barberDashboardSection.classList.add('hidden-section');
+        barberProfileSection.classList.remove('hidden-section');
+
+        const barber = mockBarbers.find(b => b.id === barberId);
+        const profileContent = document.getElementById('barber-profile-content');
+        if (!barber) {
+             profileContent.innerHTML = `<p class="text-red-500 text-center">Barber not found.</p>`;
+             return;
+        }
+        
+        const servicesHtml = (barber.services || []).map(service => `
+            <div class="flex justify-between items-center bg-gray-900 p-3 rounded-lg">
+                <span class="text-gray-300">${service.name}</span>
+                <span class="text-white font-bold">$${service.price}</span>
+            </div>
+        `).join('');
+
+        const profileHtml = `
+            <div class="glass-card p-6 rounded-2xl">
+                <div class="flex items-center space-x-6 mb-6">
+                    <img src="${barber.profilePic || 'https://placehold.co/100x100/1f2937/d1d5db?text=B'}" class="w-24 h-24 rounded-full object-cover border-4 border-indigo-500" alt="Barber profile picture">
+                    <div>
+                        <h2 class="text-4xl font-bold bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">${barber.name}</h2>
+                        <p class="text-gray-400 text-sm">Specialties: ${barber.specialties.join(', ')}</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2 mb-4">
+                    <span class="text-gray-200 font-medium text-xl">${barber.rating.toFixed(1)}/5</span>
+                    <span class="text-gray-400 text-sm">(${barber.reviews} reviews)</span>
+                </div>
+                
+                <p class="text-gray-300 mb-6">${barber.bio || 'This barber has not added a bio yet.'}</p>
+
+                <div class="mt-6 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+                    <button id="book-appointment-btn" class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium py-3 px-8 rounded-lg shadow-lg hover:from-indigo-500 hover:to-purple-500 transition-colors flex-1">
+                        Book an Appointment
+                    </button>
+                    <button id="rate-barber-btn" class="bg-gray-700 text-white font-medium py-3 px-8 rounded-lg shadow-lg hover:bg-gray-600 transition-colors flex-1">
+                        Write a Review
+                    </button>
+                </div>
+                
+                <h3 class="text-2xl font-semibold text-gray-200 mt-8 mb-4">Services</h3>
+                <div class="space-y-2">
+                   ${servicesHtml}
+                </div>
+
+                <h3 class="text-2xl font-semibold text-gray-200 mt-8 mb-4">Customer Reviews</h3>
+                <div id="reviews-list" class="space-y-4">
+                    ${renderReviews(barber.reviewsArray)}
+                </div>
+            </div>
+        `;
+        profileContent.innerHTML = profileHtml;
+
+        document.getElementById('rate-barber-btn').addEventListener('click', () => openReviewModal(barber.id));
+        document.getElementById('book-appointment-btn').addEventListener('click', () => openBookingModal(barber.id));
+    }
+
+    function renderReviews(reviews) {
+        if (!reviews || reviews.length === 0) {
+            return `<p class="text-gray-500 text-center">No reviews yet. Be the first!</p>`;
+        }
+
+        return reviews.map(review => `
+            <div class="bg-gray-900 p-4 rounded-xl shadow border border-gray-700">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-gray-400 font-medium">Rating: ${review.rating}/5</p>
+                    <p class="text-gray-500 text-xs">User: ${review.userId.substring(0, 8)}...</p>
+                </div>
+                <p class="text-gray-300">${review.text || 'No written review.'}</p>
+            </div>
+        `).join('');
+    }
+
+    function openReviewModal(barberId) {
+        currentBarberIdToRate = barberId;
+        const reviewModal = document.getElementById('review-modal');
+        reviewModal.classList.remove('hidden');
+        reviewModal.classList.add('flex');
+
+        const reviewStars = document.getElementById('review-stars');
+        const stars = reviewStars.querySelectorAll('.star');
+        stars.forEach(star => star.classList.remove('filled'));
+        selectedRating = 0;
+        const reviewTextarea = document.getElementById('review-text');
+        reviewTextarea.value = '';
+    }
+
+    function submitReview() {
+        if (selectedRating === 0) {
+            showModal("Please provide a star rating.");
+            return;
+        }
+
+        const reviewTextarea = document.getElementById('review-text');
+        const reviewText = reviewTextarea.value.trim();
+        const barber = mockBarbers.find(b => b.id === currentBarberIdToRate);
+        if (barber) {
+            const newReview = { rating: selectedRating, text: reviewText, userId: userId };
+            barber.reviewsArray.push(newReview);
+            barber.reviews++;
+            barber.rating = barber.reviewsArray.reduce((acc, r) => acc + r.rating, 0) / barber.reviews;
+        }
+
+        const reviewModal = document.getElementById('review-modal');
+        reviewModal.classList.add('hidden');
+        showModal("Thank you for your rating and review!");
+        showBarberProfile(currentBarberIdToRate);
+    }
+    
+    function renderAppointments() {
+        const appointmentsList = document.getElementById('appointments-list');
+        appointmentsList.innerHTML = '';
+        if (mockAppointments.length === 0) {
+            appointmentsList.innerHTML = `<p class="text-gray-500 text-center">You have no appointments yet. Book one now!</p>`;
+            return;
+        }
+        
+        mockAppointments.forEach(appt => {
+            const apptCard = createElement('div', ['glass-card', 'p-4', 'rounded-2xl', 'shadow']);
+            const apptDetails = `
+                <p class="text-lg font-semibold text-gray-200">Barber: ${appt.barberName}</p>
+                <p class="text-gray-400">Date: ${appt.date}</p>
+                <p class="text-gray-400">Time: ${appt.time}</p>
+            `;
+            apptCard.innerHTML = apptDetails;
+            appointmentsList.appendChild(apptCard);
+        });
+    }
+
+    function openBookingModal(barberId) {
+        currentBarberIdToBook = barberId;
+        const bookingModal = document.getElementById('booking-modal');
+        const bookingDateInput = document.getElementById('booking-date');
+        const today = new Date().toISOString().split('T')[0];
+        bookingDateInput.min = today;
+        bookingDateInput.value = today;
+        bookingModal.classList.remove('hidden');
+        bookingModal.classList.add('flex');
+    }
+
+    function submitBooking() {
+        const bookingModal = document.getElementById('booking-modal');
+        const bookingDateInput = document.getElementById('booking-date');
+        const bookingTimeSelect = document.getElementById('booking-time');
+        const barber = mockBarbers.find(b => b.id === currentBarberIdToBook);
+        if (!barber) {
+            showModal("Barber not found. Please try again.");
+            return;
+        }
+        
+        const bookingData = {
+            id: `appt${mockAppointments.length + 1}`,
+            barberName: barber.name,
+            date: bookingDateInput.value,
+            time: bookingTimeSelect.value,
+        };
+
+        mockAppointments.push(bookingData);
+        bookingModal.classList.add('hidden');
+        showModal(`Appointment booked successfully with ${barber.name}!`);
+        toggleSection('appointments');
+    }
+
+    function renderCommunityFeed() {
+        const communityFeed = document.getElementById('community-feed');
+        communityFeed.innerHTML = '';
+        if (mockCommunityPosts.length === 0) {
+            communityFeed.innerHTML = `<p class="text-gray-500 text-center">No posts yet. Be the first to share your style!</p>`;
+            return;
+        }
+        
+        mockCommunityPosts.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp, if available
+        
+        mockCommunityPosts.forEach(post => {
+            const postCard = createElement('div', ['glass-card', 'p-6', 'rounded-2xl', 'shadow']);
+            const postHeader = createElement('div', ['flex', 'items-center', 'justify-between', 'mb-4']);
+            
+            const postAuthor = createElement('div', ['flex', 'items-center', 'space-x-2']);
+            const userIcon = createElement('div', ['w-8', 'h-8', 'rounded-full', 'bg-indigo-600', 'flex', 'items-center', 'justify-center', 'text-white', 'font-bold'], post.username.charAt(0));
+            const username = createElement('p', ['text-gray-200', 'font-medium'], post.username);
+            postAuthor.append(userIcon, username);
+            
+            const likeButton = createElement('button', ['flex', 'items-center', 'space-x-1', 'hover:text-red-400', 'transition-colors']);
+            likeButton.innerHTML = `<svg class="w-6 h-6" fill="${post.isLiked ? 'red' : 'none'}" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>`;
+            likeButton.addEventListener('click', () => {
+                post.isLiked = !post.isLiked;
+                post.likes += post.isLiked ? 1 : -1;
+                renderCommunityFeed();
+            });
+
+            postHeader.append(postAuthor, likeButton);
+            
+            const postImage = createElement('img', ['w-full', 'rounded-xl', 'mb-4', 'object-cover', 'shadow-md'], '', post.imageUrl);
+            const postCaption = createElement('p', ['text-gray-300'], post.caption);
+            const likeCount = createElement('span', ['text-sm', 'text-gray-400'], `${post.likes} likes`);
+            
+            postCard.append(postHeader, postImage, postCaption, likeCount);
+            communityFeed.append(postCard);
+        });
+    }
+
+    function handleCommunityPhotoUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const newPost = {
+                id: `post${mockCommunityPosts.length + 1}`,
+                username: 'You',
+                imageUrl: e.target.result,
+                caption: document.getElementById('post-caption').value || '',
+                likes: 0,
+                isLiked: false,
+                timestamp: Date.now()
+            };
+            mockCommunityPosts.unshift(newPost);
+            showNotification("Photo uploaded successfully!");
+            renderCommunityFeed();
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    // --- Barber View Functions ---
+    function renderBarberDashboard() {
+        document.getElementById('today-earnings').textContent = `$${(mockAppointments.length * 40).toFixed(2)}`;
+        document.getElementById('upcoming-appointments').textContent = mockAppointments.length;
+        const avgRating = mockBarbers.reduce((sum, barber) => sum + barber.rating, 0) / mockBarbers.length;
+        document.getElementById('avg-rating').textContent = avgRating.toFixed(1);
+        
+        const barberAppointmentsList = document.getElementById('barber-appointments-list');
+        barberAppointmentsList.innerHTML = '';
+        if (mockAppointments.length === 0) {
+            barberAppointmentsList.innerHTML = `<p class="text-gray-500">No appointments today. You're all caught up!</p>`;
+        } else {
+            mockAppointments.forEach(appt => {
+                const apptCard = createElement('div', ['glass-card', 'p-4', 'rounded-2xl']);
+                apptCard.innerHTML = `
+                    <p class="text-lg font-semibold text-gray-200">Client: Anon User</p>
+                    <p class="text-gray-400">Barber: ${appt.barberName}</p>
+                    <p class="text-gray-400">Date: ${appt.date}</p>
+                    <p class="text-gray-400">Time: ${appt.time}</p>
+                `;
+                barberAppointmentsList.append(apptCard);
+            });
+        }
+    }
+
+    // --- AI Consultation Logic ---
+    async function getAIRecommendations() {
+        const photoUploadInput = document.getElementById('photo-upload');
+        const getRecommendationsBtn = document.getElementById('get-recommendations');
+        const file = photoUploadInput.files[0];
+        if (!file) {
+            showModal("Please upload a photo.");
+            return;
+        }
+
+        // Convert the image to base64
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+            const base64Data = reader.result.split(',')[1];
+            
+            const aiResultsDiv = document.getElementById('ai-results');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            aiResultsDiv.classList.add('hidden');
+            aiResultsDiv.innerHTML = '';
+            loadingSpinner.classList.remove('hidden');
+            
+            let progress = 0;
+            const progressBar = document.getElementById('progress-bar');
+            const interval = setInterval(() => {
+                if (progress < 100) {
+                    progress += 10;
+                    progressBar.style.width = `${progress}%`;
+                } else {
+                    clearInterval(interval);
+                }
+            }, 150);
+
+            const promptText = `
+                Analyze the face in this image for haircut recommendations. 
+                1. Provide a detailed summary of the person's current hairstyle and give feedback.
+                2. Recommend 3 suitable hairstyles based on facial features, providing a name, a short description, and the type of barber specialty needed (e.g., Fade, Traditional, Modern).
+                3. Suggest 3 hair products that would be beneficial for maintaining these styles.
+                4. Do not mention race or gender.
+                5. If the image does not contain a face or is a low-quality image, respond with a single, polite message: "The image is not clear or does not contain a face. Please try again with a clear photo of a person."
+            `;
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: promptText },
+                        { inlineData: { mimeType: file.type, data: base64Data } }
+                    ]
+                }],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: 'OBJECT',
+                        properties: {
+                            feedback: { type: 'STRING' },
+                            recommendedHaircuts: {
+                                type: 'ARRAY',
+                                items: {
+                                    type: 'OBJECT',
+                                    properties: {
+                                        name: { type: 'STRING' },
+                                        description: { type: 'STRING' },
+                                        specialty: { type: 'STRING' }
+                                    }
+                                }
+                            },
+                            productRecommendations: {
+                                type: 'ARRAY',
+                                items: { type: 'STRING' }
+                            },
+                            error: { type: 'STRING' }
+                        }
+                    }
+                }
+            };
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            console.log(result);
+
+            clearInterval(interval);
+            progressBar.style.width = '100%';
+            loadingSpinner.classList.add('hidden');
+
+            const contentPart = result?.candidates?.[0]?.content?.parts?.[0];
+            if (!contentPart || !contentPart.text) {
+                showModal("An unexpected error occurred. Please try again.");
+                return;
+            }
+
+            try {
+                const data = JSON.parse(contentPart.text);
+                if (data.error) {
+                    showModal(data.error);
+                } else {
+                    renderAIResults(data);
+                }
+            } catch (e) {
+                showModal("The image is not clear or does not contain a face. Please try again with a clear photo of a person.");
+                console.error("Failed to parse AI response:", e);
+            }
+        };
+    }
+    
+    function renderAIResults(data) {
+        const aiResultsDiv = document.getElementById('ai-results');
+        let htmlContent = `
+            <div class="space-y-8">
+                <div class="glass-card p-6 rounded-2xl">
+                    <h3 class="text-2xl font-bold bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent mb-4">
+                        Current Haircut Feedback
+                    </h3>
+                    <p class="text-gray-300 leading-relaxed">${data.feedback}</p>
+                </div>
+                
+                <div class="glass-card p-6 rounded-2xl">
+                    <h3 class="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
+                        Recommended Haircuts
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="haircut-images">
+                        ${data.recommendedHaircuts.map(cut => `
+                            <div class="bg-gray-900 p-4 rounded-xl shadow border border-gray-700">
+                                <img src="https://placehold.co/600x400/334155/f1f5f9?text=${encodeURIComponent(cut.name)}" class="rounded-lg w-full h-48 object-cover mb-4" alt="${cut.name}">
+                                <h4 class="text-lg font-bold text-gray-100 mb-2">${cut.name}</h4>
+                                <p class="text-gray-400 text-sm">${cut.description}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 rounded-2xl">
+                    <h3 class="text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent mb-4">
+                        Product Recommendations
+                    </h3>
+                    <ul class="list-disc list-inside text-gray-300 space-y-2">
+                        ${data.productRecommendations.map(p => `<li>${p}</li>`).join('')}
+                    </ul>
+                </div>
+            </div>
+        `;
+
+        aiResultsDiv.innerHTML = htmlContent;
+        aiResultsDiv.classList.remove('hidden');
+
+        const specialties = data.recommendedHaircuts.map(c => c.specialty);
+        let barbersHtml = `<h3 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mt-8 mb-4">
+                            Recommended Barbers
+                           </h3>`;
+        
+        const recommendedBarbers = mockBarbers.filter(b => b.specialties.some(s => specialties.includes(s)));
+        recommendedBarbers.sort((a, b) => {
+            if (b.rating !== a.rating) return b.rating - a.rating;
+            return a.price - b.price;
+        });
+
+        if (recommendedBarbers.length > 0) {
+            barbersHtml += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">`;
+            recommendedBarbers.slice(0, 3).forEach(barber => {
+                barbersHtml += `
+                    <div class="glass-card p-4 rounded-xl shadow cursor-pointer" onclick="showBarberProfile('${barber.id}')">
+                        <h4 class="text-lg font-bold text-gray-100 mb-1">${barber.name}</h4>
+                        <p class="text-gray-400 text-sm">Specializes in: ${barber.specialties.join(', ')}</p>
+                        <p class="text-gray-400 text-sm mt-1">Rating: ${barber.rating.toFixed(1)}/5 (${barber.reviews} reviews)</p>
+                        <p class="text-white font-bold text-lg mt-2">$${barber.price}</p>
+                    </div>
+                `;
+            });
+            barbersHtml += `</div>`;
+        } else {
+            barbersHtml += `<p class="text-gray-500 mt-4">No barbers found with the recommended specializations.</p>`;
+        }
+        aiResultsDiv.innerHTML += barbersHtml;
+    }
+    
+    // Geolocation & Manual Location
+    const locationMap = {
+        'atlanta': { latitude: 33.7490, longitude: -84.3880, name: 'Atlanta' },
+        'new york': { latitude: 40.7128, longitude: -74.0060, name: 'New York' },
+        'los angeles': { latitude: 34.0522, longitude: -118.2437, name: 'Los Angeles' },
+        'chicago': { latitude: 41.8781, longitude: -87.6298, name: 'Chicago' },
+        'dallas': { latitude: 32.7767, longitude: -96.7970, name: 'Dallas' }
+    };
+    
+    function handleLocation(useGps = false) {
+        const locationStatus = document.getElementById('location-status');
+        const manualLocationInput = document.getElementById('manual-location-input');
+        if (useGps && navigator.geolocation) {
+            locationStatus.textContent = 'Fetching your current location...';
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    userLocation = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    };
+                    document.getElementById('current-location').textContent = 'GPS Active';
+                    locationStatus.textContent = 'Location found! Barbers sorted by proximity.';
+                    renderBarbers();
+                },
+                (error) => {
+                    console.error("Geolocation error:", error);
+                    locationStatus.textContent = 'Could not get GPS location. Please enter a city or check permissions.';
+                    userLocation = null;
+                    document.getElementById('current-location').textContent = 'Not Set';
+                    renderBarbers();
+                }
+            );
+        } else {
+            const manualLocation = manualLocationInput.value.trim().toLowerCase();
+            if (manualLocation && locationMap[manualLocation]) {
+                userLocation = locationMap[manualLocation];
+                document.getElementById('current-location').textContent = locationMap[manualLocation].name;
+                locationStatus.textContent = `Location set to ${locationMap[manualLocation].name}!`;
+                renderBarbers();
+            } else {
+                 locationStatus.textContent = 'Please enter a valid city or use GPS.';
+            }
+        }
+    }
+
+    // --- Event Listeners and Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // UI Elements (moved inside DOMContentLoaded)
+        const barbersSection = document.getElementById('barbers-section');
+        const consultationSection = document.getElementById('consultation-section');
+        const barberProfileSection = document.getElementById('barber-profile-section');
+        const appointmentsSection = document.getElementById('my-appointments-section');
+        const gallerySection = document.getElementById('gallery-section');
+        const barberDashboardSection = document.getElementById('barber-dashboard-section');
+        const barberProfileManagementSection = document.getElementById('barber-profile-management-section');
+        const barberAnalyticsSection = document.getElementById('barber-analytics-section');
+
+        const clientModeBtn = document.getElementById('client-mode');
+        const barberModeBtn = document.getElementById('barber-mode');
+        const clientNav = document.getElementById('client-nav');
+        const barberNav = document.getElementById('barber-nav');
+        const navItems = document.querySelectorAll('.nav-item');
+
+        const barbersTab = document.getElementById('barbers-tab');
+        const consultationTab = document.getElementById('consultation-tab');
+        const appointmentsTab = document.getElementById('appointments-tab');
+        const galleryTab = document.getElementById('gallery-tab');
+        const dashboardTab = document.getElementById('dashboard-tab');
+        const profileTab = document.getElementById('profile-tab');
+        const analyticsTab = document.getElementById('analytics-tab');
+        
+        const barberList = document.getElementById('barber-list');
+        const aiResultsDiv = document.getElementById('ai-results');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const reviewModal = document.getElementById('review-modal');
+        const reviewStars = document.getElementById('review-stars');
+        const reviewTextarea = document.getElementById('review-text');
+        const bookingModal = document.getElementById('booking-modal');
+        const bookingDateInput = document.getElementById('booking-date');
+        const bookingTimeSelect = document.getElementById('booking-time');
+        const appointmentsList = document.getElementById('appointments-list');
+        const getLocationBtn = document.getElementById('get-location-btn');
+        const useGpsBtn = document.getElementById('use-gps-btn');
+        const locationStatus = document.getElementById('location-status');
+        const manualLocationInput = document.getElementById('manual-location-input');
+        const communityFeed = document.getElementById('community-feed');
+        const communityPhotoUpload = document.getElementById('community-photo-upload');
+        const communityUploadButton = document.getElementById('community-upload-button');
+        const getRecommendationsBtn = document.getElementById('get-recommendations');
+        const photoUploadInput = document.getElementById('photo-upload');
+        const previewImage = document.getElementById('preview-image');
+        const uploadButton = document.getElementById('upload-button');
+
+
+        // Mode toggle
+        clientModeBtn.addEventListener('click', () => {
+            currentUserRole = 'client';
+            clientNav.classList.remove('hidden');
+            barberNav.classList.add('hidden');
+            clientModeBtn.classList.add('bg-indigo-600', 'text-white');
+            barberModeBtn.classList.remove('bg-indigo-600', 'text-white');
+            toggleSection('barbers');
+        });
+        barberModeBtn.addEventListener('click', () => {
+            currentUserRole = 'barber';
+            barberNav.classList.remove('hidden');
+            clientNav.classList.add('hidden');
+            barberModeBtn.classList.add('bg-indigo-600', 'text-white');
+            clientModeBtn.classList.remove('bg-indigo-600', 'text-white');
+            toggleSection('barber-dashboard');
+        });
+
+        // Client Nav
+        barbersTab.addEventListener('click', () => toggleSection('barbers'));
+        consultationTab.addEventListener('click', () => toggleSection('consultation'));
+        appointmentsTab.addEventListener('click', () => toggleSection('appointments'));
+        galleryTab.addEventListener('click', () => toggleSection('community'));
+        
+        // Barber Nav
+        dashboardTab.addEventListener('click', () => toggleSection('barber-dashboard'));
+        profileTab.addEventListener('click', () => toggleSection('barber-profile'));
+        analyticsTab.addEventListener('click', () => toggleSection('barber-analytics'));
+
+        // Barber Section
+        document.getElementById('back-to-barbers-btn').addEventListener('click', () => toggleSection('barbers'));
+        document.getElementById('sort-filter').addEventListener('change', renderBarbers);
+        document.getElementById('specialty-filter').addEventListener('change', renderBarbers);
+        document.getElementById('search-input').addEventListener('input', renderBarbers);
+        getLocationBtn.addEventListener('click', () => handleLocation(false));
+        useGpsBtn.addEventListener('click', () => handleLocation(true));
+        
+        // AI Consultation Section
+        document.getElementById('modal-close-button').addEventListener('click', () => {
+            document.getElementById('message-modal').classList.add('hidden');
+            document.getElementById('message-modal').classList.remove('flex');
+        });
+        uploadButton.addEventListener('click', () => photoUploadInput.click());
+        photoUploadInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                previewImage.src = URL.createObjectURL(file);
+                document.getElementById('photo-preview').classList.remove('hidden');
+                getRecommendationsBtn.disabled = false;
+            }
+        });
+        document.getElementById('remove-photo').addEventListener('click', () => {
+            photoUploadInput.value = '';
+            document.getElementById('photo-preview').classList.add('hidden');
+            getRecommendationsBtn.disabled = true;
+        });
+        getRecommendationsBtn.addEventListener('click', getAIRecommendations);
+
+        // Review Modal
+        reviewStars.addEventListener('click', (event) => {
+            const star = event.target.closest('.star');
+            if (star) {
+                selectedRating = parseInt(star.getAttribute('data-rating'));
+                const stars = reviewStars.querySelectorAll('.star');
+                stars.forEach(s => s.classList.remove('filled'));
+                for (let i = 0; i < selectedRating; i++) {
+                    stars[i].classList.add('filled');
+                }
+            }
+        });
+        document.getElementById('submit-review-btn').addEventListener('click', submitReview);
+        document.getElementById('cancel-review-btn').addEventListener('click', () => reviewModal.classList.add('hidden'));
+
+        // Booking Modal
+        document.getElementById('cancel-booking-btn').addEventListener('click', () => bookingModal.classList.add('hidden'));
+        document.getElementById('submit-booking-btn').addEventListener('click', submitBooking);
+        
+        // Community Section
+        communityUploadButton.addEventListener('click', () => communityPhotoUpload.click());
+        communityPhotoUpload.addEventListener('change', handleCommunityPhotoUpload);
+        document.getElementById('publish-post').addEventListener('click', handleCommunityPhotoUpload);
+        
+        toggleSection('barbers');
+    });
+</script>
+</body>
+</html>

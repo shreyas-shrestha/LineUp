@@ -1,25 +1,25 @@
 # app.py
 from flask import Flask, request, jsonify
-import base64
+from flask_cors import CORS
 import os
-import requests
+import google.generativeai as genai
+import json
+import base64
+from PIL import Image
+import io
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # --- Gemini API Config ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GEMINI_ENDPOINT = "https://api.generative.ai/v1beta2/models/gemini-2.5-pro:generateMessage"
 
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY environment variable not set")
 
-# --- Mock function for barbers (optional, frontend uses mock data) ---
-def mock_barbers():
-    return [
-        {"id": 1, "name": "Cuts by Clay", "specialties": ["Fade", "Taper"], "rating": 4.9, "avgCost": 45, "location": "Midtown"},
-        {"id": 2, "name": "The Buckhead Barber", "specialties": ["Pompadour", "Buzz Cut"], "rating": 4.8, "avgCost": 55, "location": "Buckhead"},
-        {"id": 3, "name": "Virginia-Highland Shears", "specialties": ["Shag", "Bob"], "rating": 4.9, "avgCost": 75, "location": "Virginia-Highland"},
-    ]
+# Configure Gemini
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # --- Route ---
 @app.route("/analyze", methods=["POST"])
@@ -34,53 +34,88 @@ def analyze():
             return jsonify({"error": "No image provided"}), 400
 
         # --- Extract image data ---
-        inlineData = payload["contents"][0]["parts"][1].get("inlineData")
+        contents = payload["contents"][0]["parts"]
+        if len(contents) < 2:
+            return jsonify({"error": "Image data missing"}), 400
+            
+        inlineData = contents[1].get("inlineData")
         if not inlineData or not inlineData.get("data"):
             return jsonify({"error": "Image data missing"}), 400
 
         image_base64 = inlineData["data"]
+        
+        # Convert base64 to PIL Image
+        image_bytes = base64.b64decode(image_base64)
+        image = Image.open(io.BytesIO(image_bytes))
 
-        # --- Call Gemini API ---
-        headers = {
-            "Authorization": f"Bearer {GEMINI_API_KEY}",
-            "Content-Type": "application/json"
-        }
-
-        prompt = (
-            "Analyze this person in the photo and return the following fields in JSON: "
-            "faceShape, hairTexture, hairColor, estimatedGender, estimatedAge, "
-            "recommendations (array of up to 5 objects with styleName, description, reason). "
-            "If the image is not a human face, return an error field."
-        )
-
-        gemini_payload = {
-            "messages": [
-                {"author": "user", "content": [{"type": "text", "text": prompt}, {"type": "image", "imageData": image_base64}]}
+        # --- Create prompt for Gemini ---
+        prompt = """Analyze this person's face and hair in the photo and provide recommendations.
+        
+        Return ONLY a valid JSON object with this exact structure:
+        {
+            "analysis": {
+                "faceShape": "oval/round/square/heart/oblong/diamond",
+                "hairTexture": "straight/wavy/curly/coily",
+                "hairColor": "black/brown/blonde/red/gray/other",
+                "estimatedGender": "male/female/non-binary",
+                "estimatedAge": "20-25/25-30/30-35/etc"
+            },
+            "recommendations": [
+                {
+                    "styleName": "Style Name",
+                    "description": "Brief description of the haircut style",
+                    "reason": "Why this style works for their face shape and features"
+                },
+                {
+                    "styleName": "Another Style",
+                    "description": "Brief description",
+                    "reason": "Why it works"
+                }
             ]
         }
+        
+        Provide exactly 5 recommendations. If the image doesn't show a clear human face, return:
+        {"error": "No clear face detected in image"}
+        
+        Return ONLY the JSON, no other text."""
 
-        response = requests.post(GEMINI_ENDPOINT, headers=headers, json=gemini_payload, timeout=60)
-        response.raise_for_status()
-        gemini_result = response.json()
-
-        # --- Parse Gemini result ---
-        # Expecting JSON output inside 'content' field
-        content_text = gemini_result.get("candidates", [{}])[0].get("content", "")
-        if isinstance(content_text, list):
-            content_text = content_text[0].get("text", "{}")
+        # --- Call Gemini API ---
+        response = model.generate_content([prompt, image])
+        
+        # Parse the response
+        response_text = response.text.strip()
+        
+        # Clean up the response - remove markdown code blocks if present
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+        
         try:
-            analysis_data = eval(content_text) if isinstance(content_text, str) else content_text
-        except Exception:
-            return jsonify({"error": "Gemini returned invalid JSON"}), 500
+            analysis_data = json.loads(response_text)
+        except json.JSONDecodeError as e:
+            print(f"Failed to parse JSON: {response_text}")
+            return jsonify({"error": "Failed to parse AI response"}), 500
+
+        # Check for error in response
+        if "error" in analysis_data:
+            return jsonify(analysis_data), 400
+
+        # Ensure we have the expected structure
+        if "analysis" not in analysis_data or "recommendations" not in analysis_data:
+            return jsonify({"error": "Invalid response structure from AI"}), 500
 
         # Limit recommendations to 5
-        if "recommendations" in analysis_data:
-            analysis_data["recommendations"] = analysis_data["recommendations"][:5]
+        analysis_data["recommendations"] = analysis_data["recommendations"][:5]
 
         return jsonify(analysis_data)
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"Error in /analyze: {str(e)}")
+        return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
 
 
 # --- Health Check ---
@@ -90,4 +125,5 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)

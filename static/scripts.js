@@ -1,5 +1,5 @@
 // 🔹 Replace with your backend API URL
-const API_URL = "https://lineup-fjpn.onrender.com/analyze";
+const API_URL = "https://lineup-fjpn.onrender.com";
 
 document.getElementById("uploadForm").addEventListener("submit", async (e) => {
   e.preventDefault();

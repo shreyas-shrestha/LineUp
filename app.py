@@ -4,8 +4,8 @@ import os
 
 app = Flask(__name__)
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")  # Set this in Render or local env
-GEMINI_ENDPOINT = "https://api.gemini.com/v1/analyze"  # Replace with actual Gemini API URL
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")  # Set this in Render
+GEMINI_ENDPOINT = "https://api.gemini.com/v1/analyze"  # Replace with Gemini API endpoint
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
@@ -15,7 +15,6 @@ def analyze():
         if not base64_image:
             return jsonify({"error": "No image provided"}), 400
 
-        # Gemini request payload
         gemini_payload = {
             "model": "gemini-2.5-pro",
             "instructions": (
@@ -32,11 +31,6 @@ def analyze():
         response.raise_for_status()
         result = response.json()
 
-        # The frontend expects:
-        # {
-        #   "analysis": {faceShape, hairTexture, hairColor, estimatedGender, estimatedAge},
-        #   "recommendations": [{styleName, description, reason}, ...]
-        # }
         return jsonify(result)
 
     except Exception as e:

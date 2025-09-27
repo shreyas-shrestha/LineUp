@@ -234,6 +234,12 @@
                 <span class="tech-tag">Computer Vision</span>
             </div>
         </div>
+
+        <div style="text-align: center; margin-bottom: 20px;">
+            <a href="/feed" class="button" style="text-decoration: none; display: inline-block; width: auto; padding: 15px 30px;">
+                View Community Haircuts
+            </a>
+        </div>
         
         <div class="upload-area" id="uploadArea">
             <input type="file" id="imageInput" accept="image/*" style="display: none;">
@@ -412,13 +418,40 @@
                 </div>
                 
                 <div style="text-align: center; margin-top: 30px;">
-                    <button class="button" onclick="window.location.href='#barbers'" style="width: auto; padding: 15px 30px;">
+                    <button class="button" onclick="findBarbers()" style="width: auto; padding: 15px 30px;">
                         Find Nearby Barbers
                     </button>
                 </div>
             `;
             
             resultsDiv.style.display = 'block';
+        }
+        
+        async function findBarbers() {
+            // This function will fetch and display barbers from the new endpoint
+            try {
+                const response = await fetch('/barbers');
+                const result = await response.json();
+                
+                const resultsDiv = document.getElementById('results');
+                let barberHtml = `<h3>Recommended Barbers 💇‍♂️</h3>`;
+                result.barbers.forEach(barber => {
+                    barberHtml += `
+                        <div class="recommendation-card">
+                            <div class="recommendation-header">
+                                <h4>${barber.name}</h4>
+                            </div>
+                            <p>Specializes in: ${barber.specialties.join(', ')}</p>
+                            <p>Location: ${barber.location}</p>
+                            <p>Contact: ${barber.contact}</p>
+                        </div>
+                    `;
+                });
+                resultsDiv.innerHTML += barberHtml;
+
+            } catch (error) {
+                console.error("Failed to fetch barbers:", error);
+            }
         }
         
         function showError(message) {

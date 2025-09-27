@@ -155,7 +155,7 @@
         const fileInput = document.getElementById('file-input'), imageUploadArea = document.getElementById('image-upload-area'), imagePreviewContainer = document.getElementById('image-preview-container'), imagePreview = document.getElementById('image-preview'), analyzeButton = document.getElementById('analyze-button'), uploadSection = document.getElementById('upload-section'), statusSection = document.getElementById('status-section'), loader = document.getElementById('loader'), statusMessage = document.getElementById('status-message'), errorContainer = document.getElementById('error-container'), errorMessage = document.getElementById('error-message'), tryAgainButton = document.getElementById('try-again-button'), resultsSection = document.getElementById('results-section'), analysisGrid = document.getElementById('analysis-grid'), recommendationsContainer = document.getElementById('recommendations-container'), startOverButton = document.getElementById('start-over-button'), findBarberButton = document.getElementById('find-barber-button'), barberListContainer = document.getElementById('barber-list-container'), socialFeedContainer = document.getElementById('social-feed-container'), addPostButton = document.getElementById('add-post-button'), addPostModal = document.getElementById('add-post-modal'), closeModalButton = document.getElementById('close-modal-button'), postUploadArea = document.getElementById('post-upload-area'), postFileInput = document.getElementById('post-file-input'), postImagePreview = document.getElementById('post-image-preview'), postCaptionInput = document.getElementById('post-caption-input'), submitPostButton = document.getElementById('submit-post-button'), bookingModal = document.getElementById('booking-modal'), closeBookingModal = document.getElementById('close-booking-modal'), barberIntro = document.getElementById('barber-intro');
         
         // --- State Variables ---
-        let base64ImageData = null, postBase64ImageData = null, lastRecommendedStyles = [], currentUser = null;
+        let selectedFile = null, postBase64ImageData = null, lastRecommendedStyles = [], currentUser = null;
 
         // --- Mock Data for Atlanta Barbers ---
         const atlantaBarbers = [
@@ -265,41 +265,54 @@
         function handleFileSelect(event, type) {
             const file = event.target.files[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                if (type === 'analysis') {
-                    base64ImageData = e.target.result.split(',')[1];
+            
+            if (type === 'analysis') {
+                selectedFile = file; // Store the actual file for backend upload
+                const reader = new FileReader();
+                reader.onload = (e) => {
                     imagePreview.src = e.target.result;
                     imageUploadArea.classList.add('hidden');
                     imagePreviewContainer.classList.remove('hidden');
-                } else if (type === 'post') {
+                };
+                reader.readAsDataURL(file);
+            } else if (type === 'post') {
+                const reader = new FileReader();
+                reader.onload = (e) => {
                     postBase64ImageData = e.target.result.split(',')[1];
                     postImagePreview.src = e.target.result;
                     postUploadArea.classList.add('hidden');
                     postImagePreview.classList.remove('hidden');
-                }
-            };
-            reader.readAsDataURL(file);
+                };
+                reader.readAsDataURL(file);
+            }
         }
 
         function resetUI() {
-            uploadSection.classList.remove('hidden'); statusSection.classList.add('hidden'); resultsSection.classList.add('hidden'); errorContainer.classList.add('hidden'); loader.classList.add('hidden'); imageUploadArea.classList.remove('hidden'); imagePreviewContainer.classList.add('hidden'); imagePreview.src = ''; fileInput.value = ''; base64ImageData = null;
+            uploadSection.classList.remove('hidden'); statusSection.classList.add('hidden'); resultsSection.classList.add('hidden'); errorContainer.classList.add('hidden'); loader.classList.add('hidden'); imageUploadArea.classList.remove('hidden'); imagePreviewContainer.classList.add('hidden'); imagePreview.src = ''; fileInput.value = ''; selectedFile = null;
         }
 
         async function startAnalysis() {
-            if (!base64ImageData) { showError("Please upload an image first."); return; }
-            uploadSection.classList.add('hidden'); resultsSection.classList.add('hidden'); statusSection.classList.remove('hidden'); loader.classList.remove('hidden'); errorContainer.classList.add('hidden'); statusMessage.textContent = "Checking your photo...";
+            if (!selectedFile) { 
+                showError("Please upload an image first."); 
+                return; 
+            }
+            
+            uploadSection.classList.add('hidden'); 
+            resultsSection.classList.add('hidden'); 
+            statusSection.classList.remove('hidden'); 
+            loader.classList.remove('hidden'); 
+            errorContainer.classList.add('hidden'); 
+            statusMessage.textContent = "Analyzing your features... This may take a moment.";
+            
             try {
-                const isFace = await validateImageIsFace(base64ImageData);
-                if (!isFace) throw new Error("This doesn't look like a photo of a person's face. Please upload a different image.");
-                statusMessage.textContent = "Analyzing your features... This may take a moment.";
-                const analysisResult = await getHaircutAnalysis(base64ImageData);
+                const analysisResult = await getHaircutAnalysis(selectedFile);
                 displayResults(analysisResult);
             } catch (error) {
                 console.error("Analysis failed:", error);
                 showError(error.message || "An unknown error occurred during analysis.");
             } finally {
-                loader.classList.add('hidden'); statusMessage.textContent = '';
+                loader.classList.add('hidden'); 
+                statusMessage.textContent = '';
             }
         }
         
@@ -310,7 +323,12 @@
         function displayResults(data) {
             statusSection.classList.add('hidden'); resultsSection.classList.remove('hidden');
             analysisGrid.innerHTML = '';
-            const analysisData = [{ label: 'Face Shape', value: data.analysis.faceShape }, { label: 'Hair Texture', value: data.analysis.hairTexture }, { label: 'Est. Age', value: data.analysis.estimatedAge }, { label: 'Gender', value: data.analysis.estimatedGender }];
+            const analysisData = [
+                { label: 'Face Shape', value: data.analysis.faceShape }, 
+                { label: 'Hair Texture', value: data.analysis.hairTexture }, 
+                { label: 'Est. Age', value: data.analysis.estimatedAge }, 
+                { label: 'Gender', value: data.analysis.gender }
+            ];
             analysisData.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'bg-gray-800 p-4 rounded-lg';
@@ -318,12 +336,12 @@
                 analysisGrid.appendChild(div);
             });
             recommendationsContainer.innerHTML = '';
-            lastRecommendedStyles = data.recommendations.map(rec => rec.styleName);
+            lastRecommendedStyles = data.recommendations.map(rec => rec.name);
             data.recommendations.forEach(rec => {
                 const card = document.createElement('div');
                 card.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden flex flex-col';
-                const placeholderImageUrl = `https://placehold.co/600x400/000000/FFFFFF?text=${encodeURIComponent(rec.styleName)}`;
-                card.innerHTML = `<img src="${placeholderImageUrl}" alt="${rec.styleName}" class="w-full h-48 object-cover"><div class="p-5 flex flex-col flex-grow"><h3 class="text-xl font-bold text-white mb-2">${rec.styleName}</h3><p class="text-gray-300 text-sm mb-4 flex-grow">${rec.description}</p><p class="text-xs text-gray-400"><strong class="text-sky-400">Why it works:</strong> ${rec.reason}</p></div>`;
+                const placeholderImageUrl = `https://placehold.co/600x400/000000/FFFFFF?text=${encodeURIComponent(rec.name)}`;
+                card.innerHTML = `<img src="${placeholderImageUrl}" alt="${rec.name}" class="w-full h-48 object-cover"><div class="p-5 flex flex-col flex-grow"><h3 class="text-xl font-bold text-white mb-2">${rec.name}</h3><p class="text-gray-300 text-sm mb-4 flex-grow">${rec.reason}</p></div>`;
                 recommendationsContainer.appendChild(card);
             });
         }
@@ -483,60 +501,36 @@
             }
         }
         
-        // --- Gemini API Call Functions ---
+        // --- Backend Analysis Functions ---
         
-        // The URL now points to our own backend service, which will be handled by Render's rewrite rule.
+        // The URL now points to our Flask backend
         const API_URL = `/analyze`; 
 
-        async function makeApiCall(payload, retryCount = 0) { // Retries are less necessary for an internal service
+        async function getHaircutAnalysis(imageFile) {
             try {
+                // Create FormData to send the file to the Flask backend
+                const formData = new FormData();
+                formData.append('image', imageFile);
+
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    // The Python backend expects the original payload structure
-                    body: JSON.stringify({ payload }), 
+                    body: formData // Send as multipart/form-data
                 });
 
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Server responded with status: ${response.status}`);
+                }
+                
                 const result = await response.json();
                 
-                if (!response.ok) {
-                    // Use the error message from our own backend
-                    throw new Error(result.error || `Server responded with status: ${response.status}`);
-                }
-                
-                // Check for the expected Gemini-like structure our Python server creates
-                if (result.candidates?.[0]?.content?.parts?.[0]) {
-                    return result;
-                }
-                
-                throw new Error("Invalid response structure from backend.");
+                // The Flask backend returns the analysis directly
+                return result;
 
             } catch (error) {
-                 // No retry logic needed here for the self-hosted model
                 console.error("API call failed:", error);
                 throw error;
             }
-        }
-        async function validateImageIsFace(imageData) {
-            // With the new backend, validation and analysis happen in one step.
-            // We create the payload here and the backend will validate it.
-            // If it's not a face, the backend will return an error which we'll catch in startAnalysis.
-            return true; // We now assume it's a face and let the backend verify.
-        }
-        async function getHaircutAnalysis(imageData) {
-            // This function now just prepares the payload and sends it. The Python backend does all the work.
-            const userQuery = "Analyze the person in this photo."; // The prompt text is now less important.
-            const payload = { 
-                contents: [{ 
-                    parts: [
-                        { text: userQuery }, 
-                        { inlineData: { mimeType: "image/jpeg", data: imageData } }
-                    ] 
-                }] 
-            };
-            const result = await makeApiCall(payload);
-            // The Python server returns the final JSON inside the 'text' property of the first part.
-            return JSON.parse(result.candidates[0].content.parts[0].text);
         }
         
         // --- Initial Load ---
@@ -544,6 +538,3 @@
     </script>
 </body>
 </html>
-
-
-

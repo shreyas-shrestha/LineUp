@@ -1,41 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LineUp - AI Haircut Analysis</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   <style>
     body { font-family: 'Inter', sans-serif; overscroll-behavior-y: contain; }
-    ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: #1a1a1a; } ::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius:10px;}
-    .gradient-text { background: linear-gradient(90deg,#38bdf8,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-    .loader{border:4px solid #f3f3f3;border-top:4px solid #38bdf8;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite}
-    @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-    .tab-active,.tab-button:hover{color:#38bdf8}
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #1a1a1a; }
+    ::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #6a6a6a; }
+    .gradient-text { background: linear-gradient(90deg,#38bdf8,#a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #38bdf8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .tab-active, .tab-button:hover { color: #38bdf8; }
   </style>
 </head>
 <body class="bg-black text-gray-200 min-h-screen">
   <div id="app" class="container mx-auto max-w-4xl pb-24">
+    <!-- Header -->
     <header class="text-center p-4 md:p-8">
       <h1 class="text-4xl md:text-5xl font-bold gradient-text">LineUp</h1>
       <p class="text-gray-400 mt-2">AI Hairstylist & Social Community</p>
     </header>
 
     <main id="main-content">
+      <!-- AI Tab -->
       <div id="ai-tab-content" class="tab-content px-4">
         <section id="upload-section" class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 md:p-8 text-center transition-all duration-300">
           <div id="image-upload-area" class="border-2 border-dashed border-gray-600 rounded-xl p-8 md:p-12 cursor-pointer hover:border-sky-400 hover:bg-gray-800/50 transition-all duration-300">
             <input type="file" id="file-input" class="hidden" accept="image/*">
             <div class="flex flex-col items-center">
-              <svg class="w-12 h-12 text-gray-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+              <svg class="w-12 h-12 text-gray-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+              </svg>
               <p class="font-semibold text-lg">Upload a photo to get started</p>
-              <p class="text-sm text-gray-400 mt-1">For best results, use a clear, front-facing photo.</p>
+              <p class="text-sm text-gray-400 mt-1">Use a clear, front-facing photo.</p>
             </div>
           </div>
           <div id="image-preview-container" class="hidden mt-6">
-            <img id="image-preview" src="" alt="Your uploaded photo" class="max-w-xs mx-auto rounded-xl shadow-lg"/>
+            <img id="image-preview" src="" alt="Uploaded photo" class="max-w-xs mx-auto rounded-xl shadow-lg"/>
             <button id="analyze-button" class="mt-6 bg-sky-500 text-white font-bold py-3 px-8 rounded-full hover:bg-sky-600 transition-all duration-300 transform hover:scale-105">Analyze My Look</button>
           </div>
         </section>
@@ -62,71 +68,43 @@
 
           <div class="text-center mt-8 border-t border-gray-700 pt-8">
             <p class="text-lg mb-4">Ready for the perfect cut?</p>
-            <button id="find-barber-button" class="bg-green-500 text-white font-bold py-3 px-8 rounded-full hover:bg-green-600 transition-all">Find a Barber for These Styles</button>
+            <button id="find-barber-button" class="bg-green-500 text-white font-bold py-3 px-8 rounded-full hover:bg-green-600 transition-all">Find a Barber</button>
           </div>
-
           <div class="text-center mt-12">
             <button id="start-over-button" class="bg-gray-700 text-white font-semibold py-3 px-8 rounded-full hover:bg-gray-600">Start Over</button>
           </div>
         </section>
       </div>
 
+      <!-- Barbers Tab -->
       <div id="barbers-tab-content" class="tab-content hidden px-4">
         <h2 class="text-3xl font-bold text-center mb-6">Top Barbers in Atlanta</h2>
-        <p id="barber-intro" class="text-center text-gray-400 mb-8">Here are some top-rated barbers who can nail your new look.</p>
+        <p id="barber-intro" class="text-center text-gray-400 mb-8">Top-rated barbers for your style.</p>
         <div id="barber-list-container" class="space-y-4"></div>
       </div>
 
+      <!-- Social Tab -->
       <div id="social-tab-content" class="tab-content hidden px-4">
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-3xl font-bold">Community Looks</h2>
           <button id="add-post-button" class="bg-sky-500 rounded-full p-3 hover:bg-sky-600 transition-colors">+</button>
         </div>
         <div id="social-feed-container" class="space-y-8">
-          <p id="no-posts-message" class="text-center text-gray-500 py-10">No posts yet. Be the first to share your look!</p>
+          <p id="no-posts-message" class="text-center text-gray-500 py-10">No posts yet. Be the first!</p>
         </div>
       </div>
     </main>
 
+    <!-- Tab Nav -->
     <nav class="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm border-t border-gray-700 max-w-4xl mx-auto">
       <div class="flex justify-around h-16">
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors tab-active" data-tab="ai">
-          <span class="text-xs mt-1">AI Stylist</span>
-        </button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="barbers">
-          <span class="text-xs mt-1">Barbers</span>
-        </button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="social">
-          <span class="text-xs mt-1">Social</span>
-        </button>
+        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors tab-active" data-tab="ai">AI</button>
+        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="barbers">Barbers</button>
+        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="social">Social</button>
       </div>
     </nav>
-
-    <!-- Add Post Modal -->
-    <div id="add-post-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden">
-      <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-md relative">
-        <button id="close-modal-button" class="absolute top-3 right-3 text-gray-400 hover:text-white">&times;</button>
-        <h3 class="text-2xl font-bold mb-4">Share Your Look</h3>
-        <div id="post-upload-area" class="border-2 border-dashed border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-sky-400">
-          <p>Click to upload photo</p>
-          <input type="file" id="post-file-input" class="hidden" accept="image/*">
-        </div>
-        <img id="post-image-preview" class="hidden w-full rounded-lg my-4 max-h-60 object-cover"/>
-        <textarea id="post-caption-input" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-2 mt-4 text-white" placeholder="Add a caption..."></textarea>
-        <button id="submit-post-button" class="w-full bg-sky-500 text-white font-bold py-3 mt-4 rounded-lg hover:bg-sky-600 disabled:opacity-50">Post</button>
-      </div>
-    </div>
-
-    <!-- Booking Modal -->
-    <div id="booking-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden">
-      <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-sm text-center">
-        <h3 id="booking-title" class="text-2xl font-bold mb-2">Booking Confirmation</h3>
-        <p id="booking-message" class="text-gray-300 mb-6">Your appointment request has been sent!</p>
-        <button id="close-booking-modal" class="bg-sky-500 text-white font-bold py-2 px-6 rounded-lg">Done</button>
-      </div>
-    </div>
   </div>
 
-  <script type="module" src="{{ url_for('static', filename='scripts.js') }}"></script>
+  <script type="module" src="./scripts.js"></script>
 </body>
 </html>

@@ -15,20 +15,23 @@ CORS(app)
 
 # Pre-load a dummy image to initialize the model on startup
 # This helps avoid a long delay on the first user request.
-def preload_model():
-    try:
-        print("Pre-loading model...")
-        # Use a real image-like array
-        dummy_image = np.zeros((100, 100, 3), dtype=np.uint8)
-        # It is important to call analyze on a backend that supports it, like 'opencv'
-        DeepFace.analyze(dummy_image, actions=['age', 'gender'], enforce_detection=False, detector_backend='opencv')
-        print("Model pre-loaded successfully.")
-    except Exception as e:
-        print(f"Error pre-loading model: {e}")
-        traceback.print_exc()
+# NOTE: This function is causing an Out of Memory error on Render's 512MB RAM instances.
+# We are commenting it out to allow the server to start.
+# The trade-off is that the first API call will be much slower as the model loads on-demand.
+# def preload_model():
+#     try:
+#         print("Pre-loading model...")
+#         # Use a real image-like array
+#         dummy_image = np.zeros((100, 100, 3), dtype=np.uint8)
+#         # It is important to call analyze on a backend that supports it, like 'opencv'
+#         DeepFace.analyze(dummy_image, actions=['age', 'gender'], enforce_detection=False, detector_backend='opencv')
+#         print("Model pre-loaded successfully.")
+#     except Exception as e:
+#         print(f"Error pre-loading model: {e}")
+#         traceback.print_exc()
 
-# Call this function when the app starts
-preload_model()
+# # Call this function when the app starts
+# preload_model()
 
 @app.route('/analyze', methods=['POST'])
 def analyze_image():

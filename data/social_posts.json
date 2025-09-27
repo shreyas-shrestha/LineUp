@@ -1,0 +1,2 @@
+mkdir -p data
+echo "[]" > data/social_posts.json

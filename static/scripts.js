@@ -1,5 +1,4 @@
-// --- Backend URL ---
-const BACKEND_URL = "https://lineup-fjpn.onrender.com";
+// scripts.js
 
 // --- DOM Elements ---
 const fileInput = document.getElementById('file-input');
@@ -22,7 +21,7 @@ const findBarberButton = document.getElementById('find-barber-button');
 const barberListContainer = document.getElementById('barber-list-container');
 const barberIntro = document.getElementById('barber-intro');
 
-// --- State Variables ---
+// --- State ---
 let base64ImageData = null;
 let lastRecommendedStyles = [];
 
@@ -75,9 +74,10 @@ function resetUI() {
 tryAgainButton.addEventListener('click', resetUI);
 startOverButton.addEventListener('click', resetUI);
 
-// --- AI Analysis ---
+// --- Analysis ---
 analyzeButton.addEventListener('click', async () => {
-  if (!base64ImageData) { showError("Please upload an image."); return; }
+  if (!base64ImageData) { showError("Please upload a photo."); return; }
+
   uploadSection.classList.add('hidden');
   statusSection.classList.remove('hidden');
   loader.classList.remove('hidden');
@@ -88,20 +88,21 @@ analyzeButton.addEventListener('click', async () => {
     const payload = {
       contents: [
         { parts: [
-            { text: "Analyze this person and provide 3 personalized haircut recommendations." },
+            { text: "Analyze this person and provide face, hair info and 5 haircut recommendations." },
             { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
           ]
         }
       ]
     };
 
-    const response = await fetch(`${BACKEND_URL}/analyze`, {
+    const response = await fetch('https://lineup-fjpn.onrender.com/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payload })
     });
 
     const result = await response.json();
+
     if (result.error) throw new Error(result.error);
 
     displayResults(result);
@@ -121,12 +122,12 @@ function showError(msg) {
   errorMessage.textContent = msg;
 }
 
-// --- Display Analysis & Recommendations ---
+// --- Display Results ---
 function displayResults(data) {
   statusSection.classList.add('hidden');
   resultsSection.classList.remove('hidden');
 
-  // Analysis Grid
+  // --- Analysis Grid ---
   analysisGrid.innerHTML = '';
   const analysisData = [
     { label: 'Face Shape', value: data.analysis.faceShape },
@@ -142,20 +143,19 @@ function displayResults(data) {
     analysisGrid.appendChild(div);
   });
 
-  // Recommendations
+  // --- Recommendations (max 5) ---
   recommendationsContainer.innerHTML = '';
-  lastRecommendedStyles = data.recommendations.map(r => r.styleName);
-  data.recommendations.forEach(rec => {
+  lastRecommendedStyles = data.recommendations.slice(0,5).map(r => r.styleName);
+  data.recommendations.slice(0,5).forEach(rec => {
     const card = document.createElement('div');
     card.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden flex flex-col';
     const placeholderImageUrl = `https://placehold.co/600x400/000000/FFFFFF?text=${encodeURIComponent(rec.styleName)}`;
-    card.innerHTML = `
-      <img src="${placeholderImageUrl}" alt="${rec.styleName}" class="w-full h-48 object-cover">
-      <div class="p-5 flex flex-col flex-grow">
-        <h3 class="text-xl font-bold text-white mb-2">${rec.styleName}</h3>
-        <p class="text-gray-300 text-sm mb-4 flex-grow">${rec.description}</p>
-        <p class="text-xs text-gray-400"><strong class="text-sky-400">Why it works:</strong> ${rec.reason}</p>
-      </div>`;
+    card.innerHTML = `<img src="${placeholderImageUrl}" alt="${rec.styleName}" class="w-full h-48 object-cover">
+    <div class="p-5 flex flex-col flex-grow">
+      <h3 class="text-xl font-bold text-white mb-2">${rec.styleName}</h3>
+      <p class="text-gray-300 text-sm mb-4 flex-grow">${rec.description}</p>
+      <p class="text-xs text-gray-400"><strong class="text-sky-400">Why it works:</strong> ${rec.reason}</p>
+    </div>`;
     recommendationsContainer.appendChild(card);
   });
 }

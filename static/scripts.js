@@ -1,4 +1,4 @@
-// scripts.js
+// scripts.js - Updated to use relative URLs
 
 // --- DOM Elements ---
 const fileInput = document.getElementById('file-input');
@@ -25,12 +25,6 @@ const barberIntro = document.getElementById('barber-intro');
 let base64ImageData = null;
 let lastRecommendedStyles = [];
 
-// --- Configuration ---
-// Use the actual Render URL
-const API_URL = 'https://lineup-fjpn.onrender.com';
-
-console.log('API URL:', API_URL);
-
 // --- Mock Barbers ---
 const atlantaBarbers = [
   { id: 1, name: 'Cuts by Clay', specialties: ['Fade', 'Taper'], rating: 4.9, avgCost: 45, location: 'Midtown' },
@@ -38,8 +32,9 @@ const atlantaBarbers = [
   { id: 3, name: 'Virginia-Highland Shears', specialties: ['Shag', 'Bob'], rating: 4.9, avgCost: 75, location: 'Virginia-Highland' }
 ];
 
-// --- Initialize Barbers on Load ---
+// --- Initialize on Load ---
 window.addEventListener('DOMContentLoaded', () => {
+  console.log('App initialized');
   renderBarberList(atlantaBarbers);
 });
 
@@ -61,61 +56,19 @@ fileInput.addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
   
-  // Check file size (max 2MB for better performance)
+  // Check file size (max 2MB)
   if (file.size > 2 * 1024 * 1024) {
     showError("Image too large. Please use an image under 2MB.");
     return;
   }
   
-  // Check file type
-  if (!file.type.startsWith('image/')) {
-    showError("Please upload an image file.");
-    return;
-  }
-  
   const reader = new FileReader();
   reader.onload = e => {
-    // Resize image if needed to reduce payload size
-    const img = new Image();
-    img.onload = function() {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      // Max dimensions
-      const maxWidth = 800;
-      const maxHeight = 800;
-      let width = img.width;
-      let height = img.height;
-      
-      // Calculate new dimensions
-      if (width > height) {
-        if (width > maxWidth) {
-          height = height * (maxWidth / width);
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width = width * (maxHeight / height);
-          height = maxHeight;
-        }
-      }
-      
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      // Get base64 with reduced quality
-      const resizedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-      base64ImageData = resizedBase64.split(',')[1];
-      imagePreview.src = resizedBase64;
-      imageUploadArea.classList.add('hidden');
-      imagePreviewContainer.classList.remove('hidden');
-      console.log('Image loaded and resized, base64 length:', base64ImageData.length);
-    };
-    img.src = e.target.result;
-  };
-  reader.onerror = () => {
-    showError("Failed to read image file.");
+    base64ImageData = e.target.result.split(',')[1];
+    imagePreview.src = e.target.result;
+    imageUploadArea.classList.add('hidden');
+    imagePreviewContainer.classList.remove('hidden');
+    console.log('Image loaded successfully');
   };
   reader.readAsDataURL(file);
 });
@@ -152,48 +105,6 @@ analyzeButton.addEventListener('click', async () => {
   statusMessage.textContent = "Analyzing your photo...";
   errorContainer.classList.add('hidden');
 
-  // Use mock data if backend fails
-  const useMockData = () => {
-    console.log('Using mock data fallback');
-    const mockResult = {
-      analysis: {
-        faceShape: "oval",
-        hairTexture: "straight",
-        hairColor: "brown",
-        estimatedGender: "male",
-        estimatedAge: "25-30"
-      },
-      recommendations: [
-        {
-          styleName: "Classic Fade",
-          description: "A timeless cut with short sides that gradually blend into longer hair on top",
-          reason: "Works well with oval face shapes and straight hair"
-        },
-        {
-          styleName: "Textured Quiff",
-          description: "Modern style with volume at the front, swept upward and back",
-          reason: "Adds dimension and height, perfect for your face shape"
-        },
-        {
-          styleName: "Side Part",
-          description: "Clean and professional with a defined part on one side",
-          reason: "Classic look that complements straight hair texture"
-        },
-        {
-          styleName: "Buzz Cut",
-          description: "Very short all over, low maintenance and clean",
-          reason: "Simple and masculine, shows off facial features"
-        },
-        {
-          styleName: "Crew Cut",
-          description: "Short on sides and back with slightly longer hair on top",
-          reason: "Versatile and easy to style for any occasion"
-        }
-      ]
-    };
-    displayResults(mockResult);
-  };
-
   try {
     const payload = {
       contents: [
@@ -206,131 +117,35 @@ analyzeButton.addEventListener('click', async () => {
       ]
     };
 
-    console.log('Sending request to:', `${API_URL}/analyze`);
-    console.log('Payload size:', JSON.stringify(payload).length);
+    console.log('Sending request to /analyze endpoint...');
 
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-    const response = await fetch(`${API_URL}/analyze`, {
+    // Use relative URL - no domain needed since we're on the same server
+    const response = await fetch('/analyze', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
       },
-      body: JSON.stringify({ payload }),
-      signal: controller.signal
-    }).catch(err => {
-      console.error('Fetch error:', err);
-      if (err.name === 'AbortError') {
-        throw new Error('Request timeout - server took too long to respond');
-      }
-      throw new Error('Network error - could not reach server');
+      body: JSON.stringify({ payload })
     });
 
-    clearTimeout(timeoutId);
-
-    console.log('Response received');
     console.log('Response status:', response.status);
-    console.log('Response type:', response.headers.get('content-type'));
 
-    // Check if we got a response at all
-    if (!response) {
-      console.error('No response received');
-      useMockData();
-      return;
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
     }
 
-    // Check content type
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      console.error('Invalid content type:', contentType);
-      const text = await response.text();
-      console.error('Response body:', text.substring(0, 200));
-      
-      // If server is returning HTML (error page), use mock data
-      if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-        console.log('Server returned HTML error page, using mock data');
-        useMockData();
-        return;
-      }
-      
-      throw new Error('Server returned non-JSON response');
-    }
+    const result = await response.json();
+    console.log('Analysis complete:', result);
 
-    // Try to get response text
-    const responseText = await response.text();
-    console.log('Response length:', responseText.length);
-    
-    if (!responseText || responseText.trim() === '') {
-      console.error('Empty response body');
-      useMockData();
-      return;
-    }
-
-    console.log('Response preview:', responseText.substring(0, 200));
-
-    // Parse JSON
-    let result;
-    try {
-      result = JSON.parse(responseText);
-      console.log('Successfully parsed JSON');
-    } catch (e) {
-      console.error('JSON parse error:', e);
-      console.error('Failed to parse:', responseText.substring(0, 500));
-      
-      // Try to extract JSON from response if it's wrapped in something
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          result = JSON.parse(jsonMatch[0]);
-          console.log('Extracted and parsed JSON from response');
-        } catch (e2) {
-          console.error('Failed to extract JSON:', e2);
-          useMockData();
-          return;
-        }
-      } else {
-        useMockData();
-        return;
-      }
-    }
-
-    console.log('Result:', result);
-
-    // Check for error in result
     if (result.error) {
-      console.error('Server returned error:', result.error);
-      // If it's an API key error or similar, use mock data
-      if (result.error.includes('API') || result.error.includes('key') || result.error.includes('Gemini')) {
-        console.log('API configuration issue, using mock data');
-        useMockData();
-        return;
-      }
       throw new Error(result.error);
-    }
-
-    // Validate result structure
-    if (!result.analysis || !result.recommendations) {
-      console.error('Invalid result structure:', result);
-      useMockData();
-      return;
     }
 
     displayResults(result);
 
   } catch (err) {
     console.error('Analysis error:', err);
-    
-    // For any error, try mock data as fallback
-    if (err.message.includes('timeout') || err.message.includes('Network') || err.message.includes('fetch')) {
-      showError("Server is not responding. Showing demo results.");
-      useMockData();
-    } else {
-      showError(err.message || "Analysis failed. Showing demo results.");
-      useMockData();
-    }
+    showError(err.message || "Analysis failed. Please try again.");
   } finally {
     loader.classList.add('hidden');
     statusMessage.textContent = '';
@@ -342,16 +157,11 @@ function showError(msg) {
   statusMessage.textContent = '';
   errorContainer.classList.remove('hidden');
   errorMessage.textContent = msg;
-  
-  // Auto-hide error after 5 seconds
-  setTimeout(() => {
-    errorContainer.classList.add('hidden');
-  }, 5000);
 }
 
 // --- Display Results ---
 function displayResults(data) {
-  console.log('Displaying results:', data);
+  console.log('Displaying results...');
   
   statusSection.classList.add('hidden');
   resultsSection.classList.remove('hidden');
@@ -376,7 +186,7 @@ function displayResults(data) {
     analysisGrid.appendChild(div);
   });
 
-  // --- Recommendations (max 5) ---
+  // --- Recommendations ---
   recommendationsContainer.innerHTML = '';
   const recommendations = data.recommendations || [];
   lastRecommendedStyles = recommendations.slice(0, 5).map(r => r.styleName);
@@ -412,6 +222,8 @@ findBarberButton.addEventListener('click', () => {
 });
 
 function renderBarberList(barbers) {
+  if (!barberListContainer) return;
+  
   barberListContainer.innerHTML = '';
   barbers.forEach(barber => {
     const card = document.createElement('div');
@@ -434,3 +246,9 @@ function renderBarberList(barbers) {
     barberListContainer.appendChild(card);
   });
 }
+
+// Test server connection on load
+fetch('/health')
+  .then(res => res.json())
+  .then(data => console.log('Server health:', data))
+  .catch(err => console.error('Server may be starting up:', err));

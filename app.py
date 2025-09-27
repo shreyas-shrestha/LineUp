@@ -1,40 +1,60 @@
+# backend/app.py
 from flask import Flask, request, jsonify
 import requests
 import os
 
 app = Flask(__name__)
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")  # Set this in Render
-GEMINI_ENDPOINT = "https://api.gemini.com/v1/analyze"  # Replace with Gemini API endpoint
+# Gemini 2.5 Pro API key (store securely in environment variable)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")  # do NOT hardcode
+
+GEMINI_API_URL = "https://api.openai.com/v1/responses"  # Gemini endpoint
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
+        # Ensure payload exists
         data = request.json
-        base64_image = data.get("payload", {}).get("contents", [{}])[0].get("parts", [{}])[1].get("inlineData", {}).get("data")
-        if not base64_image:
-            return jsonify({"error": "No image provided"}), 400
+        if not data or "payload" not in data:
+            return jsonify({"error": "No payload provided"}), 400
 
-        gemini_payload = {
-            "model": "gemini-2.5-pro",
-            "instructions": (
-                "Analyze this image. Detect if it contains a human face. "
-                "If yes, identify hair texture, hair color, face shape, gender, and approximate age. "
-                "Provide the top 3 haircut recommendations personalized for this person. "
-                "If it's not a face, return an error message."
-            ),
-            "input_image_base64": base64_image
+        payload = data["payload"]
+
+        # Call Gemini API
+        headers = {
+            "Authorization": f"Bearer {GEMINI_API_KEY}",
+            "Content-Type": "application/json"
         }
 
-        headers = {"Authorization": f"Bearer {GEMINI_API_KEY}"}
-        response = requests.post(GEMINI_ENDPOINT, json=gemini_payload, headers=headers, timeout=30)
+        response = requests.post(GEMINI_API_URL, json=payload, headers=headers, timeout=60)
+
+        # Raise for HTTP errors
         response.raise_for_status()
-        result = response.json()
 
-        return jsonify(result)
+        # Gemini may return JSON or text inside JSON
+        try:
+            result = response.json()
+        except ValueError:
+            # fallback if response is not JSON
+            return jsonify({"error": "Invalid response from Gemini API"}), 500
 
+        # You can also parse Gemini's candidates if needed:
+        # example: return JSON inside first candidate part
+        try:
+            text_content = result.get("candidates", [])[0]["content"]["parts"][0]["text"]
+            return jsonify(eval(text_content))  # Be careful: ideally JSON parse, not eval
+        except Exception:
+            # fallback: return raw Gemini JSON
+            return jsonify(result)
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"API request failed: {str(e)}"}), 500
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+@app.route("/", methods=["GET"])
+def index():
+    return jsonify({"status": "LineUp backend running"}), 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)

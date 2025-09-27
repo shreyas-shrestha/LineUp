@@ -1,4 +1,4 @@
-// scripts.js - Updated to use relative URLs
+// scripts.js - Frontend JavaScript for lineupai.onrender.com
 
 // --- DOM Elements ---
 const fileInput = document.getElementById('file-input');
@@ -25,6 +25,9 @@ const barberIntro = document.getElementById('barber-intro');
 let base64ImageData = null;
 let lastRecommendedStyles = [];
 
+// --- BACKEND URL ---
+const API_URL = 'https://lineup-fjpn.onrender.com';
+
 // --- Mock Barbers ---
 const atlantaBarbers = [
   { id: 1, name: 'Cuts by Clay', specialties: ['Fade', 'Taper'], rating: 4.9, avgCost: 45, location: 'Midtown' },
@@ -34,9 +37,22 @@ const atlantaBarbers = [
 
 // --- Initialize on Load ---
 window.addEventListener('DOMContentLoaded', () => {
-  console.log('App initialized');
+  console.log('LineUp AI initialized');
+  console.log('Backend URL:', API_URL);
   renderBarberList(atlantaBarbers);
+  testBackendConnection();
 });
+
+// Test backend connection
+async function testBackendConnection() {
+  try {
+    const response = await fetch(`${API_URL}/health`);
+    const data = await response.json();
+    console.log('✅ Backend connected:', data);
+  } catch (err) {
+    console.log('⚠️ Backend may be sleeping (Render free tier). Will wake up on first request.');
+  }
+}
 
 // --- Tabs ---
 document.querySelectorAll('.tab-button').forEach(tab => {
@@ -49,26 +65,49 @@ document.querySelectorAll('.tab-button').forEach(tab => {
   });
 });
 
-// --- Image Upload ---
+// --- Image Upload with Resizing ---
 imageUploadArea.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
   
-  // Check file size (max 2MB)
-  if (file.size > 2 * 1024 * 1024) {
-    showError("Image too large. Please use an image under 2MB.");
-    return;
-  }
-  
   const reader = new FileReader();
   reader.onload = e => {
-    base64ImageData = e.target.result.split(',')[1];
-    imagePreview.src = e.target.result;
-    imageUploadArea.classList.add('hidden');
-    imagePreviewContainer.classList.remove('hidden');
-    console.log('Image loaded successfully');
+    // Create image to resize
+    const img = new Image();
+    img.onload = function() {
+      // Create canvas for resizing
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Calculate new dimensions (max 800px)
+      const maxSize = 800;
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > height && width > maxSize) {
+        height = (height * maxSize) / width;
+        width = maxSize;
+      } else if (height > maxSize) {
+        width = (width * maxSize) / height;
+        height = maxSize;
+      }
+      
+      // Resize
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Get resized base64
+      const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      base64ImageData = resizedDataUrl.split(',')[1];
+      imagePreview.src = resizedDataUrl;
+      imageUploadArea.classList.add('hidden');
+      imagePreviewContainer.classList.remove('hidden');
+      console.log('Image loaded and resized. Size:', Math.round(base64ImageData.length / 1024), 'KB');
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 });
@@ -117,13 +156,13 @@ analyzeButton.addEventListener('click', async () => {
       ]
     };
 
-    console.log('Sending request to /analyze endpoint...');
+    console.log('Sending request to:', `${API_URL}/analyze`);
 
-    // Use relative URL - no domain needed since we're on the same server
-    const response = await fetch('/analyze', {
+    const response = await fetch(`${API_URL}/analyze`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({ payload })
     });
@@ -131,6 +170,8 @@ analyzeButton.addEventListener('click', async () => {
     console.log('Response status:', response.status);
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
       throw new Error(`Server error: ${response.status}`);
     }
 
@@ -145,18 +186,68 @@ analyzeButton.addEventListener('click', async () => {
 
   } catch (err) {
     console.error('Analysis error:', err);
-    showError(err.message || "Analysis failed. Please try again.");
+    
+    // If error, show message then display mock data
+    showError("Using demo results while our servers wake up...");
+    setTimeout(() => {
+      displayResults(getMockData());
+    }, 2000);
   } finally {
     loader.classList.add('hidden');
     statusMessage.textContent = '';
   }
 });
 
+// Mock data fallback
+function getMockData() {
+  return {
+    analysis: {
+      faceShape: "oval",
+      hairTexture: "wavy",
+      hairColor: "brown",
+      estimatedGender: "male",
+      estimatedAge: "25-30"
+    },
+    recommendations: [
+      {
+        styleName: "Classic Fade",
+        description: "Short on the sides with a gradual fade, longer on top for versatility",
+        reason: "Perfect for oval face shapes and professional settings"
+      },
+      {
+        styleName: "Textured Quiff",
+        description: "Modern style with volume at the front, swept upward and back",
+        reason: "Takes advantage of wavy hair texture for natural volume"
+      },
+      {
+        styleName: "Side Part",
+        description: "Timeless look with a defined part, suitable for any occasion",
+        reason: "Enhances facial symmetry and adds sophistication"
+      },
+      {
+        styleName: "Messy Crop",
+        description: "Short, textured cut with a deliberately tousled finish",
+        reason: "Low maintenance while maintaining style"
+      },
+      {
+        styleName: "Buzz Cut",
+        description: "Very short all over, clean and minimal",
+        reason: "Highlights facial features with zero styling needed"
+      }
+    ]
+  };
+}
+
 function showError(msg) {
   loader.classList.add('hidden');
   statusMessage.textContent = '';
   errorContainer.classList.remove('hidden');
   errorMessage.textContent = msg;
+  
+  // Auto-hide error after 3 seconds
+  setTimeout(() => {
+    errorContainer.classList.add('hidden');
+  }, 3000);
 }
 
 // --- Display Results ---
@@ -246,9 +337,3 @@ function renderBarberList(barbers) {
     barberListContainer.appendChild(card);
   });
 }
-
-// Test server connection on load
-fetch('/health')
-  .then(res => res.json())
-  .then(data => console.log('Server health:', data))
-  .catch(err => console.error('Server may be starting up:', err));

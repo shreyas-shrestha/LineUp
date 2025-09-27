@@ -485,29 +485,57 @@
         
         // --- Gemini API Call Functions ---
         
-        // THIS IS THE ONLY PART THAT CHANGES IN THE HTML FILE
-        // The URL now points to our own backend service, not Google's API directly.
-        const API_URL = `/analyze`; // This will be the URL of your Render web service
+        // The URL now points to our own backend service, which will be handled by Render's rewrite rule.
+        const API_URL = `/analyze`; 
 
-        async function makeApiCall(payload, retryCount = 3, delay = 1000) {
+        async function makeApiCall(payload, retryCount = 0) { // Retries are less necessary for an internal service
             try {
-                // The fetch call now sends the original payload inside a 'payload' property to our backend
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    // The Python backend expects the original payload structure
                     body: JSON.stringify({ payload }), 
                 });
 
+                const result = await response.json();
+                
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `API Error: ${response.status}`);
+                    // Use the error message from our own backend
+                    throw new Error(result.error || `Server responded with status: ${response.status}`);
                 }
+                
+                // Check for the expected Gemini-like structure our Python server creates
+                if (result.candidates?.[0]?.content?.parts?.[0]) {
+                    return result;
+                }
+                
+                throw new Error("Invalid response structure from backend.");
+
+            } catch (error) {
+                 // No retry logic needed here for the self-hosted model
+                console.error("API call failed:", error);
+                throw error;
+            }
+        }
+        async function validateImageIsFace(imageData) {
+            // With the new backend, validation and analysis happen in one step.
+            // We create the payload here and the backend will validate it.
+            // If it's not a face, the backend will return an error which we'll catch in startAnalysis.
+            return true; // We now assume it's a face and let the backend verify.
         }
         async function getHaircutAnalysis(imageData) {
-            const systemPrompt = "You are a world-class AI hairstylist named 'LineUp'. Your analysis is sharp, modern, and helpful. You provide recommendations based on the user's photo. You must respond in the requested JSON format.";
-            const userQuery = "Analyze the person in this photo. Based on their visible features, determine their face shape (e.g., Oval, Round, Square, Heart, Diamond, Long), hair texture (e.g., Straight, Wavy, Curly, Coily), and estimate their age range and gender. Then, recommend 4 specific, modern haircut styles that would be flattering. For each recommendation, provide a 'styleName', a one-sentence 'description', and a 'reason' why it's a good fit.";
-            const payload = { systemInstruction: { parts: [{ text: systemPrompt }] }, contents: [{ parts: [{ text: userQuery }, { inlineData: { mimeType: "image/jpeg", data: imageData } }] }], generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { "analysis": { type: "OBJECT", properties: { "faceShape": { "type": "STRING" }, "hairTexture": { "type": "STRING" }, "estimatedAge": { "type": "STRING" }, "estimatedGender": { "type": "STRING" }, } }, "recommendations": { type: "ARRAY", items: { type: "OBJECT", properties: { "styleName": { "type": "STRING" }, "description": { "type": "STRING" }, "reason": { "type": "STRING" } } } } } } } };
+            // This function now just prepares the payload and sends it. The Python backend does all the work.
+            const userQuery = "Analyze the person in this photo."; // The prompt text is now less important.
+            const payload = { 
+                contents: [{ 
+                    parts: [
+                        { text: userQuery }, 
+                        { inlineData: { mimeType: "image/jpeg", data: imageData } }
+                    ] 
+                }] 
+            };
             const result = await makeApiCall(payload);
+            // The Python server returns the final JSON inside the 'text' property of the first part.
             return JSON.parse(result.candidates[0].content.parts[0].text);
         }
         
@@ -516,5 +544,6 @@
     </script>
 </body>
 </html>
+
 
 

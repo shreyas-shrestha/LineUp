@@ -1,115 +1,144 @@
-# app.py - Serves your existing HTML/JS files AND provides the API
-from flask import Flask, request, jsonify, make_response, render_template, send_from_directory
+# app.py - Backend API for lineup-fjpn.onrender.com
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import os
 import json
+import logging
 
-# Initialize Flask with correct folders
-app = Flask(__name__, 
-            static_folder='static',      # Your JS files go here
-            template_folder='templates')  # Your HTML files go here
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-CORS(app, resources={r"/*": {"origins": "*"}})
+app = Flask(__name__)
 
-# Serve the main page (your existing index.html)
+# Configure CORS to allow requests from your frontend
+CORS(app, 
+     origins=["https://lineupai.onrender.com", "http://localhost:*", "*"],
+     methods=["GET", "POST", "OPTIONS"],
+     allow_headers=["Content-Type", "Accept"],
+     supports_credentials=False)
+
+# Root endpoint
 @app.route('/')
 def index():
-    return render_template('index.html')
-
-# Serve JavaScript files from static folder
-@app.route('/scripts.js')
-def serve_scripts():
-    return send_from_directory('static', 'scripts.js')
-
-# Serve any other static files
-@app.route('/static/<path:path>')
-def serve_static(path):
-    return send_from_directory('static', path)
+    return jsonify({
+        "service": "LineUp AI Backend",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "analyze": "/analyze (POST)"
+        }
+    })
 
 # Health check endpoint
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({
         "status": "healthy",
-        "message": "Server is running",
-        "frontend": "Serving from templates/index.html",
-        "backend": "API endpoints active"
+        "service": "lineup-backend",
+        "timestamp": "2024",
+        "cors_enabled": True,
+        "frontend_url": "https://lineupai.onrender.com"
     })
 
-# Main analyze endpoint - returns mock data for now
+# Main analyze endpoint
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
-    # Handle CORS preflight
+    # Handle preflight
     if request.method == 'OPTIONS':
-        response = make_response()
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add('Access-Control-Allow-Headers', "*")
-        response.headers.add('Access-Control-Allow-Methods', "*")
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 200
+    
+    logger.info("=" * 50)
+    logger.info("ANALYZE endpoint called")
+    logger.info(f"Request method: {request.method}")
+    logger.info(f"Request origin: {request.headers.get('Origin', 'Unknown')}")
+    logger.info("=" * 50)
+    
+    try:
+        # Get JSON data (but don't require specific format for now)
+        data = request.get_json(force=True)
+        logger.info(f"Received data keys: {data.keys() if data else 'None'}")
+        
+        # Return mock data - always works
+        mock_response = {
+            "analysis": {
+                "faceShape": "oval",
+                "hairTexture": "wavy",
+                "hairColor": "brown",
+                "estimatedGender": "male",
+                "estimatedAge": "25-30"
+            },
+            "recommendations": [
+                {
+                    "styleName": "Modern Fade",
+                    "description": "A contemporary take on the classic fade with textured top",
+                    "reason": "Complements oval face shapes perfectly"
+                },
+                {
+                    "styleName": "Textured Quiff",
+                    "description": "Voluminous style swept upward for a bold look",
+                    "reason": "Works beautifully with wavy hair texture"
+                },
+                {
+                    "styleName": "Classic Side Part",
+                    "description": "Timeless and professional with clean lines",
+                    "reason": "Enhances facial features and adds sophistication"
+                },
+                {
+                    "styleName": "Messy Crop",
+                    "description": "Effortlessly cool with natural texture",
+                    "reason": "Low maintenance yet stylish option"
+                },
+                {
+                    "styleName": "Short Buzz",
+                    "description": "Clean, minimal, and masculine",
+                    "reason": "Highlights facial structure beautifully"
+                }
+            ]
+        }
+        
+        logger.info("Returning mock response successfully")
+        
+        # Create response with explicit headers
+        response = make_response(jsonify(mock_response), 200)
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        
         return response
-    
-    print("=" * 50)
-    print("ANALYZE ENDPOINT HIT - Processing request")
-    print("=" * 50)
-    
-    # For now, always return mock data (you can add Gemini later)
-    mock_data = {
-        "analysis": {
-            "faceShape": "oval",
-            "hairTexture": "wavy", 
-            "hairColor": "brown",
-            "estimatedGender": "male",
-            "estimatedAge": "25-30"
-        },
-        "recommendations": [
-            {
-                "styleName": "Classic Fade",
-                "description": "Short on sides with a gradual blend to longer hair on top",
-                "reason": "Perfect for oval face shapes and professional settings"
-            },
-            {
-                "styleName": "Textured Quiff",
-                "description": "Modern style with volume and texture swept upward",
-                "reason": "Takes advantage of your natural wavy texture"
-            },
-            {
-                "styleName": "Side Part",
-                "description": "Timeless professional look with a defined part",
-                "reason": "Enhances facial symmetry and looks sophisticated"
-            },
-            {
-                "styleName": "Messy Crop",
-                "description": "Short, textured cut with a deliberately tousled look",
-                "reason": "Low maintenance while still looking stylish"
-            },
-            {
-                "styleName": "Buzz Cut",
-                "description": "Very short all over for ultimate simplicity",
-                "reason": "Clean look that highlights facial features"
-            }
-        ]
-    }
-    
-    response = jsonify(mock_data)
-    response.headers['Content-Type'] = 'application/json'
-    return response
+        
+    except Exception as e:
+        logger.error(f"Error in analyze endpoint: {str(e)}")
+        error_response = jsonify({"error": f"Server error: {str(e)}"})
+        error_response.headers['Access-Control-Allow-Origin'] = '*'
+        return error_response, 500
 
-# Error handlers
+# Test endpoint
+@app.route('/test', methods=['GET', 'POST'])
+def test():
+    return jsonify({
+        "message": "Test successful",
+        "method": request.method,
+        "timestamp": "2024"
+    })
+
+# Handle 404
 @app.errorhandler(404)
 def not_found(e):
-    # If it's an API call, return JSON
-    if request.path.startswith('/api/') or request.path == '/analyze':
-        return jsonify({"error": "Endpoint not found"}), 404
-    # Otherwise, serve the main page (for client-side routing)
-    return render_template('index.html')
+    return jsonify({"error": "Endpoint not found", "available": ["/", "/health", "/analyze", "/test"]}), 404
 
+# Handle 500
 @app.errorhandler(500)
 def server_error(e):
+    logger.error(f"500 error: {str(e)}")
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"Starting Flask server on port {port}")
-    print("Serving frontend from: /templates/index.html")
-    print("Serving JavaScript from: /static/scripts.js")
-    print("API endpoint at: /analyze")
+    logger.info(f"Starting LineUp Backend on port {port}")
+    logger.info(f"Expected frontend: https://lineupai.onrender.com")
+    logger.info("CORS enabled for all origins")
     app.run(host="0.0.0.0", port=port, debug=False)

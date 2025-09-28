@@ -2,7 +2,7 @@
 
 // --- Configuration ---
 const API_URL = 'https://lineup-fjpn.onrender.com';
-let GOOGLE_PLACES_API_KEY = null; // Will be fetched from backend
+let GOOGLE_PLACES_API_KEY = null;
 
 // --- DOM Elements ---
 const fileInput = document.getElementById('file-input');
@@ -72,109 +72,6 @@ let socialPosts = [];
 let barberPortfolio = [];
 let appointments = [];
 let currentBarberForBooking = null;
-
-// Rate limiting and caching
-const apiCache = new Map();
-const CACHE_DURATION = 3600000; // 1 hour in milliseconds
-const rateLimitTracker = {
-  lastAnalysisTime: 0,
-  lastSocialPostTime: 0,
-  lastBarberSearchTime: 0,
-  analysisCount: 0,
-  socialPostCount: 0,
-  resetTime: Date.now()
-};
-
-// Reset rate limit counters hourly
-function resetRateLimitCounters() {
-  const now = Date.now();
-  if (now - rateLimitTracker.resetTime > 3600000) { // 1 hour
-    rateLimitTracker.analysisCount = 0;
-    rateLimitTracker.socialPostCount = 0;
-    rateLimitTracker.resetTime = now;
-    console.log('Rate limit counters reset');
-  }
-}
-
-// Check if action is rate limited
-function isRateLimited(action) {
-  resetRateLimitCounters();
-  const now = Date.now();
-  
-  switch (action) {
-    case 'analysis':
-      // Max 10 per hour, min 6 minutes between requests
-      if (rateLimitTracker.analysisCount >= 10) {
-        showNotification('Analysis limit reached. Try again in an hour.', 'error');
-        return true;
-      }
-      if (now - rateLimitTracker.lastAnalysisTime < 360000) { // 6 minutes
-        const waitTime = Math.ceil((360000 - (now - rateLimitTracker.lastAnalysisTime)) / 60000);
-        showNotification(`Please wait ${waitTime} minutes before next analysis.`, 'error');
-        return true;
-      }
-      break;
-      
-    case 'socialPost':
-      // Max 20 per hour, min 3 minutes between posts
-      if (rateLimitTracker.socialPostCount >= 20) {
-        showNotification('Post limit reached. Try again in an hour.', 'error');
-        return true;
-      }
-      if (now - rateLimitTracker.lastSocialPostTime < 180000) { // 3 minutes
-        const waitTime = Math.ceil((180000 - (now - rateLimitTracker.lastSocialPostTime)) / 60000);
-        showNotification(`Please wait ${waitTime} minutes before posting again.`, 'error');
-        return true;
-      }
-      break;
-      
-    case 'barberSearch':
-      // Min 30 seconds between searches
-      if (now - rateLimitTracker.lastBarberSearchTime < 30000) {
-        showNotification('Please wait before searching again.', 'error');
-        return true;
-      }
-      break;
-  }
-  
-  return false;
-}
-
-// Update rate limit tracking
-function updateRateLimit(action) {
-  const now = Date.now();
-  
-  switch (action) {
-    case 'analysis':
-      rateLimitTracker.lastAnalysisTime = now;
-      rateLimitTracker.analysisCount++;
-      break;
-    case 'socialPost':
-      rateLimitTracker.lastSocialPostTime = now;
-      rateLimitTracker.socialPostCount++;
-      break;
-    case 'barberSearch':
-      rateLimitTracker.lastBarberSearchTime = now;
-      break;
-  }
-}
-
-// Cache management
-function getCachedData(key) {
-  const cached = apiCache.get(key);
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    console.log('Using cached data for:', key);
-    return cached.data;
-  }
-  return null;
-}
-
-function setCachedData(key, data) {
-  apiCache.set(key, {
-    data: data,
-    timestamp: Date.now()
-  });
-}
 
 // --- Mock Data ---
 const mockSocialPosts = [
@@ -258,9 +155,6 @@ const mockAppointments = [
 window.addEventListener('DOMContentLoaded', async () => {
   console.log('LineUp Two-Sided Platform initialized');
   
-  // Fetch API key from backend
-  await fetchApiConfig();
-  
   // Initialize data
   socialPosts = [...mockSocialPosts];
   barberPortfolio = [...mockBarberPortfolio];
@@ -276,20 +170,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   testBackendConnection();
   setupEventListeners();
   updateDashboardStats();
-});
-
-// Fetch API configuration from backend
-async function fetchApiConfig() {
-  try {
-    const response = await fetch(`${API_URL}/config`);
-    const data = await response.json();
-    GOOGLE_PLACES_API_KEY = data.placesApiKey;
-    console.log('Google Places API configured:', !!GOOGLE_PLACES_API_KEY);
-  } catch (error) {
-    console.log('Could not fetch API config, using mock data');
-    GOOGLE_PLACES_API_KEY = null;
-  }
-}
 });
 
 // --- Setup Event Listeners ---
@@ -317,7 +197,6 @@ function setupEventListeners() {
   findBarberButton.addEventListener('click', findMatchingBarbers);
   
   // Barber search
-  locationSearch.addEventListener('input', debounce(searchBarbersByLocation, 300));
   refreshBarbersBtn.addEventListener('click', () => loadNearbyBarbers(locationSearch.value || 'Atlanta, GA'));
   
   // Social modals
@@ -330,6 +209,7 @@ function setupEventListeners() {
   // Barber modals
   uploadWorkButton.addEventListener('click', () => uploadWorkModal.classList.remove('hidden'));
   document.getElementById('add-portfolio-btn').addEventListener('click', () => uploadWorkModal.classList.remove('hidden'));
+  document.getElementById('view-schedule-btn').addEventListener('click', () => switchTab('barber-schedule'));
   workImageArea.addEventListener('click', () => workImageInput.click());
   workImageInput.addEventListener('change', handleWorkImageUpload);
   cancelWork.addEventListener('click', closeUploadWorkModal);
@@ -386,11 +266,13 @@ function switchMode(mode) {
 function switchTab(targetTab) {
   // Update tab buttons
   document.querySelectorAll('.tab-button').forEach(t => t.classList.remove('tab-active'));
-  document.querySelector(`[data-tab="${targetTab}"]`).classList.add('tab-active');
+  const activeTab = document.querySelector(`[data-tab="${targetTab}"]`);
+  if (activeTab) activeTab.classList.add('tab-active');
   
   // Update content
   document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-  document.getElementById(targetTab + '-content').classList.remove('hidden');
+  const targetContent = document.getElementById(targetTab + '-content');
+  if (targetContent) targetContent.classList.remove('hidden');
 }
 
 // --- Backend Connection ---
@@ -400,11 +282,11 @@ async function testBackendConnection() {
     const data = await response.json();
     console.log('✅ Backend connected:', data);
   } catch (err) {
-    console.log('⚠️ Backend may be sleeping (Render free tier). Will wake up on first request.');
+    console.log('⚠️ Backend may be sleeping. Will wake up on first request.');
   }
 }
 
-// --- Image Upload and Analysis (existing code) ---
+// --- Image Upload and Analysis ---
 function handleImageUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -437,7 +319,6 @@ function handleImageUpload(e) {
       imagePreview.src = resizedDataUrl;
       imageUploadArea.classList.add('hidden');
       imagePreviewContainer.classList.remove('hidden');
-      console.log('Image loaded and resized. Size:', Math.round(base64ImageData.length / 1024), 'KB');
     };
     img.src = e.target.result;
   };
@@ -464,11 +345,6 @@ async function analyzeImage() {
     return; 
   }
 
-  // Check rate limiting
-  if (isRateLimited('analysis')) {
-    return;
-  }
-
   console.log('Starting analysis...');
   uploadSection.classList.add('hidden');
   statusSection.classList.remove('hidden');
@@ -478,14 +354,16 @@ async function analyzeImage() {
 
   try {
     const payload = {
-      contents: [
-        { 
-          parts: [
-            { text: "Analyze this person and provide face, hair info and 5 haircut recommendations." },
-            { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
-          ]
-        }
-      ]
+      payload: {
+        contents: [
+          { 
+            parts: [
+              { text: "Analyze this person and provide face, hair info and 5 haircut recommendations." },
+              { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
+            ]
+          }
+        ]
+      }
     };
 
     const response = await fetch(`${API_URL}/analyze`, {
@@ -494,38 +372,22 @@ async function analyzeImage() {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ payload })
+      body: JSON.stringify(payload)
     });
-
-    if (response.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    }
 
     if (!response.ok) {
       throw new Error(`Server error: ${response.status}`);
     }
 
     const result = await response.json();
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    // Update rate limiting
-    updateRateLimit('analysis');
-    
     displayResults(result);
 
   } catch (err) {
     console.error('Analysis error:', err);
-    
-    if (err.message.includes('Rate limit')) {
-      showError(err.message);
-    } else {
-      showError("Using demo results while our servers wake up...");
-      setTimeout(() => {
-        displayResults(getMockData());
-      }, 2000);
-    }
+    showError("Using demo results while our servers wake up...");
+    setTimeout(() => {
+      displayResults(getMockData());
+    }, 2000);
   } finally {
     loader.classList.add('hidden');
     statusMessage.textContent = '';
@@ -576,10 +438,6 @@ function showError(msg) {
   statusMessage.textContent = '';
   errorContainer.classList.remove('hidden');
   errorMessage.textContent = msg;
-  
-  setTimeout(() => {
-    errorContainer.classList.add('hidden');
-  }, 3000);
 }
 
 function displayResults(data) {
@@ -629,73 +487,10 @@ function displayResults(data) {
   });
 }
 
-// --- Google Places Integration ---
+// --- Barber Functions ---
 async function loadNearbyBarbers(location = 'Atlanta, GA') {
   console.log('Loading barbers for:', location);
   
-  if (!GOOGLE_PLACES_API_KEY) {
-    console.log('Google Places API key not configured, using mock data');
-    renderBarberList(getMockBarbers());
-    return;
-  }
-
-  try {
-    // Use CORS-friendly approach through backend or direct API calls
-    // For production, you might want to proxy through your backend for better security
-    
-    // First geocode the location
-    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${GOOGLE_PLACES_API_KEY}`;
-    
-    // Note: For production, consider making these calls through your backend to avoid CORS issues
-    // For now, this will work if your API key has proper domain restrictions
-    
-    const geocodeResponse = await fetch(geocodeUrl);
-    const geocodeData = await geocodeResponse.json();
-    
-    if (geocodeData.status !== 'OK' || !geocodeData.results[0]) {
-      throw new Error('Location not found');
-    }
-
-    const { lat, lng } = geocodeData.results[0].geometry.location;
-    
-    // Search for barbershops using Places API
-    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=10000&type=hair_care&keyword=barber&key=${GOOGLE_PLACES_API_KEY}`;
-    const placesResponse = await fetch(placesUrl);
-    const placesData = await placesResponse.json();
-    
-    if (placesData.status === 'OK') {
-      const barbers = placesData.results.slice(0, 10).map(place => ({
-        id: place.place_id,
-        name: place.name,
-        rating: place.rating || 4.0,
-        priceLevel: place.price_level || 2,
-        address: place.vicinity,
-        photo: place.photos?.[0] ? 
-          `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}` : 
-          null,
-        specialties: ['Fade', 'Taper', 'Beard Trim'], // Default specialties
-        avgCost: (place.price_level || 2) * 25 + 25, // Estimate cost based on price level
-        phone: place.formatted_phone_number || 'Call for info',
-        hours: place.opening_hours?.weekday_text?.[0] || 'Hours vary'
-      }));
-      
-      renderBarberList(barbers);
-    } else {
-      throw new Error('Places API error: ' + placesData.status);
-    }
-  } catch (error) {
-    console.error('Error loading barbers:', error);
-    
-    // Show user-friendly message
-    showNotification('Using sample barbers - location services temporarily unavailable');
-    
-    // Fall back to mock data
-    renderBarberList(getMockBarbers());
-  }
-}
-
-// Alternative: Load barbers through backend (more secure)
-async function loadNearbyBarbersViaBackend(location = 'Atlanta, GA') {
   try {
     const response = await fetch(`${API_URL}/barbers?location=${encodeURIComponent(location)}`);
     const data = await response.json();
@@ -706,7 +501,7 @@ async function loadNearbyBarbersViaBackend(location = 'Atlanta, GA') {
       throw new Error('No barbers data received');
     }
   } catch (error) {
-    console.error('Error loading barbers via backend:', error);
+    console.error('Error loading barbers:', error);
     renderBarberList(getMockBarbers());
   }
 }
@@ -743,65 +538,11 @@ function getMockBarbers() {
   ];
 }
 
-function searchBarbersByLocation() {
-  const location = locationSearch.value.trim();
-  if (location.length > 2) {
-    // Use backend API for more reliable results
-    loadNearbyBarbersViaBackend(location);
-  }
-}
-
 function findMatchingBarbers() {
   barberIntro.textContent = "Barbers specializing in your recommended styles:";
   const location = locationSearch.value || 'Atlanta, GA';
-  loadNearbyBarbersViaBackend(location);
+  loadNearbyBarbers(location);
   switchTab('barbers');
-}
-
-// Show notification to user with better styling
-function showNotification(message, type = 'info') {
-  // Remove any existing notifications
-  const existingNotifications = document.querySelectorAll('.notification');
-  existingNotifications.forEach(notification => notification.remove());
-  
-  // Create notification element
-  const notification = document.createElement('div');
-  notification.className = `notification fixed top-4 right-4 z-50 px-6 py-3 rounded-lg text-white transition-all duration-300 shadow-lg max-w-sm ${
-    type === 'error' ? 'bg-red-500' : 
-    type === 'success' ? 'bg-green-500' : 
-    type === 'warning' ? 'bg-yellow-500' : 
-    'bg-blue-500'
-  }`;
-  
-  // Add icon based on type
-  const icon = type === 'error' ? '⚠️' : 
-               type === 'success' ? '✅' : 
-               type === 'warning' ? '⚠️' : 
-               'ℹ️';
-  
-  notification.innerHTML = `
-    <div class="flex items-center gap-2">
-      <span class="text-lg">${icon}</span>
-      <span class="text-sm">${message}</span>
-      <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-white hover:text-gray-200">×</button>
-    </div>
-  `;
-  
-  document.body.appendChild(notification);
-  
-  // Auto-remove after 5 seconds for info, 8 seconds for errors
-  const autoRemoveTime = type === 'error' ? 8000 : 5000;
-  setTimeout(() => {
-    if (notification.parentNode) {
-      notification.style.opacity = '0';
-      notification.style.transform = 'translateX(100%)';
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.remove();
-        }
-      }, 300);
-    }
-  }, autoRemoveTime);
 }
 
 function renderBarberList(barbers) {
@@ -821,7 +562,7 @@ function renderBarberList(barbers) {
             <p class="text-sm text-gray-400 mb-2">${barber.address}</p>
             <div class="flex items-center gap-4 mb-3">
               <span class="text-yellow-400 flex items-center gap-1">${barber.rating} ★</span>
-              <span class="text-green-400 font-semibold">~${barber.avgCost}</span>
+              <span class="text-green-400 font-semibold">~$${barber.avgCost}</span>
             </div>
             <div class="flex gap-2 mb-4">
               ${barber.specialties.map(s => 
@@ -842,6 +583,8 @@ function renderBarberList(barbers) {
 
 // --- Social Media Functions ---
 function renderSocialFeed() {
+  if (!socialFeedContainer) return;
+  
   socialFeedContainer.innerHTML = '';
   
   if (socialPosts.length === 0) {
@@ -926,12 +669,21 @@ function toggleLike(postId) {
   if (post) {
     post.liked = !post.liked;
     post.likes += post.liked ? 1 : -1;
+    
+    // Add heart animation
+    event.target.closest('button').classList.add('heart-animation');
+    setTimeout(() => {
+      event.target.closest('button').classList.remove('heart-animation');
+    }, 600);
+    
     renderSocialFeed();
   }
 }
 
 // --- Barber Portfolio Functions ---
 function renderBarberPortfolio() {
+  if (!portfolioGrid) return;
+  
   portfolioGrid.innerHTML = '';
   
   if (barberPortfolio.length === 0) {
@@ -1074,6 +826,8 @@ function confirmBooking() {
 function renderClientAppointments() {
   const clientAppointments = appointments.filter(apt => apt.clientName === 'Current User');
   
+  if (!clientAppointmentsContainer) return;
+  
   if (clientAppointments.length === 0) {
     noAppointments.classList.remove('hidden');
     clientAppointmentsContainer.innerHTML = '';
@@ -1084,6 +838,43 @@ function renderClientAppointments() {
   clientAppointmentsContainer.innerHTML = '';
   
   clientAppointments.forEach(appointment => {
+    const appointmentElement = document.createElement('div');
+    appointmentElement.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl p-5';
+    appointmentElement.innerHTML = `
+      <div class="flex justify-between items-start mb-3">
+        <div>
+          <h3 class="text-lg font-bold text-white">${appointment.barberName}</h3>
+          <p class="text-gray-400">${appointment.service}</p>
+        </div>
+        <span class="px-3 py-1 rounded-full text-xs font-semibold ${
+          appointment.status === 'confirmed' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
+        }">
+          ${appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
+        </span>
+      </div>
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <p class="text-gray-300"><span class="text-gray-400">Date:</span> ${new Date(appointment.date).toLocaleDateString()}</p>
+        <p class="text-gray-300"><span class="text-gray-400">Time:</span> ${appointment.time}</p>
+        <p class="text-gray-300"><span class="text-gray-400">Price:</span> ${appointment.price}</p>
+        <p class="text-gray-300"><span class="text-gray-400">Status:</span> ${appointment.status}</p>
+      </div>
+      ${appointment.notes !== 'No special requests' ? `<p class="text-gray-400 text-sm mt-3">Notes: ${appointment.notes}</p>` : ''}
+    `;
+    clientAppointmentsContainer.appendChild(appointmentElement);
+  });
+}
+
+function renderBarberAppointments() {
+  if (!barberAppointmentsContainer) return;
+  
+  barberAppointmentsContainer.innerHTML = '';
+  
+  if (appointments.length === 0) {
+    barberAppointmentsContainer.innerHTML = '<p class="text-center text-gray-500 py-10">No appointments scheduled.</p>';
+    return;
+  }
+  
+  appointments.forEach(appointment => {
     const appointmentElement = document.createElement('div');
     appointmentElement.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl p-5';
     appointmentElement.innerHTML = `
@@ -1136,60 +927,16 @@ function updateDashboardStats() {
     return aptDate >= thisWeekStart;
   }).length;
   
-  document.getElementById('today-appointments').textContent = todayAppointments;
-  document.getElementById('week-appointments').textContent = thisWeekAppointments;
-  document.getElementById('portfolio-count').textContent = barberPortfolio.length;
-}
-
-// --- Utility Functions ---
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
+  const todayElement = document.getElementById('today-appointments');
+  const weekElement = document.getElementById('week-appointments');
+  const portfolioCountElement = document.getElementById('portfolio-count');
+  
+  if (todayElement) todayElement.textContent = todayAppointments;
+  if (weekElement) weekElement.textContent = thisWeekAppointments;
+  if (portfolioCountElement) portfolioCountElement.textContent = barberPortfolio.length;
 }
 
 // --- Make functions globally available ---
 window.toggleLike = toggleLike;
 window.openBookingModal = openBookingModal;
-window.confirmAppointment = confirmAppointment;mentElement.innerHTML = `
-      <div class="flex justify-between items-start mb-3">
-        <div>
-          <h3 class="text-lg font-bold text-white">${appointment.barberName}</h3>
-          <p class="text-gray-400">${appointment.service}</p>
-        </div>
-        <span class="px-3 py-1 rounded-full text-xs font-semibold ${
-          appointment.status === 'confirmed' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
-        }">
-          ${appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
-        </span>
-      </div>
-      <div class="grid grid-cols-2 gap-4 text-sm">
-        <p class="text-gray-300"><span class="text-gray-400">Date:</span> ${new Date(appointment.date).toLocaleDateString()}</p>
-        <p class="text-gray-300"><span class="text-gray-400">Time:</span> ${appointment.time}</p>
-        <p class="text-gray-300"><span class="text-gray-400">Price:</span> ${appointment.price}</p>
-        <p class="text-gray-300"><span class="text-gray-400">Status:</span> ${appointment.status}</p>
-      </div>
-      ${appointment.notes !== 'No special requests' ? `<p class="text-gray-400 text-sm mt-3">Notes: ${appointment.notes}</p>` : ''}
-    `;
-    clientAppointmentsContainer.appendChild(appointmentElement);
-  });
-}
-
-function renderBarberAppointments() {
-  barberAppointmentsContainer.innerHTML = '';
-  
-  if (appointments.length === 0) {
-    barberAppointmentsContainer.innerHTML = '<p class="text-center text-gray-500 py-10">No appointments scheduled.</p>';
-    return;
-  }
-  
-  appointments.forEach(appointment => {
-    const appointmentElement = document.createElement('div');
-    appointmentElement.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl p-5';
-    appoint
+window.confirmAppointment = confirmAppointment;

@@ -3,108 +3,550 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LineUp - AI Haircut Analysis</title>
+  <title>LineUp - AI Haircut Platform</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; overscroll-behavior-y: contain; }
+    body { font-family: 'Inter', sans-serif; }
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: #1a1a1a; }
     ::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: #6a6a6a; }
-    .gradient-text { background: linear-gradient(90deg,#38bdf8,#a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #38bdf8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+    .gradient-text { background: linear-gradient(135deg,#667eea,#764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .loader { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .tab-active, .tab-button:hover { color: #38bdf8; }
+    .fade-in { animation: fadeIn 0.5s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .heart-animation { animation: heartBeat 0.3s ease-in-out; }
+    @keyframes heartBeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+    .toggle-switch { position: relative; width: 60px; height: 28px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4a5568; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #667eea; }
+    input:checked + .slider:before { transform: translateX(32px); }
   </style>
 </head>
-<body class="bg-black text-gray-200 min-h-screen">
-  <div id="app" class="container mx-auto max-w-4xl pb-24">
-    <!-- Header -->
-    <header class="text-center p-4 md:p-8">
-      <h1 class="text-4xl md:text-5xl font-bold gradient-text">LineUp</h1>
-      <p class="text-gray-400 mt-2">AI Hairstylist & Social Community</p>
-    </header>
-
-    <main id="main-content">
-      <!-- AI Tab -->
-      <div id="ai-tab-content" class="tab-content px-4">
-        <section id="upload-section" class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 md:p-8 text-center transition-all duration-300">
-          <div id="image-upload-area" class="border-2 border-dashed border-gray-600 rounded-xl p-8 md:p-12 cursor-pointer hover:border-sky-400 hover:bg-gray-800/50 transition-all duration-300">
-            <input type="file" id="file-input" class="hidden" accept="image/*">
-            <div class="flex flex-col items-center">
-              <svg class="w-12 h-12 text-gray-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-              </svg>
-              <p class="font-semibold text-lg">Upload a photo to get started</p>
-              <p class="text-sm text-gray-400 mt-1">Use a clear, front-facing photo.</p>
-            </div>
-          </div>
-          <div id="image-preview-container" class="hidden mt-6">
-            <img id="image-preview" src="" alt="Uploaded photo" class="max-w-xs mx-auto rounded-xl shadow-lg"/>
-            <button id="analyze-button" class="mt-6 bg-sky-500 text-white font-bold py-3 px-8 rounded-full hover:bg-sky-600 transition-all duration-300 transform hover:scale-105">Analyze My Look</button>
-          </div>
-        </section>
-
-        <section id="status-section" class="text-center my-8 hidden">
-          <div id="loader" class="mx-auto loader hidden"></div>
-          <p id="status-message" class="mt-4 text-lg"></p>
-          <div id="error-container" class="mt-4 bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-xl hidden">
-            <p id="error-message"></p>
-            <button id="try-again-button" class="mt-4 bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-600 transition-colors">Try Again</button>
-          </div>
-        </section>
-
-        <section id="results-section" class="hidden mt-12">
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 mb-8">
-            <h2 class="text-2xl font-bold mb-4">Your Analysis</h2>
-            <div id="analysis-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center"></div>
-          </div>
-
-          <div>
-            <h2 class="text-3xl font-bold text-center mb-8">Recommended Haircuts</h2>
-            <div id="recommendations-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-          </div>
-
-          <div class="text-center mt-8 border-t border-gray-700 pt-8">
-            <p class="text-lg mb-4">Ready for the perfect cut?</p>
-            <button id="find-barber-button" class="bg-green-500 text-white font-bold py-3 px-8 rounded-full hover:bg-green-600 transition-all">Find a Barber</button>
-          </div>
-          <div class="text-center mt-12">
-            <button id="start-over-button" class="bg-gray-700 text-white font-semibold py-3 px-8 rounded-full hover:bg-gray-600">Start Over</button>
-          </div>
-        </section>
-      </div>
-
-      <!-- Barbers Tab -->
-      <div id="barbers-tab-content" class="tab-content hidden px-4">
-        <h2 class="text-3xl font-bold text-center mb-6">Top Barbers in Atlanta</h2>
-        <p id="barber-intro" class="text-center text-gray-400 mb-8">Top-rated barbers for your style.</p>
-        <div id="barber-list-container" class="space-y-4"></div>
-      </div>
-
-      <!-- Social Tab -->
-      <div id="social-tab-content" class="tab-content hidden px-4">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-3xl font-bold">Community Looks</h2>
-          <button id="add-post-button" class="bg-sky-500 rounded-full p-3 hover:bg-sky-600 transition-colors">+</button>
-        </div>
-        <div id="social-feed-container" class="space-y-8">
-          <p id="no-posts-message" class="text-center text-gray-500 py-10">No posts yet. Be the first!</p>
-        </div>
-      </div>
-    </main>
-
-    <!-- Tab Nav -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm border-t border-gray-700 max-w-4xl mx-auto">
-      <div class="flex justify-around h-16">
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors tab-active" data-tab="ai">AI</button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="barbers">Barbers</button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="social">Social</button>
-      </div>
-    </nav>
+<body class="bg-gray-950 text-gray-200 min-h-screen">
+  <!-- Mode Toggle -->
+  <div class="fixed top-4 right-4 z-50 bg-gray-900 p-3 rounded-xl shadow-xl border border-gray-800">
+    <div class="flex items-center space-x-3">
+      <span class="text-sm font-medium">Client</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="mode-toggle">
+        <span class="slider"></span>
+      </label>
+      <span class="text-sm font-medium">Barber</span>
+    </div>
   </div>
 
-  <script src="scripts.js"></script>
-</body>
-</html>
+  <!-- CLIENT INTERFACE -->
+  <div id="client-interface" class="container mx-auto max-w-5xl pb-20">
+    <!-- Header -->
+    <header class="text-center p-8">
+      <h1 class="text-5xl font-bold gradient-text">LineUp</h1>
+      <p class="text-gray-400 mt-2">AI-Powered Haircut Matching</p>
+    </header>
+
+    <!-- Client Tabs -->
+    <div class="flex justify-center mb-8 px-4">
+      <div class="bg-gray-900 rounded-full p-1 flex space-x-1">
+        <button class="client-tab px-6 py-2 rounded-full bg-purple-600 text-white font-medium transition-all" data-tab="ai">AI Analysis</button>
+        <button class="client-tab px-6 py-2 rounded-full text-gray-400 hover:text-white font-medium transition-all" data-tab="appointments">Appointments</button>
+        <button class="client-tab px-6 py-2 rounded-full text-gray-400 hover:text-white font-medium transition-all" data-tab="barbers">Find Barbers</button>
+        <button class="client-tab px-6 py-2 rounded-full text-gray-400 hover:text-white font-medium transition-all" data-tab="social">Community</button>
+      </div>
+    </div>
+
+    <!-- AI Analysis Tab -->
+    <div id="ai-tab" class="client-content px-4">
+      <div id="upload-section" class="bg-gray-900 rounded-2xl p-8 text-center">
+        <div id="upload-area" class="border-2 border-dashed border-gray-600 rounded-xl p-12 cursor-pointer hover:border-purple-500 transition-all">
+          <input type="file" id="file-input" class="hidden" accept="image/*">
+          <svg class="w-16 h-16 mx-auto text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          <p class="text-xl font-semibold">Upload Your Photo</p>
+          <p class="text-gray-400 mt-2">Get AI-powered haircut recommendations</p>
+        </div>
+        <div id="preview-container" class="hidden mt-6">
+          <img id="preview-img" class="max-w-xs mx-auto rounded-xl">
+          <button id="analyze-btn" class="mt-6 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 px-8 rounded-full hover:shadow-lg transform hover:scale-105 transition-all">
+            Analyze My Look
+          </button>
+        </div>
+      </div>
+
+      <div id="results-section" class="hidden mt-8 fade-in">
+        <div class="bg-gray-900 rounded-2xl p-6 mb-6">
+          <h3 class="text-xl font-bold mb-4">Your Analysis</h3>
+          <div id="analysis-info" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+        </div>
+        <h3 class="text-2xl font-bold mb-6">Recommended Styles</h3>
+        <div id="recommendations" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        <div class="text-center mt-8">
+          <button id="find-matching-barbers" class="bg-purple-600 text-white font-bold py-3 px-8 rounded-full hover:bg-purple-700">
+            Find Barbers for These Styles
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client Appointments Tab -->
+    <div id="appointments-tab" class="client-content hidden px-4">
+      <h2 class="text-2xl font-bold mb-6">Your Appointments</h2>
+      <div id="client-appointments" class="space-y-4"></div>
+      <div class="bg-gray-900 rounded-xl p-6 mt-6">
+        <h3 class="text-lg font-semibold mb-4">Book New Appointment</h3>
+        <button id="browse-for-appointment" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700">
+          Browse Available Barbers
+        </button>
+      </div>
+    </div>
+
+    <!-- Barbers Tab -->
+    <div id="barbers-tab" class="client-content hidden px-4">
+      <div class="mb-6">
+        <input type="text" id="barber-search" placeholder="Search by location or name..." 
+               class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:border-purple-500 focus:outline-none">
+      </div>
+      <div id="barbers-list" class="grid md:grid-cols-2 gap-6"></div>
+    </div>
+
+    <!-- Social Tab -->
+    <div id="social-tab" class="client-content hidden px-4">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold">Community Looks</h2>
+        <button id="add-post-btn" class="bg-purple-600 px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2">
+          <span>+</span>
+          <span>Share Look</span>
+        </button>
+      </div>
+      <div id="social-feed" class="space-y-6"></div>
+    </div>
+  </div>
+
+  <!-- BARBER INTERFACE -->
+  <div id="barber-interface" class="hidden container mx-auto max-w-6xl pb-20">
+    <!-- Header -->
+    <header class="text-center p-8">
+      <h1 class="text-5xl font-bold gradient-text">LineUp Pro</h1>
+      <p class="text-gray-400 mt-2">Barber Management Dashboard</p>
+    </header>
+
+    <!-- Barber Tabs -->
+    <div class="flex justify-center mb-8 px-4">
+      <div class="bg-gray-900 rounded-full p-1 flex space-x-1">
+        <button class="barber-tab px-6 py-2 rounded-full bg-purple-600 text-white font-medium transition-all" data-tab="portfolio">Portfolio</button>
+        <button class="barber-tab px-6 py-2 rounded-full text-gray-400 hover:text-white font-medium transition-all" data-tab="schedule">Schedule</button>
+        <button class="barber-tab px-6 py-2 rounded-full text-gray-400 hover:text-white font-medium transition-all" data-tab="clients">Clients</button>
+        <button class="barber-tab px-6 py-2 rounded-full text-gray-400 hover:text-white font-medium transition-all" data-tab="analytics">Analytics</button>
+      </div>
+    </div>
+
+    <!-- Portfolio Tab -->
+    <div id="portfolio-tab" class="barber-content px-4">
+      <div class="bg-gray-900 rounded-2xl p-6 mb-6">
+        <h3 class="text-xl font-bold mb-4">Upload Portfolio Photos</h3>
+        <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-purple-500 transition-all" id="portfolio-upload">
+          <input type="file" id="portfolio-input" class="hidden" accept="image/*" multiple>
+          <svg class="w-12 h-12 mx-auto text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+          <p class="font-semibold">Click to upload photos</p>
+          <p class="text-sm text-gray-400 mt-1">Add haircut style tags for better matching</p>
+        </div>
+      </div>
+
+      <div class="mb-6">
+        <h3 class="text-xl font-bold mb-4">Your Portfolio</h3>
+        <div id="portfolio-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+      </div>
+    </div>
+
+    <!-- Schedule Tab -->
+    <div id="schedule-tab" class="barber-content hidden px-4">
+      <div class="bg-gray-900 rounded-2xl p-6 mb-6">
+        <h3 class="text-xl font-bold mb-4">Today's Schedule</h3>
+        <div id="today-appointments" class="space-y-3"></div>
+      </div>
+      
+      <div class="bg-gray-900 rounded-2xl p-6">
+        <h3 class="text-xl font-bold mb-4">Upcoming Week</h3>
+        <div id="week-schedule" class="grid grid-cols-7 gap-2 text-center"></div>
+      </div>
+    </div>
+
+    <!-- Clients Tab -->
+    <div id="clients-tab" class="barber-content hidden px-4">
+      <div class="mb-6">
+        <input type="text" placeholder="Search clients..." 
+               class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 focus:border-purple-500 focus:outline-none">
+      </div>
+      <div id="clients-list" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+
+    <!-- Analytics Tab -->
+    <div id="analytics-tab" class="barber-content hidden px-4">
+      <div class="grid md:grid-cols-3 gap-6 mb-6">
+        <div class="bg-gray-900 rounded-xl p-6">
+          <h4 class="text-gray-400 text-sm">This Month</h4>
+          <p class="text-3xl font-bold mt-2">47</p>
+          <p class="text-sm text-green-400 mt-1">+12% from last month</p>
+        </div>
+        <div class="bg-gray-900 rounded-xl p-6">
+          <h4 class="text-gray-400 text-sm">Revenue</h4>
+          <p class="text-3xl font-bold mt-2">$3,240</p>
+          <p class="text-sm text-green-400 mt-1">+8% from last month</p>
+        </div>
+        <div class="bg-gray-900 rounded-xl p-6">
+          <h4 class="text-gray-400 text-sm">Avg Rating</h4>
+          <p class="text-3xl font-bold mt-2">4.9</p>
+          <p class="text-sm text-yellow-400 mt-1">★★★★★</p>
+        </div>
+      </div>
+
+      <div class="bg-gray-900 rounded-2xl p-6">
+        <h3 class="text-xl font-bold mb-4">Popular Styles</h3>
+        <div id="popular-styles" class="space-y-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Booking Modal -->
+  <div id="booking-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 max-w-md w-full">
+      <h3 class="text-xl font-bold mb-4">Book Appointment</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="text-sm text-gray-400">Select Date</label>
+          <input type="date" id="booking-date" class="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1">
+        </div>
+        <div>
+          <label class="text-sm text-gray-400">Select Time</label>
+          <select id="booking-time" class="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1">
+            <option>9:00 AM</option>
+            <option>10:00 AM</option>
+            <option>11:00 AM</option>
+            <option>2:00 PM</option>
+            <option>3:00 PM</option>
+            <option>4:00 PM</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-gray-400">Service</label>
+          <select id="booking-service" class="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1">
+            <option>Haircut - $35</option>
+            <option>Haircut + Beard - $45</option>
+            <option>Hair + Beard + Shave - $60</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex space-x-3 mt-6">
+        <button id="confirm-booking" class="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700">Confirm</button>
+        <button id="cancel-booking" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ============ State Management ============
+let currentMode = 'client';
+let selectedBarber = null;
+let userRecommendations = [];
+let portfolioImages = [];
+
+// ============ Mock Data ============
+const mockBarbers = [
+  {
+    id: 1,
+    name: "Marcus Johnson",
+    shopName: "Elite Cuts Atlanta",
+    location: "Midtown Atlanta",
+    rating: 4.9,
+    reviews: 127,
+    price: 45,
+    specialties: ["Fade", "Taper", "Line Up"],
+    portfolio: ["fade1.jpg", "taper1.jpg"],
+    availability: ["9:00 AM", "10:00 AM", "2:00 PM"],
+    bio: "10+ years experience, specializing in modern cuts",
+    matched: false
+  },
+  {
+    id: 2,
+    name: "DeAndre Williams",
+    shopName: "The Buckhead Barber",
+    location: "Buckhead",
+    rating: 4.8,
+    reviews: 89,
+    price: 55,
+    specialties: ["Pompadour", "Quiff", "Classic Cuts"],
+    portfolio: ["pomp1.jpg", "quiff1.jpg"],
+    availability: ["11:00 AM", "3:00 PM", "4:00 PM"],
+    bio: "Classic styles with a modern twist",
+    matched: false
+  },
+  {
+    id: 3,
+    name: "Carlos Rodriguez",
+    shopName: "Precision Cuts",
+    location: "Virginia-Highland",
+    rating: 4.7,
+    reviews: 156,
+    price: 40,
+    specialties: ["Buzz Cut", "Crew Cut", "Fade"],
+    portfolio: ["buzz1.jpg", "crew1.jpg"],
+    availability: ["9:00 AM", "11:00 AM", "2:00 PM", "4:00 PM"],
+    bio: "Precision cutting specialist",
+    matched: false
+  }
+];
+
+const mockAppointments = [
+  {
+    id: 1,
+    barberName: "Marcus Johnson",
+    shopName: "Elite Cuts Atlanta",
+    date: "2025-10-02",
+    time: "2:00 PM",
+    service: "Haircut",
+    status: "upcoming",
+    price: 45
+  },
+  {
+    id: 2,
+    barberName: "DeAndre Williams",
+    shopName: "The Buckhead Barber",
+    date: "2025-09-15",
+    time: "3:00 PM",
+    service: "Haircut + Beard",
+    status: "completed",
+    price: 55
+  }
+];
+
+const mockSocialPosts = [
+  {
+    id: 1,
+    username: "Mike_ATL",
+    avatar: "👨",
+    image: "https://placehold.co/400x400/2a2a2a/667eea?text=Fresh+Fade",
+    caption: "Just got the freshest fade at Elite Cuts! 🔥",
+    likes: 45,
+    liked: false,
+    timestamp: "2 hours ago",
+    barber: "Marcus Johnson"
+  },
+  {
+    id: 2,
+    username: "James_404",
+    avatar: "👱‍♂️",
+    image: "https://placehold.co/400x400/2a2a2a/667eea?text=Classic+Cut",
+    caption: "Classic never goes out of style 💯",
+    likes: 32,
+    liked: false,
+    timestamp: "5 hours ago",
+    barber: "DeAndre Williams"
+  },
+  {
+    id: 3,
+    username: "TonyTheBarber",
+    avatar: "✂️",
+    image: "https://placehold.co/400x400/2a2a2a/667eea?text=Textured+Top",
+    caption: "Today's masterpiece - textured top with a mid fade",
+    likes: 89,
+    liked: true,
+    timestamp: "1 day ago",
+    barber: "Self"
+  },
+  {
+    id: 4,
+    username: "Chris_ATL",
+    avatar: "🧔",
+    image: "https://placehold.co/400x400/2a2a2a/667eea?text=Beard+Trim",
+    caption: "Perfect beard shape up by Carlos! Highly recommend",
+    likes: 28,
+    liked: false,
+    timestamp: "2 days ago",
+    barber: "Carlos Rodriguez"
+  }
+];
+
+const mockPortfolio = [
+  { id: 1, style: "Modern Fade", tags: ["fade", "modern"], likes: 45 },
+  { id: 2, style: "Classic Taper", tags: ["taper", "classic"], likes: 32 },
+  { id: 3, style: "Textured Quiff", tags: ["quiff", "texture"], likes: 28 },
+  { id: 4, style: "Buzz Cut", tags: ["buzz", "short"], likes: 19 }
+];
+
+const mockClients = [
+  { id: 1, name: "John Smith", lastVisit: "Sept 20", totalVisits: 12, favoriteStyle: "Fade" },
+  { id: 2, name: "Mike Johnson", lastVisit: "Sept 18", totalVisits: 8, favoriteStyle: "Taper" },
+  { id: 3, name: "David Lee", lastVisit: "Sept 15", totalVisits: 15, favoriteStyle: "Pompadour" }
+];
+
+// ============ Mode Toggle ============
+const modeToggle = document.getElementById('mode-toggle');
+const clientInterface = document.getElementById('client-interface');
+const barberInterface = document.getElementById('barber-interface');
+
+modeToggle.addEventListener('change', (e) => {
+  currentMode = e.target.checked ? 'barber' : 'client';
+  
+  if (currentMode === 'barber') {
+    clientInterface.classList.add('hidden');
+    barberInterface.classList.remove('hidden');
+    loadBarberDashboard();
+  } else {
+    clientInterface.classList.remove('hidden');
+    barberInterface.classList.add('hidden');
+  }
+});
+
+// ============ Client Interface ============
+
+// Tab Navigation
+document.querySelectorAll('.client-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.client-tab').forEach(t => {
+      t.classList.remove('bg-purple-600', 'text-white');
+      t.classList.add('text-gray-400');
+    });
+    tab.classList.add('bg-purple-600', 'text-white');
+    tab.classList.remove('text-gray-400');
+    
+    document.querySelectorAll('.client-content').forEach(content => {
+      content.classList.add('hidden');
+    });
+    document.getElementById(tab.dataset.tab + '-tab').classList.remove('hidden');
+    
+    if (tab.dataset.tab === 'social') loadSocialFeed();
+    if (tab.dataset.tab === 'barbers') loadBarbersList();
+    if (tab.dataset.tab === 'appointments') loadClientAppointments();
+  });
+});
+
+// File Upload
+const fileInput = document.getElementById('file-input');
+const uploadArea = document.getElementById('upload-area');
+const previewContainer = document.getElementById('preview-container');
+const previewImg = document.getElementById('preview-img');
+
+uploadArea.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      uploadArea.classList.add('hidden');
+      previewContainer.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+  }
+});
+
+// Analyze Button
+document.getElementById('analyze-btn').addEventListener('click', () => {
+  // Mock AI analysis results
+  const mockAnalysis = {
+    faceShape: "Oval",
+    hairTexture: "Wavy",
+    hairColor: "Dark Brown",
+    skinTone: "Medium"
+  };
+  
+  const mockRecommendations = [
+    { name: "Modern Fade", match: "95%", description: "Perfect for your face shape" },
+    { name: "Textured Quiff", match: "92%", description: "Works great with wavy hair" },
+    { name: "Classic Taper", match: "88%", description: "Timeless and professional" }
+  ];
+  
+  userRecommendations = mockRecommendations.map(r => r.name);
+  
+  displayAnalysisResults(mockAnalysis, mockRecommendations);
+});
+
+function displayAnalysisResults(analysis, recommendations) {
+  document.getElementById('upload-section').classList.add('hidden');
+  document.getElementById('results-section').classList.remove('hidden');
+  
+  // Display analysis
+  const analysisInfo = document.getElementById('analysis-info');
+  analysisInfo.innerHTML = Object.entries(analysis).map(([key, value]) => `
+    <div class="bg-gray-800 rounded-lg p-3 text-center">
+      <p class="text-xs text-gray-400">${key.replace(/([A-Z])/g, ' $1').trim()}</p>
+      <p class="font-semibold">${value}</p>
+    </div>
+  `).join('');
+  
+  // Display recommendations
+  const recommendationsDiv = document.getElementById('recommendations');
+  recommendationsDiv.innerHTML = recommendations.map(rec => `
+    <div class="bg-gray-900 rounded-xl overflow-hidden hover:transform hover:scale-105 transition-all">
+      <div class="h-48 bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
+        <span class="text-white text-2xl font-bold">${rec.name}</span>
+      </div>
+      <div class="p-4">
+        <div class="flex justify-between items-center mb-2">
+          <h4 class="font-bold text-lg">${rec.name}</h4>
+          <span class="text-green-400 font-semibold">${rec.match}</span>
+        </div>
+        <p class="text-gray-400 text-sm">${rec.description}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Find Matching Barbers
+document.getElementById('find-matching-barbers').addEventListener('click', () => {
+  // Update barbers with matching status
+  mockBarbers.forEach(barber => {
+    barber.matched = barber.specialties.some(s => 
+      userRecommendations.some(r => r.toLowerCase().includes(s.toLowerCase()))
+    );
+  });
+  
+  document.querySelector('.client-tab[data-tab="barbers"]').click();
+  loadBarbersList(true);
+});
+
+// Load Barbers List
+function loadBarbersList(showMatched = false) {
+  const barbersList = document.getElementById('barbers-list');
+  const barbersToShow = showMatched ? 
+    mockBarbers.filter(b => b.matched) : 
+    mockBarbers;
+  
+  barbersList.innerHTML = barbersToShow.map(barber => `
+    <div class="bg-gray-900 rounded-xl p-6 hover:border-purple-500 border border-gray-800 transition-all">
+      ${barber.matched ? '<span class="inline-block bg-green-500 text-white text-xs px-2 py-1 rounded-full mb-3">Matched Style!</span>' : ''}
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <h3 class="text-xl font-bold">${barber.name}</h3>
+          <p class="text-gray-400">${barber.shopName}</p>
+          <p class="text-sm text-gray-500">${barber.location}</p>
+        </div>
+        <div class="text-right">
+          <div class="text-yellow-400">★ ${barber.rating}</div>
+          <p class="text-xs text-gray-400">${barber.reviews} reviews</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-4">
+        ${barber.specialties.map(s => `
+          <span class="bg-gray-800 text-xs px-2 py-1 rounded-full">${s}</span>
+        `).join('')}
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-green-400 font-semibold">$${barber.price}</span>
+        <button onclick="openBookingModal(${barber.id})" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+          Book Now
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Browse for Appointment
+document.getElementById('browse-for-appointment').addEventListener('click', () => {
+  document.querySelector('.client-tab[data-tab="barbers"]').click();

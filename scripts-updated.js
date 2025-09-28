@@ -464,43 +464,62 @@ function displayResults(data) {
   statusSection.classList.add('hidden');
   resultsSection.classList.remove('hidden');
 
-  // Analysis Grid
+  // Helper function to capitalize words properly
+  const capitalizeWords = (str) => {
+    if (!str || str === 'Unknown') return str;
+    return str.split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+  };
+
+  // Analysis Grid with improved styling
   analysisGrid.innerHTML = '';
   const analysisData = [
-    { label: 'Face Shape', value: data.analysis.faceShape || 'Unknown' },
-    { label: 'Hair Texture', value: data.analysis.hairTexture || 'Unknown' },
-    { label: 'Hair Color', value: data.analysis.hairColor || 'Unknown' },
-    { label: 'Gender', value: data.analysis.estimatedGender || 'Unknown' },
+    { label: 'Face Shape', value: capitalizeWords(data.analysis.faceShape) || 'Unknown' },
+    { label: 'Hair Texture', value: capitalizeWords(data.analysis.hairTexture) || 'Unknown' },
+    { label: 'Hair Color', value: capitalizeWords(data.analysis.hairColor) || 'Unknown' },
+    { label: 'Gender', value: capitalizeWords(data.analysis.estimatedGender) || 'Unknown' },
     { label: 'Est. Age', value: data.analysis.estimatedAge || 'Unknown' }
   ];
   
   analysisData.forEach(item => {
     const div = document.createElement('div');
-    div.className = 'bg-gray-800 p-4 rounded-lg';
+    div.className = 'bg-gradient-to-br from-gray-800 to-gray-900 p-5 rounded-xl border border-gray-700 hover:border-sky-500/50 transition-all duration-300';
     div.innerHTML = `
-      <p class="text-sm text-gray-400">${item.label}</p>
-      <p class="font-bold text-lg text-white">${item.value}</p>
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-2 h-2 bg-sky-400 rounded-full"></div>
+        <p class="text-sm font-medium text-gray-300">${item.label}</p>
+      </div>
+      <p class="font-bold text-xl text-white">${item.value}</p>
     `;
     analysisGrid.appendChild(div);
   });
 
-  // Recommendations
+  // Recommendations with individual Find Barbers buttons
   recommendationsContainer.innerHTML = '';
   const recommendations = data.recommendations || [];
   lastRecommendedStyles = recommendations.slice(0, 5).map(r => r.styleName);
   
-  recommendations.slice(0, 5).forEach(rec => {
+  recommendations.slice(0, 5).forEach((rec, index) => {
     const card = document.createElement('div');
-    card.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden flex flex-col';
+    card.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden flex flex-col hover:border-sky-500/50 transition-all duration-300 transform hover:scale-105';
     const placeholderImageUrl = `https://placehold.co/600x400/1a1a1a/38bdf8?text=${encodeURIComponent(rec.styleName || 'Style')}`;
     card.innerHTML = `
       <img src="${placeholderImageUrl}" alt="${rec.styleName}" class="w-full h-48 object-cover">
       <div class="p-5 flex flex-col flex-grow">
         <h3 class="text-xl font-bold text-white mb-2">${rec.styleName || 'Unnamed Style'}</h3>
         <p class="text-gray-300 text-sm mb-4 flex-grow">${rec.description || 'No description available'}</p>
-        <p class="text-xs text-gray-400">
+        <p class="text-xs text-gray-400 mb-4">
           <strong class="text-sky-400">Why it works:</strong> ${rec.reason || 'Great match for your features'}
         </p>
+        <button onclick="findBarbersForStyle('${rec.styleName}')" 
+                class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          Find Barbers for This Style
+        </button>
       </div>
     `;
     recommendationsContainer.appendChild(card);
@@ -547,13 +566,16 @@ function renderRealBarberList(barbers, isRealData = false) {
   
   // Add header showing if this is real or mock data
   const dataSourceBadge = isRealData ? 
-    '<span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs">Real Barbershops</span>' :
+    '<span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs">✓ Real Barbershops</span>' :
     '<span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs">Sample Data</span>';
   
   barberListContainer.innerHTML = `
-    <div class="mb-4 flex justify-between items-center">
-      <p class="text-sm text-gray-400">Found ${barbers.length} barbershops</p>
-      ${dataSourceBadge}
+    <div class="mb-6 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-lg font-semibold text-white">Found ${barbers.length} barbershops</p>
+        ${dataSourceBadge}
+      </div>
+      <p class="text-sm text-gray-400">These barbers specialize in the styles you're looking for</p>
     </div>
   `;
   
@@ -1055,7 +1077,34 @@ function updateDashboardStats() {
   if (portfolioCountElement) portfolioCountElement.textContent = barberPortfolio.length;
 }
 
+// --- New function for individual style barber search ---
+function findBarbersForStyle(styleName) {
+  const location = locationSearch.value || 'Atlanta, GA';
+  
+  console.log(`Finding barbers for specific style: ${styleName} in ${location}`);
+  
+  // Update the intro text to show we're searching for this specific style
+  if (barberIntro) {
+    barberIntro.innerHTML = `
+      <div class="text-center mb-4">
+        <span class="inline-block bg-sky-500/20 border border-sky-500/50 text-sky-300 text-sm px-4 py-2 rounded-full mb-2">
+          Searching for: ${styleName}
+        </span>
+        <br>
+        <span class="text-gray-300">Finding real barbershops in</span> 
+        <span class="text-sky-400 font-semibold">${location}</span>
+        <span class="text-gray-300">that specialize in this style...</span>
+      </div>
+    `;
+  }
+  
+  // Search for barbers with this specific style
+  loadNearbyBarbers(location, [styleName]);
+  switchTab('barbers');
+}
+
 // --- Make functions globally available ---
 window.toggleLike = toggleLike;
 window.openBookingModal = openBookingModal;
 window.confirmAppointment = confirmAppointment;
+window.findBarbersForStyle = findBarbersForStyle;

@@ -2,7 +2,7 @@
 
 // --- Configuration ---
 const API_URL = 'https://lineup-fjpn.onrender.com';
-const GOOGLE_PLACES_API_KEY = 'YOUR_GOOGLE_PLACES_API_KEY'; // Replace with your actual key
+let GOOGLE_PLACES_API_KEY = null; // Will be fetched from backend
 
 // --- DOM Elements ---
 const fileInput = document.getElementById('file-input');
@@ -152,8 +152,11 @@ const mockAppointments = [
 ];
 
 // --- Initialize ---
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   console.log('LineUp Two-Sided Platform initialized');
+  
+  // Fetch API key from backend
+  await fetchApiConfig();
   
   // Initialize data
   socialPosts = [...mockSocialPosts];
@@ -170,6 +173,20 @@ window.addEventListener('DOMContentLoaded', () => {
   testBackendConnection();
   setupEventListeners();
   updateDashboardStats();
+});
+
+// Fetch API configuration from backend
+async function fetchApiConfig() {
+  try {
+    const response = await fetch(`${API_URL}/config`);
+    const data = await response.json();
+    GOOGLE_PLACES_API_KEY = data.placesApiKey;
+    console.log('Google Places API configured:', !!GOOGLE_PLACES_API_KEY);
+  } catch (error) {
+    console.log('Could not fetch API config, using mock data');
+    GOOGLE_PLACES_API_KEY = null;
+  }
+}
 });
 
 // --- Setup Event Listeners ---
@@ -496,15 +513,22 @@ function displayResults(data) {
 async function loadNearbyBarbers(location = 'Atlanta, GA') {
   console.log('Loading barbers for:', location);
   
-  if (!GOOGLE_PLACES_API_KEY || GOOGLE_PLACES_API_KEY === 'YOUR_GOOGLE_PLACES_API_KEY') {
+  if (!GOOGLE_PLACES_API_KEY) {
     console.log('Google Places API key not configured, using mock data');
     renderBarberList(getMockBarbers());
     return;
   }
 
   try {
+    // Use CORS-friendly approach through backend or direct API calls
+    // For production, you might want to proxy through your backend for better security
+    
     // First geocode the location
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${GOOGLE_PLACES_API_KEY}`;
+    
+    // Note: For production, consider making these calls through your backend to avoid CORS issues
+    // For now, this will work if your API key has proper domain restrictions
+    
     const geocodeResponse = await fetch(geocodeUrl);
     const geocodeData = await geocodeResponse.json();
     
@@ -514,7 +538,7 @@ async function loadNearbyBarbers(location = 'Atlanta, GA') {
 
     const { lat, lng } = geocodeData.results[0].geometry.location;
     
-    // Search for barbershops
+    // Search for barbershops using Places API
     const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=10000&type=hair_care&keyword=barber&key=${GOOGLE_PLACES_API_KEY}`;
     const placesResponse = await fetch(placesUrl);
     const placesData = await placesResponse.json();
@@ -530,15 +554,39 @@ async function loadNearbyBarbers(location = 'Atlanta, GA') {
           `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}` : 
           null,
         specialties: ['Fade', 'Taper', 'Beard Trim'], // Default specialties
-        avgCost: (place.price_level || 2) * 25 + 25 // Estimate cost based on price level
+        avgCost: (place.price_level || 2) * 25 + 25, // Estimate cost based on price level
+        phone: place.formatted_phone_number || 'Call for info',
+        hours: place.opening_hours?.weekday_text?.[0] || 'Hours vary'
       }));
       
       renderBarberList(barbers);
     } else {
-      throw new Error('Places API error');
+      throw new Error('Places API error: ' + placesData.status);
     }
   } catch (error) {
     console.error('Error loading barbers:', error);
+    
+    // Show user-friendly message
+    showNotification('Using sample barbers - location services temporarily unavailable');
+    
+    // Fall back to mock data
+    renderBarberList(getMockBarbers());
+  }
+}
+
+// Alternative: Load barbers through backend (more secure)
+async function loadNearbyBarbersViaBackend(location = 'Atlanta, GA') {
+  try {
+    const response = await fetch(`${API_URL}/barbers?location=${encodeURIComponent(location)}`);
+    const data = await response.json();
+    
+    if (data.barbers) {
+      renderBarberList(data.barbers);
+    } else {
+      throw new Error('No barbers data received');
+    }
+  } catch (error) {
+    console.error('Error loading barbers via backend:', error);
     renderBarberList(getMockBarbers());
   }
 }
@@ -578,14 +626,36 @@ function getMockBarbers() {
 function searchBarbersByLocation() {
   const location = locationSearch.value.trim();
   if (location.length > 2) {
-    loadNearbyBarbers(location);
+    // Use backend API for more reliable results
+    loadNearbyBarbersViaBackend(location);
   }
 }
 
 function findMatchingBarbers() {
   barberIntro.textContent = "Barbers specializing in your recommended styles:";
-  loadNearbyBarbers(locationSearch.value || 'Atlanta, GA');
+  const location = locationSearch.value || 'Atlanta, GA';
+  loadNearbyBarbersViaBackend(location);
   switchTab('barbers');
+}
+
+// Show notification to user
+function showNotification(message, type = 'info') {
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg text-white transition-all duration-300 ${
+    type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+  }`;
+  notification.textContent = message;
+  
+  document.body.appendChild(notification);
+  
+  // Auto-remove after 3 seconds
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    setTimeout(() => {
+      document.body.removeChild(notification);
+    }, 300);
+  }, 3000);
 }
 
 function renderBarberList(barbers) {

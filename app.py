@@ -616,9 +616,9 @@ def update_appointment_status(appointment_id):
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
-# Barber discovery endpoint with caching and rate limiting
+# Barber discovery endpoint with REAL Google Places API integration
 @app.route('/barbers', methods=['GET', 'OPTIONS'])
-@limiter.limit("50 per hour")  # Moderate limit since this might call external APIs
+@limiter.limit("50 per hour")  # Moderate limit since this calls external APIs
 def get_barbers():
     if request.method == 'OPTIONS':
         response = make_response('')
@@ -628,6 +628,7 @@ def get_barbers():
         return response, 200
     
     location = request.args.get('location', 'Atlanta, GA')
+    recommended_styles = request.args.get('styles', '').split(',')  # Get recommended styles
     
     # Check cache first
     cache_key = location.lower().strip()
@@ -645,6 +646,21 @@ def get_barbers():
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
     
+    # Get Google Places API key
+    GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY")
+    
+    if not GOOGLE_PLACES_API_KEY:
+        logger.warning("Google Places API key not configured, using mock data")
+        mock_barbers = getMockBarbersForLocation(location)
+        response = make_response(jsonify({
+            "barbers": mock_barbers, 
+            "location": location,
+            "mock": True,
+            "reason": "API key not configured"
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
     # Check if we can make Places API call
     if not can_make_places_api_call():
         logger.warning("Places API daily limit reached, using mock data")
@@ -658,26 +674,160 @@ def get_barbers():
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
     
-    # Try to fetch real data (this would require implementing Places API calls on backend)
-    # For now, use enhanced mock data and cache it
-    mock_barbers = getMockBarbersForLocation(location)
-    
-    # Cache the results
-    places_api_cache[cache_key] = {
-        'data': mock_barbers,
-        'timestamp': current_time
-    }
-    
-    # Increment API usage (even for mock data to simulate)
-    increment_places_api_usage()
-    
-    response = make_response(jsonify({
-        "barbers": mock_barbers, 
-        "location": location,
-        "mock": True
-    }), 200)
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    try:
+        import requests
+        
+        # First, geocode the location to get coordinates
+        geocode_url = f"https://maps.googleapis.com/maps/api/geocode/json"
+        geocode_params = {
+            'address': location,
+            'key': GOOGLE_PLACES_API_KEY
+        }
+        
+        geocode_response = requests.get(geocode_url, params=geocode_params)
+        geocode_data = geocode_response.json()
+        
+        if geocode_data['status'] != 'OK' or not geocode_data['results']:
+            raise Exception(f"Location not found: {location}")
+        
+        lat = geocode_data['results'][0]['geometry']['location']['lat']
+        lng = geocode_data['results'][0]['geometry']['location']['lng']
+        
+        # Search for barbershops using Places API
+        places_url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+        places_params = {
+            'location': f"{lat},{lng}",
+            'radius': 10000,  # 10km radius
+            'type': 'hair_care',
+            'keyword': 'barber barbershop mens haircut',
+            'key': GOOGLE_PLACES_API_KEY
+        }
+        
+        places_response = requests.get(places_url, params=places_params)
+        places_data = places_response.json()
+        
+        if places_data['status'] != 'OK':
+            raise Exception(f"Places API error: {places_data.get('status')}")
+        
+        # Process real barbershop data
+        real_barbers = []
+        for place in places_data['results'][:15]:  # Get top 15 results
+            # Get additional details for each place
+            details_url = f"https://maps.googleapis.com/maps/api/place/details/json"
+            details_params = {
+                'place_id': place['place_id'],
+                'fields': 'name,formatted_address,formatted_phone_number,opening_hours,website,price_level,rating,user_ratings_total,photos',
+                'key': GOOGLE_PLACES_API_KEY
+            }
+            
+            try:
+                details_response = requests.get(details_url, params=details_params)
+                details_data = details_response.json()
+                
+                if details_data['status'] == 'OK':
+                    details = details_data['result']
+                else:
+                    details = {}
+            except:
+                details = {}
+            
+            # Determine specialties based on name and recommended styles
+            specialties = []
+            name_lower = place['name'].lower()
+            
+            # Match specialties based on barbershop name or type
+            if 'fade' in name_lower or 'fades' in name_lower:
+                specialties.append('Fade Specialist')
+            if 'classic' in name_lower or 'traditional' in name_lower:
+                specialties.append('Classic Cuts')
+            if 'modern' in name_lower or 'style' in name_lower:
+                specialties.append('Modern Styles')
+            if 'beard' in name_lower:
+                specialties.append('Beard Trim')
+            
+            # Add specialties based on recommended styles
+            if recommended_styles:
+                for style in recommended_styles:
+                    if style and 'fade' in style.lower():
+                        specialties.append('Fade Expert')
+                    elif style and 'classic' in style.lower():
+                        specialties.append('Classic Styles')
+                    elif style and 'modern' in style.lower():
+                        specialties.append('Contemporary Cuts')
+            
+            # Default specialties if none detected
+            if not specialties:
+                specialties = ['Haircut', 'Styling', 'Beard Trim']
+            
+            # Remove duplicates
+            specialties = list(set(specialties))[:3]
+            
+            # Get photo URL if available
+            photo_url = None
+            if 'photos' in place and place['photos']:
+                photo_ref = place['photos'][0].get('photo_reference')
+                if photo_ref:
+                    photo_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={photo_ref}&key={GOOGLE_PLACES_API_KEY}"
+            
+            barber_info = {
+                'id': place['place_id'],
+                'name': place['name'],
+                'address': details.get('formatted_address', place.get('vicinity', 'Address not available')),
+                'rating': place.get('rating', 0),
+                'user_ratings_total': place.get('user_ratings_total', 0),
+                'price_level': place.get('price_level', 2),
+                'avgCost': 25 + (place.get('price_level', 2) * 15),  # Estimate cost
+                'phone': details.get('formatted_phone_number', 'Call for info'),
+                'website': details.get('website', ''),
+                'hours': details.get('opening_hours', {}).get('weekday_text', []),
+                'open_now': place.get('opening_hours', {}).get('open_now', None),
+                'photo': photo_url,
+                'specialties': specialties,
+                'location': {
+                    'lat': place['geometry']['location']['lat'],
+                    'lng': place['geometry']['location']['lng']
+                },
+                'recommended_for_styles': recommended_styles if recommended_styles else []
+            }
+            
+            real_barbers.append(barber_info)
+        
+        # Sort by rating and number of reviews
+        real_barbers.sort(key=lambda x: (x['rating'] * (min(x['user_ratings_total'], 100) / 100)), reverse=True)
+        
+        # Cache the results
+        places_api_cache[cache_key] = {
+            'data': real_barbers[:10],  # Cache top 10
+            'timestamp': current_time
+        }
+        
+        # Increment API usage
+        increment_places_api_usage()
+        
+        logger.info(f"Found {len(real_barbers)} real barbershops in {location}")
+        
+        response = make_response(jsonify({
+            "barbers": real_barbers[:10],  # Return top 10
+            "location": location,
+            "real_data": True,
+            "total_found": len(real_barbers)
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error fetching real barber data: {str(e)}")
+        
+        # Fallback to mock data on error
+        mock_barbers = getMockBarbersForLocation(location)
+        response = make_response(jsonify({
+            "barbers": mock_barbers, 
+            "location": location,
+            "mock": True,
+            "error": str(e)
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
 
 # Portfolio endpoints with rate limiting
 @app.route('/portfolio', methods=['GET', 'POST', 'OPTIONS'])

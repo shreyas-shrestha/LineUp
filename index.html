@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LineUp - AI Haircut Analysis</title>
+  <title>LineUp - AI Haircut Analysis & Barber Platform</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -16,95 +16,265 @@
     .loader { border: 4px solid #f3f3f3; border-top: 4px solid #38bdf8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .tab-active, .tab-button:hover { color: #38bdf8; }
+    .modal { backdrop-filter: blur(8px); }
+    .heart-animation { animation: heartBeat 0.6s ease-in-out; }
+    @keyframes heartBeat { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
   </style>
 </head>
 <body class="bg-black text-gray-200 min-h-screen">
   <div id="app" class="container mx-auto max-w-4xl pb-24">
     <!-- Header -->
     <header class="text-center p-4 md:p-8">
-      <h1 class="text-4xl md:text-5xl font-bold gradient-text">LineUp</h1>
-      <p class="text-gray-400 mt-2">AI Hairstylist & Social Community</p>
+      <div class="flex items-center justify-center gap-3 mb-2">
+        <div class="w-12 h-12 bg-gradient-to-r from-sky-400 to-purple-500 rounded-xl flex items-center justify-center">
+          <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6 2h12c1.1 0 2 .9 2 2v16c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2zm1 3v2h10V5H7zm0 4v1h10V9H7zm0 3v1h10v-1H7zm0 3v1h10v-1H7z"/>
+          </svg>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold gradient-text">LineUp</h1>
+      </div>
+      <p class="text-gray-400">AI Hairstylist & Barber Platform</p>
+      
+      <!-- Role Switcher -->
+      <div class="flex justify-center mt-4">
+        <div class="bg-gray-800 rounded-full p-1 flex">
+          <button id="client-mode" class="role-button px-6 py-2 rounded-full transition-all bg-sky-500 text-white">Client</button>
+          <button id="barber-mode" class="role-button px-6 py-2 rounded-full transition-all text-gray-400 hover:text-white">Barber</button>
+        </div>
+      </div>
     </header>
 
     <main id="main-content">
-      <!-- AI Tab -->
-      <div id="ai-tab-content" class="tab-content px-4">
-        <section id="upload-section" class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 md:p-8 text-center transition-all duration-300">
-          <div id="image-upload-area" class="border-2 border-dashed border-gray-600 rounded-xl p-8 md:p-12 cursor-pointer hover:border-sky-400 hover:bg-gray-800/50 transition-all duration-300">
-            <input type="file" id="file-input" class="hidden" accept="image/*">
-            <div class="flex flex-col items-center">
-              <svg class="w-12 h-12 text-gray-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-              </svg>
-              <p class="font-semibold text-lg">Upload a photo to get started</p>
-              <p class="text-sm text-gray-400 mt-1">Use a clear, front-facing photo.</p>
+      <!-- CLIENT SIDE -->
+      <div id="client-content">
+        <!-- AI Tab -->
+        <div id="ai-tab-content" class="tab-content px-4">
+          <section id="upload-section" class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 md:p-8 text-center transition-all duration-300">
+            <div id="image-upload-area" class="border-2 border-dashed border-gray-600 rounded-xl p-8 md:p-12 cursor-pointer hover:border-sky-400 hover:bg-gray-800/50 transition-all duration-300">
+              <input type="file" id="file-input" class="hidden" accept="image/*">
+              <div class="flex flex-col items-center">
+                <svg class="w-12 h-12 text-gray-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                </svg>
+                <p class="font-semibold text-lg">Upload a photo to get started</p>
+                <p class="text-sm text-gray-400 mt-1">Use a clear, front-facing photo.</p>
+              </div>
+            </div>
+            <div id="image-preview-container" class="hidden mt-6">
+              <img id="image-preview" src="" alt="Uploaded photo" class="max-w-xs mx-auto rounded-xl shadow-lg"/>
+              <button id="analyze-button" class="mt-6 bg-sky-500 text-white font-bold py-3 px-8 rounded-full hover:bg-sky-600 transition-all duration-300 transform hover:scale-105">Analyze My Look</button>
+            </div>
+          </section>
+
+          <section id="status-section" class="text-center my-8 hidden">
+            <div id="loader" class="mx-auto loader hidden"></div>
+            <p id="status-message" class="mt-4 text-lg"></p>
+            <div id="error-container" class="mt-4 bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-xl hidden">
+              <p id="error-message"></p>
+              <button id="try-again-button" class="mt-4 bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-600 transition-colors">Try Again</button>
+            </div>
+          </section>
+
+          <section id="results-section" class="hidden mt-12">
+            <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 mb-8">
+              <h2 class="text-2xl font-bold mb-4">Your Analysis</h2>
+              <div id="analysis-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center"></div>
+            </div>
+
+            <div>
+              <h2 class="text-3xl font-bold text-center mb-8">Recommended Haircuts</h2>
+              <div id="recommendations-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            </div>
+
+            <div class="text-center mt-8 border-t border-gray-700 pt-8">
+              <p class="text-lg mb-4">Ready for the perfect cut?</p>
+              <button id="find-barber-button" class="bg-green-500 text-white font-bold py-3 px-8 rounded-full hover:bg-green-600 transition-all">Find Matching Barbers</button>
+            </div>
+            <div class="text-center mt-12">
+              <button id="start-over-button" class="bg-gray-700 text-white font-semibold py-3 px-8 rounded-full hover:bg-gray-600">Start Over</button>
+            </div>
+          </section>
+        </div>
+
+        <!-- Barbers Tab -->
+        <div id="barbers-tab-content" class="tab-content hidden px-4">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold">Find Barbers</h2>
+            <button id="refresh-barbers" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors">Refresh</button>
+          </div>
+          <div id="barber-search" class="mb-6">
+            <input type="text" id="location-search" placeholder="Enter location (e.g., Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+          </div>
+          <p id="barber-intro" class="text-center text-gray-400 mb-8">Top-rated barbers for your style.</p>
+          <div id="barber-list-container" class="space-y-4"></div>
+        </div>
+
+        <!-- Social Tab -->
+        <div id="social-tab-content" class="tab-content hidden px-4">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold">Community Looks</h2>
+            <button id="add-post-button" class="bg-sky-500 text-white px-4 py-2 rounded-full hover:bg-sky-600 transition-colors">+ Post</button>
+          </div>
+          <div id="social-feed-container" class="space-y-6"></div>
+        </div>
+
+        <!-- Appointments Tab -->
+        <div id="appointments-tab-content" class="tab-content hidden px-4">
+          <h2 class="text-3xl font-bold text-center mb-6">My Appointments</h2>
+          <div id="client-appointments-container" class="space-y-4"></div>
+          <div id="no-appointments" class="text-center py-12 text-gray-400">
+            <p>No appointments scheduled.</p>
+            <p class="text-sm mt-2">Book with a barber to get started!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- BARBER SIDE -->
+      <div id="barber-content" class="hidden">
+        <!-- Dashboard Tab -->
+        <div id="barber-dashboard-content" class="tab-content px-4">
+          <h2 class="text-3xl font-bold text-center mb-6">Barber Dashboard</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-6 text-white">
+              <h3 class="text-lg font-semibold">Today's Appointments</h3>
+              <p class="text-3xl font-bold mt-2" id="today-appointments">3</p>
+            </div>
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 text-white">
+              <h3 class="text-lg font-semibold">This Week</h3>
+              <p class="text-3xl font-bold mt-2" id="week-appointments">12</p>
+            </div>
+            <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl p-6 text-white">
+              <h3 class="text-lg font-semibold">Portfolio Photos</h3>
+              <p class="text-3xl font-bold mt-2" id="portfolio-count">8</p>
             </div>
           </div>
-          <div id="image-preview-container" class="hidden mt-6">
-            <img id="image-preview" src="" alt="Uploaded photo" class="max-w-xs mx-auto rounded-xl shadow-lg"/>
-            <button id="analyze-button" class="mt-6 bg-sky-500 text-white font-bold py-3 px-8 rounded-full hover:bg-sky-600 transition-all duration-300 transform hover:scale-105">Analyze My Look</button>
-          </div>
-        </section>
 
-        <section id="status-section" class="text-center my-8 hidden">
-          <div id="loader" class="mx-auto loader hidden"></div>
-          <p id="status-message" class="mt-4 text-lg"></p>
-          <div id="error-container" class="mt-4 bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-xl hidden">
-            <p id="error-message"></p>
-            <button id="try-again-button" class="mt-4 bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-600 transition-colors">Try Again</button>
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6">
+            <h3 class="text-xl font-bold mb-4">Quick Actions</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button id="add-portfolio-btn" class="bg-sky-500 text-white py-3 px-6 rounded-lg hover:bg-sky-600 transition-colors">Add Portfolio Photo</button>
+              <button id="view-schedule-btn" class="bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 transition-colors">View Schedule</button>
+            </div>
           </div>
-        </section>
-
-        <section id="results-section" class="hidden mt-12">
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 mb-8">
-            <h2 class="text-2xl font-bold mb-4">Your Analysis</h2>
-            <div id="analysis-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center"></div>
-          </div>
-
-          <div>
-            <h2 class="text-3xl font-bold text-center mb-8">Recommended Haircuts</h2>
-            <div id="recommendations-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-          </div>
-
-          <div class="text-center mt-8 border-t border-gray-700 pt-8">
-            <p class="text-lg mb-4">Ready for the perfect cut?</p>
-            <button id="find-barber-button" class="bg-green-500 text-white font-bold py-3 px-8 rounded-full hover:bg-green-600 transition-all">Find a Barber</button>
-          </div>
-          <div class="text-center mt-12">
-            <button id="start-over-button" class="bg-gray-700 text-white font-semibold py-3 px-8 rounded-full hover:bg-gray-600">Start Over</button>
-          </div>
-        </section>
-      </div>
-
-      <!-- Barbers Tab -->
-      <div id="barbers-tab-content" class="tab-content hidden px-4">
-        <h2 class="text-3xl font-bold text-center mb-6">Top Barbers in Atlanta</h2>
-        <p id="barber-intro" class="text-center text-gray-400 mb-8">Top-rated barbers for your style.</p>
-        <div id="barber-list-container" class="space-y-4"></div>
-      </div>
-
-      <!-- Social Tab -->
-      <div id="social-tab-content" class="tab-content hidden px-4">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-3xl font-bold">Community Looks</h2>
-          <button id="add-post-button" class="bg-sky-500 rounded-full p-3 hover:bg-sky-600 transition-colors">+</button>
         </div>
-        <div id="social-feed-container" class="space-y-8">
-          <p id="no-posts-message" class="text-center text-gray-500 py-10">No posts yet. Be the first!</p>
+
+        <!-- Portfolio Tab -->
+        <div id="barber-portfolio-content" class="tab-content hidden px-4">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold">My Portfolio</h2>
+            <button id="upload-work-button" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors">+ Upload Work</button>
+          </div>
+          <div id="barber-portfolio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+
+        <!-- Schedule Tab -->
+        <div id="barber-schedule-content" class="tab-content hidden px-4">
+          <h2 class="text-3xl font-bold text-center mb-6">My Schedule</h2>
+          <div id="barber-appointments-container" class="space-y-4"></div>
         </div>
       </div>
     </main>
 
     <!-- Tab Nav -->
     <nav class="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm border-t border-gray-700 max-w-4xl mx-auto">
-      <div class="flex justify-around h-16">
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors tab-active" data-tab="ai">AI</button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="barbers">Barbers</button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="social">Social</button>
+      <div id="client-nav" class="flex justify-around h-16">
+        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors tab-active" data-tab="ai">
+          <span class="text-xs">AI</span>
+        </button>
+        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="barbers">
+          <span class="text-xs">Barbers</span>
+        </button>
+        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="social">
+          <span class="text-xs">Social</span>
+        </button>
+        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="appointments">
+          <span class="text-xs">Appointments</span>
+        </button>
+      </div>
+      
+      <div id="barber-nav" class="hidden flex justify-around h-16">
+        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors tab-active" data-tab="barber-dashboard">
+          <span class="text-xs">Dashboard</span>
+        </button>
+        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="barber-portfolio">
+          <span class="text-xs">Portfolio</span>
+        </button>
+        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="barber-schedule">
+          <span class="text-xs">Schedule</span>
+        </button>
       </div>
     </nav>
   </div>
 
-  <script src="scripts.js"></script>
+  <!-- Modals -->
+  
+  <!-- Add Post Modal -->
+  <div id="add-post-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+      <h3 class="text-2xl font-bold mb-4">Share Your Look</h3>
+      <input type="file" id="post-image-input" accept="image/*" class="hidden">
+      <div id="post-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
+        <p class="text-gray-400">Click to add photo</p>
+      </div>
+      <img id="post-image-preview" class="hidden w-full h-48 object-cover rounded-lg mb-4">
+      <textarea id="post-caption" placeholder="Tell us about your new look..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-24 focus:border-sky-400 focus:outline-none"></textarea>
+      <div class="flex gap-3 mt-4">
+        <button id="cancel-post" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
+        <button id="submit-post" class="flex-1 bg-sky-500 text-white py-2 rounded-lg hover:bg-sky-600 transition-colors">Post</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Work Modal -->
+  <div id="upload-work-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+      <h3 class="text-2xl font-bold mb-4">Upload Client Work</h3>
+      <input type="file" id="work-image-input" accept="image/*" class="hidden">
+      <div id="work-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
+        <p class="text-gray-400">Click to add photo</p>
+      </div>
+      <img id="work-image-preview" class="hidden w-full h-48 object-cover rounded-lg mb-4">
+      <input type="text" id="work-style-name" placeholder="Style name (e.g., Modern Fade)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 mb-3 focus:border-sky-400 focus:outline-none">
+      <textarea id="work-description" placeholder="Describe the cut and technique..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-24 focus:border-sky-400 focus:outline-none"></textarea>
+      <div class="flex gap-3 mt-4">
+        <button id="cancel-work" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
+        <button id="submit-work" class="flex-1 bg-sky-500 text-white py-2 rounded-lg hover:bg-sky-600 transition-colors">Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Book Appointment Modal -->
+  <div id="book-appointment-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+      <h3 class="text-2xl font-bold mb-4">Book Appointment</h3>
+      <div id="booking-barber-info" class="mb-4"></div>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <input type="date" id="appointment-date" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:border-sky-400 focus:outline-none">
+        <select id="appointment-time" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:border-sky-400 focus:outline-none">
+          <option value="">Select time</option>
+          <option value="09:00">9:00 AM</option>
+          <option value="10:00">10:00 AM</option>
+          <option value="11:00">11:00 AM</option>
+          <option value="14:00">2:00 PM</option>
+          <option value="15:00">3:00 PM</option>
+          <option value="16:00">4:00 PM</option>
+        </select>
+      </div>
+      <select id="appointment-service" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white mb-4 focus:border-sky-400 focus:outline-none">
+        <option value="">Select service</option>
+        <option value="haircut">Haircut ($45)</option>
+        <option value="haircut-beard">Haircut + Beard ($65)</option>
+        <option value="beard-only">Beard Trim ($25)</option>
+      </select>
+      <textarea id="appointment-notes" placeholder="Special requests or notes..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 focus:border-sky-400 focus:outline-none"></textarea>
+      <div class="flex gap-3 mt-4">
+        <button id="cancel-booking" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
+        <button id="confirm-booking" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors">Book Now</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="scripts-updated.js"></script>
 </body>
 </html>

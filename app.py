@@ -1,306 +1,4 @@
-# Appointments endpoints with rate limiting
-@app.route('/appointments', methods=['GET', 'POST', 'OPTIONS'])
-def handle_appointments():
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        return response, 200
-    
-    if request.method == 'GET':
-        # Light rate limit for viewing appointments
-        limiter.limit("100 per hour")(lambda: None)()
-        
-        user_type = request.args.get('type', 'client')
-        user_id = request.args.get('user_id', 'current_user')
-        
-        if user_type == 'client':
-            user_appointments = [apt for apt in appointments if apt.get('clientId') == user_id]
-        else:  # barber
-            user_appointments = [apt for apt in appointments if apt.get('barberId') == user_id]
-        
-        response = make_response(jsonify({"appointments": user_appointments}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    
-    elif request.method == 'POST':
-        # Moderate rate limit for booking appointments
-        limiter.limit("30 per hour")(lambda: None)()
-        
-        try:
-            data = request.get_json()
-            
-            new_appointment = {
-                "id": str(uuid.uuid4()),
-                "clientName": data.get("clientName", "Anonymous Client"),
-                "clientId": data.get("clientId", "current_user"),
-                "barberName": data.get("barberName", "Unknown Barber"),
-                "barberId": data.get("barberId", "unknown_barber"),
-                "date": data.get("date", ""),
-                "time": data.get("time", ""),
-                "service": data.get("service", ""),
-                "price": data.get("price", "$0"),
-                "status": "pending",
-                "notes": data.get("notes", "No special requests"),
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            appointments.append(new_appointment)
-            
-            response = make_response(jsonify({"success": True, "appointment": new_appointment}), 201)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error creating appointment: {str(e)}")
-            response = make_response(jsonify({"error": "Failed to create appointment"}), 400)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-
-# Update appointment status with rate limiting
-@app.route('/appointments/<appointment_id>/status', methods=['PUT', 'OPTIONS'])
-@limiter.limit("50 per hour")
-def update_appointment_status(appointment_id):
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'PUT, OPTIONS')
-        return response, 200
-    
-    try:
-        data = request.get_json()
-        new_status = data.get("status", "pending")
-        
-        appointment = next((apt for apt in appointments if apt["id"] == appointment_id), None)
-        if not appointment:
-            response = make_response(jsonify({"error": "Appointment not found"}), 404)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-        
-        appointment["status"] = new_status
-        
-        response = make_response(jsonify({"success": True, "appointment": appointment}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-        
-    except Exception as e:
-        logger.error(f"Error updating appointment: {str(e)}")
-        response = make_response(jsonify({"error": "Failed to update appointment"}), 400)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-
-# Barber discovery endpoint with caching and rate limiting
-@app.route('/barbers', methods=['GET', 'OPTIONS'])
-@limiter.limit("50 per hour")  # Moderate limit since this might call external APIs
-def get_barbers():
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        return response, 200
-    
-    location = request.args.get('location', 'Atlanta, GA')
-    
-    # Check cache first
-    cache_key = location.lower().strip()
-    current_time = time.time()
-    
-    if cache_key in places_api_cache:
-        cached_data = places_api_cache[cache_key]
-        if current_time - cached_data['timestamp'] < CACHE_DURATION:
-            logger.info(f"Returning cached barber data for {location}")
-            response = make_response(jsonify({
-                "barbers": cached_data['data'], 
-                "location": location,
-                "cached": True
-            }), 200)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-    
-    # Check if we can make Places API call
-    if not can_make_places_api_call():
-        logger.warning("Places API daily limit reached, using mock data")
-        mock_barbers = getMockBarbersForLocation(location)
-        response = make_response(jsonify({
-            "barbers": mock_barbers, 
-            "location": location,
-            "mock": True,
-            "reason": "API limit reached"
-        }), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    
-    # Try to fetch real data (this would require implementing Places API calls on backend)
-    # For now, use enhanced mock data and cache it
-    mock_barbers = getMockBarbersForLocation(location)
-    
-    # Cache the results
-    places_api_cache[cache_key] = {
-        'data': mock_barbers,
-        'timestamp': current_time
-    }
-    
-    # Increment API usage (even for mock data to simulate)
-    increment_places_api_usage()
-    
-    response = make_response(jsonify({
-        "barbers": mock_barbers, 
-        "location": location,
-        "mock": True
-    }), 200)
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
-
-def getMockBarbersForLocation(location):
-    """Generate location-specific mock barber data"""
-    base_barbers = [
-        {
-            "id": "barber_1",
-            "name": f"Elite Cuts {location.split(',')[0]}",
-            "specialties": ["Fade", "Taper", "Modern Cuts"],
-            "rating": 4.9,
-            "avgCost": 45,
-            "address": f"Downtown {location.split(',')[0]}",
-            "photo": "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400&h=300&fit=crop",
-            "phone": "(555) 123-4567",
-            "hours": "Mon-Sat 9AM-8PM"
-        },
-        {
-            "id": "barber_2", 
-            "name": f"The {location.split(',')[0]} Barber",
-            "specialties": ["Pompadour", "Buzz Cut", "Beard Trim"],
-            "rating": 4.8,
-            "avgCost": 55,
-            "address": f"Uptown {location.split(',')[0]}",
-            "photo": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400&h=300&fit=crop",
-            "phone": "(555) 123-4568",
-            "hours": "Tue-Sun 10AM-7PM"
-        },
-        {
-            "id": "barber_3",
-            "name": f"{location.split(',')[0]} Style Studio",
-            "specialties": ["Modern Fade", "Beard Trim", "Styling"],
-            "rating": 4.9,
-            "avgCost": 65,
-            "address": f"Midtown {location.split(',')[0]}",
-            "photo": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop",
-            "phone": "(555) 123-4569",
-            "hours": "Mon-Fri 8AM-6PM"
-        }
-    ]
-    return base_barbers
-
-# Portfolio endpoints with rate limiting
-@app.route('/portfolio', methods=['GET', 'POST', 'OPTIONS'])
-@app.route('/portfolio/<barber_id>', methods=['GET', 'POST', 'OPTIONS'])
-def portfolio(barber_id=None):
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        return response, 200
-    
-    if request.method == 'GET':
-        # Light rate limit for viewing portfolios
-        limiter.limit("100 per hour")(lambda: None)()
-        
-        if barber_id:
-            portfolio = barber_portfolios.get(barber_id, [])
-        else:
-            # Return all portfolios
-            portfolio = []
-            for barber_portfolio in barber_portfolios.values():
-                portfolio.extend(barber_portfolio)
-        
-        response = make_response(jsonify({"portfolio": portfolio}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    
-    elif request.method == 'POST':
-        # Moderate rate limit for adding portfolio items
-        limiter.limit("25 per hour")(lambda: None)()
-        
-        try:
-            data = request.get_json()
-            barber_id = barber_id or data.get("barberId", "default_barber")
-            
-            new_work = {
-                "id": str(uuid.uuid4()),
-                "styleName": data.get("styleName", ""),
-                "image": data.get("image", ""),
-                "description": data.get("description", ""),
-                "likes": 0,
-                "date": datetime.now().strftime("%Y-%m-%d"),
-                "barberId": barber_id,
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            if barber_id not in barber_portfolios:
-                barber_portfolios[barber_id] = []
-            
-            barber_portfolios[barber_id].insert(0, new_work)
-            
-            response = make_response(jsonify({"success": True, "work": new_work}), 201)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error adding portfolio work: {str(e)}")
-            response = make_response(jsonify({"error": "Failed to add work"}), 400)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-
-# Test endpoint with rate limiting
-@app.route('/test', methods=['GET', 'POST'])
-@limiter.limit("100 per minute")
-def test():
-    return jsonify({
-        "message": "Test successful",
-        "method": request.method,
-        "gemini_configured": model is not None,
-        "timestamp": datetime.now().isoformat(),
-        "rate_limiting": "active",
-        "features_active": True
-    })
-
-# Rate limit exceeded handler
-@app.errorhandler(429)
-def rate_limit_exceeded(error):
-    response = make_response(jsonify({
-        "error": "Rate limit exceeded",
-        "message": "Too many requests. Please try again later.",
-        "retry_after": getattr(error, 'retry_after', 60)
-    }), 429)
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
-
-# Handle 404
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({
-        "error": "Endpoint not found", 
-        "available": ["/", "/health", "/analyze", "/social", "/portfolio", "/appointments", "/barbers", "/test"]
-    }), 404
-
-# Handle 500
-@app.errorhandler(500)
-def server_error(e):
-    logger.error(f"500 error: {str(e)}")
-    return jsonify({"error": "Internal server error"}), 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    logger.info(f"Starting LineUp Backend v2.0 with Rate Limiting on port {port}")
-    logger.info(f"Gemini API configured: {model is not None}")
-    logger.info(f"Expected frontend: https://lineupai.onrender.com")
-    logger.info("Rate limits: AI Analysis (10/hr), Social Posts (20/hr), General (1000/hr)")
-    logger.info("CORS enabled for all origins")
-    logger.info("Features: AI Analysis, Social Feed, Barber Portfolios, Appointments")
-    app.run(host="0.0.0.0", port=port, debug=False)# app.py - Updated Backend API with Rate Limiting
+# app.py - Fixed Backend API with Rate Limiting
 from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -320,6 +18,7 @@ import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Create Flask app FIRST - This was missing!
 app = Flask(__name__)
 
 # Configure rate limiter
@@ -342,17 +41,7 @@ CORS(app,
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-pro')
-    logger.info("Gemini API configured successfully")
-else:
-    model = None
-    logger.warning("GEMINI_API_KEY not found - will use mock data")
-
-# Configure Gemini API
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-pro')
+    model = genai.GenerativeModel('gemini-2.0-flash')
     logger.info("Gemini API configured successfully")
 else:
     model = None
@@ -472,6 +161,84 @@ def initialize_mock_data():
 
 initialize_mock_data()
 
+# Mock data fallback for AI analysis
+def get_mock_data():
+    return {
+        "analysis": {
+            "faceShape": "oval",
+            "hairTexture": "wavy",
+            "hairColor": "brown",
+            "estimatedGender": "male",
+            "estimatedAge": "25-30"
+        },
+        "recommendations": [
+            {
+                "styleName": "Modern Fade",
+                "description": "A contemporary take on the classic fade with textured top",
+                "reason": "Complements oval face shapes perfectly"
+            },
+            {
+                "styleName": "Textured Quiff",
+                "description": "Voluminous style swept upward for a bold look",
+                "reason": "Works beautifully with wavy hair texture"
+            },
+            {
+                "styleName": "Classic Side Part",
+                "description": "Timeless and professional with clean lines",
+                "reason": "Enhances facial features and adds sophistication"
+            },
+            {
+                "styleName": "Messy Crop",
+                "description": "Effortlessly cool with natural texture",
+                "reason": "Low maintenance yet stylish option"
+            },
+            {
+                "styleName": "Short Buzz",
+                "description": "Clean, minimal, and masculine",
+                "reason": "Highlights facial structure beautifully"
+            }
+        ]
+    }
+
+def getMockBarbersForLocation(location):
+    """Generate location-specific mock barber data"""
+    base_barbers = [
+        {
+            "id": "barber_1",
+            "name": f"Elite Cuts {location.split(',')[0]}",
+            "specialties": ["Fade", "Taper", "Modern Cuts"],
+            "rating": 4.9,
+            "avgCost": 45,
+            "address": f"Downtown {location.split(',')[0]}",
+            "photo": "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400&h=300&fit=crop",
+            "phone": "(555) 123-4567",
+            "hours": "Mon-Sat 9AM-8PM"
+        },
+        {
+            "id": "barber_2", 
+            "name": f"The {location.split(',')[0]} Barber",
+            "specialties": ["Pompadour", "Buzz Cut", "Beard Trim"],
+            "rating": 4.8,
+            "avgCost": 55,
+            "address": f"Uptown {location.split(',')[0]}",
+            "photo": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400&h=300&fit=crop",
+            "phone": "(555) 123-4568",
+            "hours": "Tue-Sun 10AM-7PM"
+        },
+        {
+            "id": "barber_3",
+            "name": f"{location.split(',')[0]} Style Studio",
+            "specialties": ["Modern Fade", "Beard Trim", "Styling"],
+            "rating": 4.9,
+            "avgCost": 65,
+            "address": f"Midtown {location.split(',')[0]}",
+            "photo": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop",
+            "phone": "(555) 123-4569",
+            "hours": "Mon-Fri 8AM-6PM"
+        }
+    ]
+    return base_barbers
+
 # Root endpoint
 @app.route('/')
 @limiter.limit("100 per minute")
@@ -545,45 +312,6 @@ def get_config():
     }), 200)
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
-
-# Mock data fallback for AI analysis
-def get_mock_data():
-    return {
-        "analysis": {
-            "faceShape": "oval",
-            "hairTexture": "wavy",
-            "hairColor": "brown",
-            "estimatedGender": "male",
-            "estimatedAge": "25-30"
-        },
-        "recommendations": [
-            {
-                "styleName": "Modern Fade",
-                "description": "A contemporary take on the classic fade with textured top",
-                "reason": "Complements oval face shapes perfectly"
-            },
-            {
-                "styleName": "Textured Quiff",
-                "description": "Voluminous style swept upward for a bold look",
-                "reason": "Works beautifully with wavy hair texture"
-            },
-            {
-                "styleName": "Classic Side Part",
-                "description": "Timeless and professional with clean lines",
-                "reason": "Enhances facial features and adds sophistication"
-            },
-            {
-                "styleName": "Messy Crop",
-                "description": "Effortlessly cool with natural texture",
-                "reason": "Low maintenance yet stylish option"
-            },
-            {
-                "styleName": "Short Buzz",
-                "description": "Clean, minimal, and masculine",
-                "reason": "Highlights facial structure beautifully"
-            }
-        ]
-    }
 
 # Main analyze endpoint with rate limiting
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
@@ -795,62 +523,7 @@ def toggle_like(post_id):
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
-# Barber portfolio endpoints
-@app.route('/portfolio', methods=['GET', 'POST', 'OPTIONS'])
-@app.route('/portfolio/<barber_id>', methods=['GET', 'POST', 'OPTIONS'])
-def portfolio(barber_id=None):
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        return response, 200
-    
-    if request.method == 'GET':
-        if barber_id:
-            portfolio = barber_portfolios.get(barber_id, [])
-        else:
-            # Return all portfolios
-            portfolio = []
-            for barber_portfolio in barber_portfolios.values():
-                portfolio.extend(barber_portfolio)
-        
-        response = make_response(jsonify({"portfolio": portfolio}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    
-    elif request.method == 'POST':
-        try:
-            data = request.get_json()
-            barber_id = barber_id or data.get("barberId", "default_barber")
-            
-            new_work = {
-                "id": str(uuid.uuid4()),
-                "styleName": data.get("styleName", ""),
-                "image": data.get("image", ""),
-                "description": data.get("description", ""),
-                "likes": 0,
-                "date": datetime.now().strftime("%Y-%m-%d"),
-                "barberId": barber_id,
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            if barber_id not in barber_portfolios:
-                barber_portfolios[barber_id] = []
-            
-            barber_portfolios[barber_id].insert(0, new_work)
-            
-            response = make_response(jsonify({"success": True, "work": new_work}), 201)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error adding portfolio work: {str(e)}")
-            response = make_response(jsonify({"error": "Failed to add work"}), 400)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-
-# Appointments endpoints
+# Appointments endpoints with rate limiting
 @app.route('/appointments', methods=['GET', 'POST', 'OPTIONS'])
 def handle_appointments():
     if request.method == 'OPTIONS':
@@ -861,6 +534,9 @@ def handle_appointments():
         return response, 200
     
     if request.method == 'GET':
+        # Light rate limit for viewing appointments
+        limiter.limit("100 per hour")(lambda: None)()
+        
         user_type = request.args.get('type', 'client')
         user_id = request.args.get('user_id', 'current_user')
         
@@ -874,6 +550,9 @@ def handle_appointments():
         return response
     
     elif request.method == 'POST':
+        # Moderate rate limit for booking appointments
+        limiter.limit("30 per hour")(lambda: None)()
+        
         try:
             data = request.get_json()
             
@@ -904,8 +583,9 @@ def handle_appointments():
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
 
-# Update appointment status
+# Update appointment status with rate limiting
 @app.route('/appointments/<appointment_id>/status', methods=['PUT', 'OPTIONS'])
+@limiter.limit("50 per hour")
 def update_appointment_status(appointment_id):
     if request.method == 'OPTIONS':
         response = make_response('')
@@ -936,8 +616,9 @@ def update_appointment_status(appointment_id):
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
-# Barber discovery endpoint (mock data)
+# Barber discovery endpoint with caching and rate limiting
 @app.route('/barbers', methods=['GET', 'OPTIONS'])
+@limiter.limit("50 per hour")  # Moderate limit since this might call external APIs
 def get_barbers():
     if request.method == 'OPTIONS':
         response = make_response('')
@@ -948,57 +629,140 @@ def get_barbers():
     
     location = request.args.get('location', 'Atlanta, GA')
     
-    # Mock barber data
-    mock_barbers = [
-        {
-            "id": "barber_1",
-            "name": "Elite Cuts Atlanta",
-            "specialties": ["Fade", "Taper", "Modern Cuts"],
-            "rating": 4.9,
-            "avgCost": 45,
-            "address": "Midtown Atlanta",
-            "photo": "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400&h=300&fit=crop",
-            "phone": "(404) 555-0123",
-            "hours": "Mon-Sat 9AM-8PM"
-        },
-        {
-            "id": "barber_2", 
-            "name": "The Buckhead Barber",
-            "specialties": ["Pompadour", "Buzz Cut", "Beard Trim"],
-            "rating": 4.8,
-            "avgCost": 55,
-            "address": "Buckhead",
-            "photo": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400&h=300&fit=crop",
-            "phone": "(404) 555-0124",
-            "hours": "Tue-Sun 10AM-7PM"
-        },
-        {
-            "id": "barber_3",
-            "name": "Virginia-Highland Shears",
-            "specialties": ["Modern Fade", "Beard Trim", "Styling"],
-            "rating": 4.9,
-            "avgCost": 65,
-            "address": "Virginia-Highland",
-            "photo": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop",
-            "phone": "(404) 555-0125",
-            "hours": "Mon-Fri 8AM-6PM"
-        }
-    ]
+    # Check cache first
+    cache_key = location.lower().strip()
+    current_time = time.time()
     
-    response = make_response(jsonify({"barbers": mock_barbers, "location": location}), 200)
+    if cache_key in places_api_cache:
+        cached_data = places_api_cache[cache_key]
+        if current_time - cached_data['timestamp'] < CACHE_DURATION:
+            logger.info(f"Returning cached barber data for {location}")
+            response = make_response(jsonify({
+                "barbers": cached_data['data'], 
+                "location": location,
+                "cached": True
+            }), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+    
+    # Check if we can make Places API call
+    if not can_make_places_api_call():
+        logger.warning("Places API daily limit reached, using mock data")
+        mock_barbers = getMockBarbersForLocation(location)
+        response = make_response(jsonify({
+            "barbers": mock_barbers, 
+            "location": location,
+            "mock": True,
+            "reason": "API limit reached"
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    # Try to fetch real data (this would require implementing Places API calls on backend)
+    # For now, use enhanced mock data and cache it
+    mock_barbers = getMockBarbersForLocation(location)
+    
+    # Cache the results
+    places_api_cache[cache_key] = {
+        'data': mock_barbers,
+        'timestamp': current_time
+    }
+    
+    # Increment API usage (even for mock data to simulate)
+    increment_places_api_usage()
+    
+    response = make_response(jsonify({
+        "barbers": mock_barbers, 
+        "location": location,
+        "mock": True
+    }), 200)
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
 
-# Test endpoint
+# Portfolio endpoints with rate limiting
+@app.route('/portfolio', methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/portfolio/<barber_id>', methods=['GET', 'POST', 'OPTIONS'])
+def portfolio(barber_id=None):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        return response, 200
+    
+    if request.method == 'GET':
+        # Light rate limit for viewing portfolios
+        limiter.limit("100 per hour")(lambda: None)()
+        
+        if barber_id:
+            portfolio = barber_portfolios.get(barber_id, [])
+        else:
+            # Return all portfolios
+            portfolio = []
+            for barber_portfolio in barber_portfolios.values():
+                portfolio.extend(barber_portfolio)
+        
+        response = make_response(jsonify({"portfolio": portfolio}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    elif request.method == 'POST':
+        # Moderate rate limit for adding portfolio items
+        limiter.limit("25 per hour")(lambda: None)()
+        
+        try:
+            data = request.get_json()
+            barber_id = barber_id or data.get("barberId", "default_barber")
+            
+            new_work = {
+                "id": str(uuid.uuid4()),
+                "styleName": data.get("styleName", ""),
+                "image": data.get("image", ""),
+                "description": data.get("description", ""),
+                "likes": 0,
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "barberId": barber_id,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            if barber_id not in barber_portfolios:
+                barber_portfolios[barber_id] = []
+            
+            barber_portfolios[barber_id].insert(0, new_work)
+            
+            response = make_response(jsonify({"success": True, "work": new_work}), 201)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error adding portfolio work: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to add work"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+
+# Test endpoint with rate limiting
 @app.route('/test', methods=['GET', 'POST'])
+@limiter.limit("100 per minute")
 def test():
     return jsonify({
         "message": "Test successful",
         "method": request.method,
         "gemini_configured": model is not None,
         "timestamp": datetime.now().isoformat(),
+        "rate_limiting": "active",
         "features_active": True
     })
+
+# Rate limit exceeded handler
+@app.errorhandler(429)
+def rate_limit_exceeded(error):
+    response = make_response(jsonify({
+        "error": "Rate limit exceeded",
+        "message": "Too many requests. Please try again later.",
+        "retry_after": getattr(error, 'retry_after', 60)
+    }), 429)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 # Handle 404
 @app.errorhandler(404)
@@ -1016,9 +780,10 @@ def server_error(e):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    logger.info(f"Starting LineUp Backend v2.0 on port {port}")
+    logger.info(f"Starting LineUp Backend v2.0 with Rate Limiting on port {port}")
     logger.info(f"Gemini API configured: {model is not None}")
     logger.info(f"Expected frontend: https://lineupai.onrender.com")
+    logger.info("Rate limits: AI Analysis (10/hr), Social Posts (20/hr), General (1000/hr)")
     logger.info("CORS enabled for all origins")
     logger.info("Features: AI Analysis, Social Feed, Barber Portfolios, Appointments")
     app.run(host="0.0.0.0", port=port, debug=False)

@@ -197,7 +197,13 @@ function setupEventListeners() {
   findBarberButton.addEventListener('click', findMatchingBarbers);
   
   // Barber search
-  refreshBarbersBtn.addEventListener('click', () => loadNearbyBarbers(locationSearch.value || 'Atlanta, GA'));
+  refreshBarbersBtn.addEventListener('click', () => {
+    const location = locationSearch.value || 'Atlanta, GA';
+    loadNearbyBarbers(location, lastRecommendedStyles);
+  });
+  
+  // Setup location search
+  setupLocationSearch();
   
   // Social modals
   addPostButton.addEventListener('click', () => addPostModal.classList.remove('hidden'));
@@ -264,15 +270,29 @@ function switchMode(mode) {
 
 // --- Tab Switching ---
 function switchTab(targetTab) {
-  // Update tab buttons
-  document.querySelectorAll('.tab-button').forEach(t => t.classList.remove('tab-active'));
-  const activeTab = document.querySelector(`[data-tab="${targetTab}"]`);
-  if (activeTab) activeTab.classList.add('tab-active');
+  console.log('Switching to tab:', targetTab);
   
-  // Update content
+  // Update tab buttons based on current mode
+  const navSelector = currentUserMode === 'client' ? '#client-nav' : '#barber-nav';
+  document.querySelectorAll(`${navSelector} .tab-button`).forEach(t => {
+    t.classList.remove('tab-active', 'text-sky-400');
+    t.classList.add('text-gray-400');
+  });
+  
+  const activeTab = document.querySelector(`${navSelector} [data-tab="${targetTab}"]`);
+  if (activeTab) {
+    activeTab.classList.add('tab-active', 'text-sky-400');
+    activeTab.classList.remove('text-gray-400');
+  }
+  
+  // Hide all tab content
   document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-  const targetContent = document.getElementById(targetTab + '-content');
-  if (targetContent) targetContent.classList.remove('hidden');
+  
+  // Show target content
+  const targetContent = document.getElementById(targetTab + '-tab-content');
+  if (targetContent) {
+    targetContent.classList.remove('hidden');
+  }
 }
 
 // --- Backend Connection ---
@@ -487,98 +507,197 @@ function displayResults(data) {
   });
 }
 
-// --- Barber Functions ---
-async function loadNearbyBarbers(location = 'Atlanta, GA') {
-  console.log('Loading barbers for:', location);
+// --- Barber Functions with Real Google Places ---
+async function loadNearbyBarbers(location = 'Atlanta, GA', recommendedStyles = []) {
+  console.log('Loading REAL barbershops for:', location);
+  console.log('Recommended styles:', recommendedStyles);
+  
+  // Show loading state
+  if (barberListContainer) {
+    barberListContainer.innerHTML = '<div class="text-center py-8"><div class="loader mx-auto"></div><p class="mt-4 text-gray-400">Finding real barbershops near you...</p></div>';
+  }
   
   try {
-    const response = await fetch(`${API_URL}/barbers?location=${encodeURIComponent(location)}`);
+    // Include recommended styles in the request
+    const stylesParam = recommendedStyles.length > 0 ? `&styles=${encodeURIComponent(recommendedStyles.join(','))}` : '';
+    const response = await fetch(`${API_URL}/barbers?location=${encodeURIComponent(location)}${stylesParam}`);
     const data = await response.json();
     
-    if (data.barbers) {
-      renderBarberList(data.barbers);
+    console.log('Barber API response:', data);
+    
+    if (data.barbers && data.barbers.length > 0) {
+      renderRealBarberList(data.barbers, data.real_data);
     } else {
-      throw new Error('No barbers data received');
+      throw new Error('No barbershops found');
     }
   } catch (error) {
-    console.error('Error loading barbers:', error);
-    renderBarberList(getMockBarbers());
+    console.error('Error loading barbershops:', error);
+    if (barberListContainer) {
+      barberListContainer.innerHTML = `
+        <div class="bg-red-900/20 border border-red-500/50 rounded-lg p-4 text-center">
+          <p class="text-red-400">Unable to load barbershops. Please check your location and try again.</p>
+        </div>
+      `;
+    }
   }
 }
 
-function getMockBarbers() {
-  return [
-    { 
-      id: 1, 
-      name: 'Elite Cuts Atlanta', 
-      specialties: ['Fade', 'Taper'], 
-      rating: 4.9, 
-      avgCost: 45, 
-      address: 'Midtown Atlanta',
-      photo: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400&h=300&fit=crop'
-    },
-    { 
-      id: 2, 
-      name: 'The Buckhead Barber', 
-      specialties: ['Pompadour', 'Buzz Cut'], 
-      rating: 4.8, 
-      avgCost: 55, 
-      address: 'Buckhead',
-      photo: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400&h=300&fit=crop'
-    },
-    { 
-      id: 3, 
-      name: 'Virginia-Highland Shears', 
-      specialties: ['Modern Fade', 'Beard Trim'], 
-      rating: 4.9, 
-      avgCost: 65, 
-      address: 'Virginia-Highland',
-      photo: 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop'
-    }
-  ];
-}
-
-function findMatchingBarbers() {
-  barberIntro.textContent = "Barbers specializing in your recommended styles:";
-  const location = locationSearch.value || 'Atlanta, GA';
-  loadNearbyBarbers(location);
-  switchTab('barbers');
-}
-
-function renderBarberList(barbers) {
+function renderRealBarberList(barbers, isRealData = false) {
   if (!barberListContainer) return;
   
-  barberListContainer.innerHTML = '';
+  // Add header showing if this is real or mock data
+  const dataSourceBadge = isRealData ? 
+    '<span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs">Real Barbershops</span>' :
+    '<span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs">Sample Data</span>';
+  
+  barberListContainer.innerHTML = `
+    <div class="mb-4 flex justify-between items-center">
+      <p class="text-sm text-gray-400">Found ${barbers.length} barbershops</p>
+      ${dataSourceBadge}
+    </div>
+  `;
+  
   barbers.forEach(barber => {
     const card = document.createElement('div');
-    card.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden';
+    card.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden mb-4 hover:border-sky-500/50 transition-all';
+    
+    // Format hours if available
+    let hoursHtml = '';
+    if (barber.hours && barber.hours.length > 0) {
+      const today = new Date().getDay();
+      const todayHours = barber.hours[today === 0 ? 6 : today - 1]; // Adjust for Sunday
+      hoursHtml = `<p class="text-xs text-gray-500 mt-1">${todayHours || 'Hours not available'}</p>`;
+    }
+    
+    // Format open now status
+    let openStatus = '';
+    if (barber.open_now !== null && barber.open_now !== undefined) {
+      openStatus = barber.open_now ? 
+        '<span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs">Open Now</span>' :
+        '<span class="bg-red-500/20 text-red-400 px-2 py-1 rounded text-xs">Closed</span>';
+    }
+    
+    // Show real rating count if available
+    const ratingText = barber.user_ratings_total ? 
+      `${barber.rating} ★ (${barber.user_ratings_total} reviews)` :
+      `${barber.rating} ★`;
+    
     card.innerHTML = `
       <div class="flex flex-col sm:flex-row">
-        <img src="${barber.photo || 'https://placehold.co/200x150/1a1a1a/38bdf8?text=Barber'}" 
-             alt="${barber.name}" class="w-full sm:w-48 h-48 sm:h-auto object-cover">
-        <div class="p-5 flex-1 flex flex-col justify-between">
-          <div>
-            <h4 class="text-xl font-bold text-white mb-1">${barber.name}</h4>
-            <p class="text-sm text-gray-400 mb-2">${barber.address}</p>
-            <div class="flex items-center gap-4 mb-3">
-              <span class="text-yellow-400 flex items-center gap-1">${barber.rating} ★</span>
-              <span class="text-green-400 font-semibold">~$${barber.avgCost}</span>
+        ${barber.photo ? 
+          `<img src="${barber.photo}" alt="${barber.name}" class="w-full sm:w-48 h-48 sm:h-auto object-cover" onerror="this.src='https://placehold.co/400x300/1a1a1a/38bdf8?text=Barbershop'">` :
+          `<div class="w-full sm:w-48 h-48 sm:h-auto bg-gray-800 flex items-center justify-center">
+            <svg class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </div>`
+        }
+        <div class="p-5 flex-1">
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex-1">
+              <h4 class="text-xl font-bold text-white mb-1">${barber.name}</h4>
+              <p class="text-sm text-gray-400">${barber.address}</p>
+              ${hoursHtml}
             </div>
-            <div class="flex gap-2 mb-4">
-              ${barber.specialties.map(s => 
-                `<span class="bg-sky-500/20 border border-sky-500/50 text-sky-300 text-xs px-3 py-1 rounded-full">${s}</span>`
-              ).join('')}
-            </div>
+            ${openStatus}
           </div>
-          <button onclick="openBookingModal(${barber.id}, '${barber.name}')" 
-                  class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors self-start">
-            Book Appointment
-          </button>
+          
+          <div class="flex items-center gap-4 mb-3">
+            <span class="text-yellow-400 flex items-center gap-1">${ratingText}</span>
+            <span class="text-green-400 font-semibold">~${barber.avgCost}</span>
+            ${barber.phone !== 'Call for info' ? 
+              `<a href="tel:${barber.phone}" class="text-sky-400 hover:text-sky-300 text-sm">${barber.phone}</a>` : 
+              '<span class="text-gray-500 text-sm">No phone listed</span>'
+            }
+          </div>
+          
+          <div class="flex flex-wrap gap-2 mb-4">
+            ${barber.specialties.map(s => 
+              `<span class="bg-sky-500/20 border border-sky-500/50 text-sky-300 text-xs px-3 py-1 rounded-full">${s}</span>`
+            ).join('')}
+          </div>
+          
+          <div class="flex gap-2">
+            <button onclick="openBookingModal('${barber.id}', '${barber.name.replace(/'/g, "\\'")}')" 
+                    class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+              Book Appointment
+            </button>
+            ${barber.website ? 
+              `<a href="${barber.website}" target="_blank" class="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                Website
+              </a>` : ''
+            }
+            ${barber.location ? 
+              `<a href="https://www.google.com/maps/dir/?api=1&destination=${barber.location.lat},${barber.location.lng}" 
+                 target="_blank" 
+                 class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                Directions
+              </a>` : ''
+            }
+          </div>
         </div>
       </div>
     `;
     barberListContainer.appendChild(card);
   });
+  
+  // Add search tips
+  const tipsDiv = document.createElement('div');
+  tipsDiv.className = 'mt-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700';
+  tipsDiv.innerHTML = `
+    <p class="text-sm text-gray-400 mb-2">💡 Search Tips:</p>
+    <ul class="text-xs text-gray-500 space-y-1">
+      <li>• Enter your ZIP code for more precise results (e.g., "30308")</li>
+      <li>• Use neighborhood names (e.g., "Buckhead, Atlanta")</li>
+      <li>• Include city and state (e.g., "Atlanta, GA")</li>
+    </ul>
+  `;
+  barberListContainer.appendChild(tipsDiv);
+}
+
+function findMatchingBarbers() {
+  const location = locationSearch.value || 'Atlanta, GA';
+  
+  // Update the intro text
+  if (barberIntro) {
+    barberIntro.innerHTML = `
+      <span class="text-gray-300">Finding real barbershops in</span> 
+      <span class="text-sky-400 font-semibold">${location}</span>
+      <span class="text-gray-300">that specialize in your recommended styles...</span>
+    `;
+  }
+  
+  // Pass recommended styles to the barber search
+  loadNearbyBarbers(location, lastRecommendedStyles);
+  switchTab('barbers');
+}
+
+// Add location search with debouncing
+let searchTimeout;
+function setupLocationSearch() {
+  if (locationSearch) {
+    locationSearch.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      const value = e.target.value.trim();
+      
+      if (value.length > 2) {
+        searchTimeout = setTimeout(() => {
+          loadNearbyBarbers(value, lastRecommendedStyles);
+        }, 500); // Wait 500ms after user stops typing
+      }
+    });
+    
+    // Handle enter key
+    locationSearch.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        clearTimeout(searchTimeout);
+        const value = e.target.value.trim();
+        if (value) {
+          loadNearbyBarbers(value, lastRecommendedStyles);
+        }
+      }
+    });
+  }
 }
 
 // --- Social Media Functions ---

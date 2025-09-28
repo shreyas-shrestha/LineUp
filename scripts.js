@@ -73,6 +73,109 @@ let barberPortfolio = [];
 let appointments = [];
 let currentBarberForBooking = null;
 
+// Rate limiting and caching
+const apiCache = new Map();
+const CACHE_DURATION = 3600000; // 1 hour in milliseconds
+const rateLimitTracker = {
+  lastAnalysisTime: 0,
+  lastSocialPostTime: 0,
+  lastBarberSearchTime: 0,
+  analysisCount: 0,
+  socialPostCount: 0,
+  resetTime: Date.now()
+};
+
+// Reset rate limit counters hourly
+function resetRateLimitCounters() {
+  const now = Date.now();
+  if (now - rateLimitTracker.resetTime > 3600000) { // 1 hour
+    rateLimitTracker.analysisCount = 0;
+    rateLimitTracker.socialPostCount = 0;
+    rateLimitTracker.resetTime = now;
+    console.log('Rate limit counters reset');
+  }
+}
+
+// Check if action is rate limited
+function isRateLimited(action) {
+  resetRateLimitCounters();
+  const now = Date.now();
+  
+  switch (action) {
+    case 'analysis':
+      // Max 10 per hour, min 6 minutes between requests
+      if (rateLimitTracker.analysisCount >= 10) {
+        showNotification('Analysis limit reached. Try again in an hour.', 'error');
+        return true;
+      }
+      if (now - rateLimitTracker.lastAnalysisTime < 360000) { // 6 minutes
+        const waitTime = Math.ceil((360000 - (now - rateLimitTracker.lastAnalysisTime)) / 60000);
+        showNotification(`Please wait ${waitTime} minutes before next analysis.`, 'error');
+        return true;
+      }
+      break;
+      
+    case 'socialPost':
+      // Max 20 per hour, min 3 minutes between posts
+      if (rateLimitTracker.socialPostCount >= 20) {
+        showNotification('Post limit reached. Try again in an hour.', 'error');
+        return true;
+      }
+      if (now - rateLimitTracker.lastSocialPostTime < 180000) { // 3 minutes
+        const waitTime = Math.ceil((180000 - (now - rateLimitTracker.lastSocialPostTime)) / 60000);
+        showNotification(`Please wait ${waitTime} minutes before posting again.`, 'error');
+        return true;
+      }
+      break;
+      
+    case 'barberSearch':
+      // Min 30 seconds between searches
+      if (now - rateLimitTracker.lastBarberSearchTime < 30000) {
+        showNotification('Please wait before searching again.', 'error');
+        return true;
+      }
+      break;
+  }
+  
+  return false;
+}
+
+// Update rate limit tracking
+function updateRateLimit(action) {
+  const now = Date.now();
+  
+  switch (action) {
+    case 'analysis':
+      rateLimitTracker.lastAnalysisTime = now;
+      rateLimitTracker.analysisCount++;
+      break;
+    case 'socialPost':
+      rateLimitTracker.lastSocialPostTime = now;
+      rateLimitTracker.socialPostCount++;
+      break;
+    case 'barberSearch':
+      rateLimitTracker.lastBarberSearchTime = now;
+      break;
+  }
+}
+
+// Cache management
+function getCachedData(key) {
+  const cached = apiCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    console.log('Using cached data for:', key);
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedData(key, data) {
+  apiCache.set(key, {
+    data: data,
+    timestamp: Date.now()
+  });
+}
+
 // --- Mock Data ---
 const mockSocialPosts = [
   {
@@ -361,6 +464,11 @@ async function analyzeImage() {
     return; 
   }
 
+  // Check rate limiting
+  if (isRateLimited('analysis')) {
+    return;
+  }
+
   console.log('Starting analysis...');
   uploadSection.classList.add('hidden');
   statusSection.classList.remove('hidden');
@@ -389,6 +497,10 @@ async function analyzeImage() {
       body: JSON.stringify({ payload })
     });
 
+    if (response.status === 429) {
+      throw new Error('Rate limit exceeded. Please try again later.');
+    }
+
     if (!response.ok) {
       throw new Error(`Server error: ${response.status}`);
     }
@@ -398,14 +510,22 @@ async function analyzeImage() {
       throw new Error(result.error);
     }
 
+    // Update rate limiting
+    updateRateLimit('analysis');
+    
     displayResults(result);
 
   } catch (err) {
     console.error('Analysis error:', err);
-    showError("Using demo results while our servers wake up...");
-    setTimeout(() => {
-      displayResults(getMockData());
-    }, 2000);
+    
+    if (err.message.includes('Rate limit')) {
+      showError(err.message);
+    } else {
+      showError("Using demo results while our servers wake up...");
+      setTimeout(() => {
+        displayResults(getMockData());
+      }, 2000);
+    }
   } finally {
     loader.classList.add('hidden');
     statusMessage.textContent = '';
@@ -638,24 +758,50 @@ function findMatchingBarbers() {
   switchTab('barbers');
 }
 
-// Show notification to user
+// Show notification to user with better styling
 function showNotification(message, type = 'info') {
+  // Remove any existing notifications
+  const existingNotifications = document.querySelectorAll('.notification');
+  existingNotifications.forEach(notification => notification.remove());
+  
   // Create notification element
   const notification = document.createElement('div');
-  notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg text-white transition-all duration-300 ${
-    type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+  notification.className = `notification fixed top-4 right-4 z-50 px-6 py-3 rounded-lg text-white transition-all duration-300 shadow-lg max-w-sm ${
+    type === 'error' ? 'bg-red-500' : 
+    type === 'success' ? 'bg-green-500' : 
+    type === 'warning' ? 'bg-yellow-500' : 
+    'bg-blue-500'
   }`;
-  notification.textContent = message;
+  
+  // Add icon based on type
+  const icon = type === 'error' ? '⚠️' : 
+               type === 'success' ? '✅' : 
+               type === 'warning' ? '⚠️' : 
+               'ℹ️';
+  
+  notification.innerHTML = `
+    <div class="flex items-center gap-2">
+      <span class="text-lg">${icon}</span>
+      <span class="text-sm">${message}</span>
+      <button onclick="this.parentElement.parentElement.remove()" class="ml-2 text-white hover:text-gray-200">×</button>
+    </div>
+  `;
   
   document.body.appendChild(notification);
   
-  // Auto-remove after 3 seconds
+  // Auto-remove after 5 seconds for info, 8 seconds for errors
+  const autoRemoveTime = type === 'error' ? 8000 : 5000;
   setTimeout(() => {
-    notification.style.opacity = '0';
-    setTimeout(() => {
-      document.body.removeChild(notification);
-    }, 300);
-  }, 3000);
+    if (notification.parentNode) {
+      notification.style.opacity = '0';
+      notification.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.remove();
+        }
+      }, 300);
+    }
+  }, autoRemoveTime);
 }
 
 function renderBarberList(barbers) {

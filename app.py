@@ -133,6 +133,7 @@ def health():
         "timestamp": datetime.now().isoformat(),
         "cors_enabled": True,
         "gemini_configured": model is not None,
+        "places_api_configured": bool(os.environ.get("GOOGLE_PLACES_API_KEY")),
         "frontend_url": "https://lineupai.onrender.com",
         "data_counts": {
             "social_posts": len(social_posts),
@@ -140,6 +141,24 @@ def health():
             "barber_portfolios": len(barber_portfolios)
         }
     })
+
+# Configuration endpoint
+@app.route('/config', methods=['GET', 'OPTIONS'])
+def get_config():
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response, 200
+    
+    response = make_response(jsonify({
+        "placesApiKey": os.environ.get("GOOGLE_PLACES_API_KEY", ""),
+        "hasPlacesApi": bool(os.environ.get("GOOGLE_PLACES_API_KEY")),
+        "backendVersion": "2.0"
+    }), 200)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 # Mock data fallback for AI analysis
 def get_mock_data():

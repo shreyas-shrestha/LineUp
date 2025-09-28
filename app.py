@@ -348,6 +348,16 @@ else:
     model = None
     logger.warning("GEMINI_API_KEY not found - will use mock data")
 
+# Configure Gemini API
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-2.5-pro')
+    logger.info("Gemini API configured successfully")
+else:
+    model = None
+    logger.warning("GEMINI_API_KEY not found - will use mock data")
+
 # In-memory storage (in production, use a proper database)
 social_posts = []
 barber_portfolios = {}

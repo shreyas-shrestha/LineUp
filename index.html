@@ -44,18 +44,6 @@
       </div>
     </header>
 
-    <!-- Onboarding Banner -->
-    <div id="onboarding-banner" class="mx-4 md:mx-8 mb-4 bg-gradient-to-r from-sky-500/15 to-purple-500/15 border border-sky-500/30 text-gray-200 rounded-2xl p-4 hidden">
-      <div class="flex items-start gap-3">
-        <div class="text-2xl">✨</div>
-        <div class="flex-1">
-          <p class="font-semibold">Welcome to LineUp</p>
-          <p class="text-sm text-gray-300">1) Upload a photo → 2) Get AI recommendations → 3) Try-On and Book</p>
-        </div>
-        <button id="dismiss-onboarding" class="text-gray-400 hover:text-white">Dismiss</button>
-      </div>
-    </div>
-
     <main id="main-content">
       <!-- CLIENT SIDE -->
       <div id="client-content">
@@ -127,41 +115,14 @@
 
         <!-- Barbers Tab -->
         <div id="barbers-tab-content" class="tab-content hidden px-4">
-          <div class="flex justify-between items-center mb-4">
+          <div class="flex justify-between items-center mb-6">
             <h2 class="text-3xl font-bold">Find Real Barbershops</h2>
             <button id="refresh-barbers" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors">Refresh</button>
           </div>
-
-          <!-- Explore Filters -->
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <select id="filter-price" class="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm">
-              <option value="any">Any Price</option>
-              <option value="$">$</option>
-              <option value="$$">$$</option>
-              <option value="$$$">$$$</option>
-            </select>
-            <select id="filter-rating" class="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm">
-              <option value="0">All Ratings</option>
-              <option value="4">4.0+ ★</option>
-              <option value="4.5">4.5+ ★</option>
-            </select>
-            <label class="flex items-center gap-2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm">
-              <input type="checkbox" id="filter-open" class="w-4 h-4"> <span>Open now</span>
-            </label>
-            <div class="flex items-center gap-2 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm">
-              <button id="view-list" class="flex-1 bg-gray-700/50 rounded-md py-1">List</button>
-              <button id="view-map" class="flex-1 rounded-md py-1">Map</button>
-            </div>
-          </div>
-
-          <div id="barber-search" class="mb-4">
+          <div id="barber-search" class="mb-6">
             <input type="text" id="location-search" placeholder="Enter ZIP code or city (e.g., 30308 or Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
           </div>
-          <p id="barber-intro" class="text-center text-gray-400 mb-4">Enter your location to find real barbershops near you.</p>
-
-          <!-- Map container -->
-          <div id="barber-map" class="hidden mb-4" style="height: 360px; border-radius: 0.75rem; overflow: hidden; border: 1px solid #374151;"></div>
-
+          <p id="barber-intro" class="text-center text-gray-400 mb-8">Enter your location to find real barbershops near you.</p>
           <div id="barber-list-container" class="space-y-4"></div>
         </div>
 
@@ -330,9 +291,9 @@
   <!-- Modals (unchanged) -->
   
   <!-- Add Post Modal -->
-  <div id="add-post-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="add-post-title" tabindex="-1">
+  <div id="add-post-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
     <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
-      <h3 id="add-post-title" class="text-2xl font-bold mb-4">Share Your Look</h3>
+      <h3 class="text-2xl font-bold mb-4">Share Your Look</h3>
       <input type="file" id="post-image-input" accept="image/*" class="hidden">
       <div id="post-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
         <p class="text-gray-400">Click to add photo</p>
@@ -347,9 +308,9 @@
   </div>
 
   <!-- Upload Work Modal -->
-  <div id="upload-work-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="upload-work-title" tabindex="-1">
+  <div id="upload-work-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
     <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
-      <h3 id="upload-work-title" class="text-2xl font-bold mb-4">Upload Client Work</h3>
+      <h3 class="text-2xl font-bold mb-4">Upload Client Work</h3>
       <input type="file" id="work-image-input" accept="image/*" class="hidden">
       <div id="work-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
         <p class="text-gray-400">Click to add photo</p>
@@ -365,9 +326,9 @@
   </div>
 
   <!-- Book Appointment Modal -->
-  <div id="book-appointment-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="book-appointment-title" tabindex="-1">
+  <div id="book-appointment-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
     <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
-      <h3 id="book-appointment-title" class="text-2xl font-bold mb-4">Book Appointment</h3>
+      <h3 class="text-2xl font-bold mb-4">Book Appointment</h3>
       <div id="booking-barber-info" class="mb-4"></div>
       <div class="grid grid-cols-2 gap-4 mb-4">
         <input type="date" id="appointment-date" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:border-sky-400 focus:outline-none">
@@ -396,10 +357,10 @@
   </div>
 
   <!-- Virtual Try-On Modal -->
-  <div id="virtual-tryon-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="virtual-tryon-title" tabindex="-1">
+  <div id="virtual-tryon-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
     <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
       <div class="flex justify-between items-center mb-4">
-        <h3 id="virtual-tryon-title" class="text-2xl font-bold">Virtual Try-On</h3>
+        <h3 class="text-2xl font-bold">Virtual Try-On</h3>
         <button id="close-tryon-modal" class="text-gray-400 hover:text-white">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -423,7 +384,7 @@
       </div>
       
       <!-- Controls -->
-      <div class="flex justify-center gap-4 mb-4">
+      <div class="flex justify-center gap-4 mb-6">
         <button id="start-tryon" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
           Start Try-On
         </button>
@@ -434,37 +395,14 @@
           📸 Take Screenshot & Share
         </button>
       </div>
-
-      <!-- Advanced alignment controls -->
-      <div id="tryon-controls-advanced" class="flex flex-wrap items-center justify-center gap-2 mb-4">
-        <button id="ov-center" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded">Center</button>
-        <button id="ov-up" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded">↑</button>
-        <button id="ov-down" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded">↓</button>
-        <button id="ov-left" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded">←</button>
-        <button id="ov-right" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded">→</button>
-        <button id="ov-scale-plus" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded">Scale +</button>
-        <button id="ov-scale-minus" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded">Scale -</button>
-        <button id="ov-rot-left" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded">Rotate ⟲</button>
-        <button id="ov-rot-right" class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded">Rotate ⟳</button>
-      </div>
       
       <!-- Style info -->
       <div id="current-tryon-style" class="text-center text-gray-400 mb-4"></div>
-
-      <!-- Saved looks carousel -->
-      <div id="saved-looks" class="mb-4 hidden">
-        <h4 class="text-lg font-semibold mb-2">Saved Looks</h4>
-        <div id="saved-looks-strip" class="flex gap-2 overflow-x-auto"></div>
-      </div>
     </div>
   </div>
 
   <!-- Firebase Integration -->
   <script type="module" src="firebase-simple.js"></script>
-
-  <!-- Leaflet Map (for Explore map view) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-o9N1j7kGZxG08Tm2ymlk9EYBLETQBqQ0M8nGZ7n6Jr0=" crossorigin="" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-bYo0nZQ2a4QkQ5b0uN6WYgCqZQdVndSJY1fYB8bE7uw=" crossorigin=""></script>
   
   <!-- Try-On Engine -->
   <script src="virtual-tryon.js"></script>

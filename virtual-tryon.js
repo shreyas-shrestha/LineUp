@@ -76,7 +76,7 @@
       this.mode = 'photo';
 
       return new Promise((resolve, reject) => {
-        const onLoad = async () => {
+        const onLoad = () => {
           // Ensure overlay element exists
           this._ensureOverlayElement();
           // Default overlay position centered relative to container
@@ -85,30 +85,6 @@
           this.overlay.y = height * 0.35;
           this.overlay.scale = Math.min(width / this.overlay.naturalWidth, height / this.overlay.naturalHeight) * 0.8;
           this.overlay.rotation = 0;
-
-          // Progressive enhancement: auto-fit using FaceDetector if available
-          try {
-            if ('FaceDetector' in window) {
-              const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
-              const faces = await detector.detect(this.photoEl);
-              if (faces && faces.length > 0) {
-                const box = faces[0].boundingBox; // {x,y,width,height} in CSS pixels
-                // Position overlay centered above face box
-                const rect = this.canvasContainerEl.getBoundingClientRect();
-                const imgRect = this.photoEl.getBoundingClientRect();
-                const centerX = (box.x + box.width / 2) - (imgRect.left - rect.left);
-                const topY = box.y - (imgRect.top - rect.top);
-                this.overlay.x = centerX;
-                this.overlay.y = topY + box.height * 0.15; // a little above center
-                // Scale overlay width roughly to face width * factor
-                const targetW = box.width * 1.6; // hair wider than face
-                this.overlay.scale = targetW / this.overlay.naturalWidth;
-              }
-            }
-          } catch (e) {
-            // Ignore detection errors; keep defaults
-          }
-
           this._updateOverlayTransform();
           this._attachInteractions();
           resolve(true);

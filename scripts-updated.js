@@ -892,7 +892,7 @@ function renderBottomNav() {
   if (!bottomNav) return;
 
   const baseBtn = 'tab-button flex flex-col items-center justify-center h-16 flex-1 text-xs transition-all duration-200';
-  const centerBtn = 'center-pill flex flex-col items-center justify-center h-16 w-16 text-xs transition-all duration-200 rounded-full bg-gray-800 border border-gray-700 -translate-y-2';
+  const centerBtn = 'tab-button center-pill flex flex-col items-center justify-center h-16 w-16 text-xs transition-all duration-200 rounded-full bg-gray-800 border border-gray-700 -translate-y-2';
 
   const clientTabs = [
     { key: 'ai', label: 'Home', icon: '🏠' },

@@ -1,8 +1,11 @@
 // scripts-updated.js - Frontend JavaScript for LineUp Two-Sided Platform
 
 // --- Configuration ---
-const API_URL = 'https://lineup-fjpn.onrender.com';
+const API_URL = 'https://lineup-fjpn.onrender.com'; // Keep for Gemini AI analysis
 let GOOGLE_PLACES_API_KEY = null;
+
+// Firebase Service (will be loaded from firebase-simple.js)
+let firebaseService = null;
 
 // --- DOM Elements ---
 const fileInput = document.getElementById('file-input');
@@ -26,16 +29,16 @@ const barberListContainer = document.getElementById('barber-list-container');
 const barberIntro = document.getElementById('barber-intro');
 const locationSearch = document.getElementById('location-search');
 const refreshBarbersBtn = document.getElementById('refresh-barbers');
+const bottomNav = document.getElementById('bottom-nav');
 
 // Role switching
 const clientModeBtn = document.getElementById('client-mode');
 const barberModeBtn = document.getElementById('barber-mode');
 const clientContent = document.getElementById('client-content');
 const barberContent = document.getElementById('barber-content');
-const clientNav = document.getElementById('client-nav');
-const barberNav = document.getElementById('barber-nav');
+// Bottom nav is rendered dynamically into #bottom-nav
 
-// Social elements
+// Social / Community elements
 const socialFeedContainer = document.getElementById('social-feed-container');
 const addPostButton = document.getElementById('add-post-button');
 const addPostModal = document.getElementById('add-post-modal');
@@ -153,23 +156,43 @@ const mockAppointments = [
 
 // --- Initialize ---
 window.addEventListener('DOMContentLoaded', async () => {
-  console.log('LineUp Two-Sided Platform initialized');
+  console.log('LineUp Two-Sided Platform with Firebase initialized');
   
-  // Initialize data
-  socialPosts = [...mockSocialPosts];
-  barberPortfolio = [...mockBarberPortfolio];
-  appointments = [...mockAppointments];
-  
-  // Render initial content
-  renderSocialFeed();
-  renderBarberPortfolio();
-  renderClientAppointments();
-  renderBarberAppointments();
-  loadNearbyBarbers('Atlanta, GA');
-  
-  testBackendConnection();
-  setupEventListeners();
-  updateDashboardStats();
+  // Wait for Firebase to be available
+  setTimeout(async () => {
+    firebaseService = window.firebaseService;
+    
+    if (firebaseService) {
+      console.log('🔥 Firebase service connected');
+      
+      // Load real data from Firebase
+      await loadSocialFeed();
+      await loadBarberPortfolio();
+      await loadAppointments();
+      
+      // Set up real-time listeners
+      setupRealtimeListeners();
+    } else {
+      console.log('⚠️ Firebase not available, using mock data');
+      // Fallback to mock data
+      socialPosts = [...mockSocialPosts];
+      barberPortfolio = [...mockBarberPortfolio];
+      appointments = [...mockAppointments];
+      
+      renderSocialFeed();
+      renderBarberPortfolio();
+      renderClientAppointments();
+      renderBarberAppointments();
+    }
+    
+    loadNearbyBarbers('Atlanta, GA');
+    testBackendConnection();
+    setupEventListeners();
+    renderBottomNav();
+    updateDashboardStats();
+    // Default to client Home
+    switchMode('client');
+  }, 1000); // Give Firebase time to load
 });
 
 // --- Setup Event Listeners ---
@@ -178,13 +201,7 @@ function setupEventListeners() {
   clientModeBtn.addEventListener('click', () => switchMode('client'));
   barberModeBtn.addEventListener('click', () => switchMode('barber'));
   
-  // Tabs
-  document.querySelectorAll('.tab-button').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const targetTab = tab.dataset.tab;
-      switchTab(targetTab);
-    });
-  });
+  // Tabs are attached after rendering bottom nav dynamically
 
   // Image upload
   imageUploadArea.addEventListener('click', () => fileInput.click());
@@ -247,9 +264,8 @@ function switchMode(mode) {
     
     clientContent.classList.remove('hidden');
     barberContent.classList.add('hidden');
-    clientNav.classList.remove('hidden');
-    barberNav.classList.add('hidden');
-    
+
+    renderBottomNav();
     // Reset to first tab
     switchTab('ai');
   } else {
@@ -260,9 +276,8 @@ function switchMode(mode) {
     
     barberContent.classList.remove('hidden');
     clientContent.classList.add('hidden');
-    barberNav.classList.remove('hidden');
-    clientNav.classList.add('hidden');
-    
+
+    renderBottomNav();
     // Reset to first tab
     switchTab('barber-dashboard');
   }
@@ -272,16 +287,24 @@ function switchMode(mode) {
 function switchTab(targetTab) {
   console.log('Switching to tab:', targetTab);
   
-  // Update tab buttons based on current mode
-  const navSelector = currentUserMode === 'client' ? '#client-nav' : '#barber-nav';
-  document.querySelectorAll(`${navSelector} .tab-button`).forEach(t => {
-    t.classList.remove('tab-active', 'text-sky-400');
+  // Update tab button active state
+  document.querySelectorAll(`#bottom-nav .tab-button`).forEach(t => {
+    t.classList.remove('tab-active');
+    t.classList.remove('text-sky-400');
     t.classList.add('text-gray-400');
+    // remove center highlight active styles
+    t.classList.remove('bg-gradient-to-r','from-sky-500','to-purple-500','text-white','shadow-lg','-translate-y-2');
   });
   
-  const activeTab = document.querySelector(`${navSelector} [data-tab="${targetTab}"]`);
+  const activeTab = document.querySelector(`#bottom-nav [data-tab="${targetTab}"]`);
   if (activeTab) {
-    activeTab.classList.add('tab-active', 'text-sky-400');
+    activeTab.classList.add('tab-active');
+    // If center pill, keep its special styles; else sky text
+    if (!activeTab.classList.contains('center-pill')) {
+      activeTab.classList.add('text-sky-400');
+    } else {
+      activeTab.classList.add('bg-gradient-to-r','from-sky-500','to-purple-500','text-white','shadow-lg','-translate-y-2');
+    }
     activeTab.classList.remove('text-gray-400');
   }
   
@@ -292,6 +315,11 @@ function switchTab(targetTab) {
   const targetContent = document.getElementById(targetTab + '-tab-content');
   if (targetContent) {
     targetContent.classList.remove('hidden');
+  }
+
+  // If we navigated to profile in client mode, render it
+  if (targetTab === 'profile') {
+    renderClientProfile();
   }
 }
 
@@ -512,14 +540,24 @@ function displayResults(data) {
         <p class="text-xs text-gray-400 mb-4">
           <strong class="text-sky-400">Why it works:</strong> ${rec.reason || 'Great match for your features'}
         </p>
-        <button onclick="findBarbersForStyle('${rec.styleName}')" 
-                class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
-          Find Barbers for This Style
-        </button>
+        <div class="grid grid-cols-1 gap-2">
+          <button onclick="tryOnStyle('${rec.styleName}')" 
+                  class="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            </svg>
+            Try It On (AR)
+          </button>
+          <button onclick="findBarbersForStyle('${rec.styleName}')" 
+                  class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            Find Barbers for This Style
+          </button>
+        </div>
       </div>
     `;
     recommendationsContainer.appendChild(card);
@@ -782,43 +820,130 @@ function closeAddPostModal() {
   postCaption.value = '';
 }
 
-function submitSocialPost() {
+async function submitSocialPost() {
   const caption = postCaption.value.trim();
   if (!postImagePreview.src || !caption) {
     alert('Please add both an image and caption');
     return;
   }
   
-  const newPost = {
-    id: Date.now(),
+  const postData = {
     username: 'you',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
     image: postImagePreview.src,
-    caption: caption,
-    likes: 0,
-    timeAgo: 'now',
-    liked: false
+    caption: caption
   };
   
-  socialPosts.unshift(newPost);
-  renderSocialFeed();
+  if (firebaseService) {
+    // Save to Firebase
+    const result = await firebaseService.createSocialPost(postData);
+    if (result.success) {
+      console.log('✨ Post saved to Firebase');
+      // Real-time listener will update the UI
+    } else {
+      alert('Failed to save post. Please try again.');
+      return;
+    }
+  } else {
+    // Fallback to local storage
+    const newPost = {
+      id: Date.now(),
+      ...postData,
+      likes: 0,
+      timeAgo: 'now',
+      liked: false
+    };
+    socialPosts.unshift(newPost);
+    renderSocialFeed();
+  }
+  
   closeAddPostModal();
 }
 
-function toggleLike(postId) {
-  const post = socialPosts.find(p => p.id === postId);
-  if (post) {
-    post.liked = !post.liked;
-    post.likes += post.liked ? 1 : -1;
-    
-    // Add heart animation
+async function toggleLike(postId) {
+  if (firebaseService) {
+    // Update in Firebase
+    const result = await firebaseService.toggleLike(postId);
+    if (result.success) {
+      console.log('❤️ Like updated in Firebase');
+      // Real-time listener will update the UI
+    }
+  } else {
+    // Fallback to local update
+    const post = socialPosts.find(p => p.id === postId);
+    if (post) {
+      post.liked = !post.liked;
+      post.likes += post.liked ? 1 : -1;
+      renderSocialFeed();
+    }
+  }
+  
+  // Add heart animation
+  if (event && event.target) {
     event.target.closest('button').classList.add('heart-animation');
     setTimeout(() => {
       event.target.closest('button').classList.remove('heart-animation');
     }, 600);
-    
-    renderSocialFeed();
   }
+}
+
+// --- Bottom Nav Rendering ---
+function renderBottomNav() {
+  if (!bottomNav) return;
+
+  const baseBtn = 'tab-button flex flex-col items-center justify-center h-16 flex-1 text-xs transition-all duration-200';
+  const centerBtn = 'center-pill flex flex-col items-center justify-center h-16 w-16 text-xs transition-all duration-200 rounded-full bg-gray-800 border border-gray-700 -translate-y-2';
+
+  const clientTabs = [
+    { key: 'ai', label: 'Home', icon: '🏠' },
+    { key: 'barbers', label: 'Explore', icon: '🔍' },
+    { key: 'appointments', label: 'Bookings', icon: '📅', center: true },
+    { key: 'community', label: 'Community', icon: '👥' },
+    { key: 'profile', label: 'Profile', icon: '👤' }
+  ];
+
+  const barberTabs = [
+    { key: 'barber-dashboard', label: 'Home', icon: '🏠' },
+    { key: 'barber-schedule', label: 'Bookings', icon: '📅' },
+    { key: 'barber-portfolio', label: 'Portfolio', icon: '✂️', center: true },
+    { key: 'community', label: 'Community', icon: '👥' },
+    { key: 'barber-profile', label: 'Shop', icon: '🏢' }
+  ];
+
+  const tabs = currentUserMode === 'client' ? clientTabs : barberTabs;
+
+  // Layout: space for center pill
+  bottomNav.innerHTML = `
+    <div class="flex items-center justify-between px-3">
+      ${tabs.map((t, idx) => {
+        if (t.center) {
+          return `
+            <div class="flex-1 flex items-center justify-center">
+              <button class="${centerBtn} ${currentUserMode==='client' ? '' : ''} text-gray-200" data-tab="${t.key}">
+                <span class="text-lg leading-none">${t.icon}</span>
+                <span class="text-[10px] mt-1">${t.label}</span>
+              </button>
+            </div>
+          `;
+        }
+        return `
+          <button class="${baseBtn} text-gray-400" data-tab="${t.key}">
+            <span class="text-lg leading-none">${t.icon}</span>
+            <span class="text-[10px] mt-1">${t.label}</span>
+          </button>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  // Attach events
+  bottomNav.querySelectorAll('.tab-button').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // Set initial active state
+  const defaultTab = currentUserMode === 'client' ? 'ai' : 'barber-dashboard';
+  switchTab(defaultTab);
 }
 
 // --- Barber Portfolio Functions ---
@@ -872,7 +997,7 @@ function closeUploadWorkModal() {
   workDescription.value = '';
 }
 
-function submitPortfolioWork() {
+async function submitPortfolioWork() {
   const styleName = workStyleName.value.trim();
   const description = workDescription.value.trim();
   
@@ -881,19 +1006,66 @@ function submitPortfolioWork() {
     return;
   }
   
-  const newWork = {
-    id: Date.now(),
+  const portfolioData = {
+    barberId: 'current-barber',
     styleName: styleName,
     image: workImagePreview.src,
-    description: description,
-    likes: 0,
-    date: new Date().toISOString().split('T')[0]
+    description: description
   };
   
-  barberPortfolio.unshift(newWork);
-  renderBarberPortfolio();
+  if (firebaseService) {
+    // Save to Firebase
+    const result = await firebaseService.addPortfolioItem(portfolioData);
+    if (result.success) {
+      console.log('🎨 Portfolio work saved to Firebase');
+      await loadBarberPortfolio(); // Reload portfolio
+    } else {
+      alert('Failed to save portfolio work. Please try again.');
+      return;
+    }
+  } else {
+    // Fallback to local storage
+    const newWork = {
+      id: Date.now(),
+      ...portfolioData,
+      likes: 0,
+      date: new Date().toISOString().split('T')[0]
+    };
+    barberPortfolio.unshift(newWork);
+    renderBarberPortfolio();
+  }
+  
   updateDashboardStats();
   closeUploadWorkModal();
+}
+
+// --- Client Profile Rendering ---
+function renderClientProfile() {
+  const historyEl = document.getElementById('client-profile-history');
+  if (historyEl) {
+    const history = appointments.filter(apt => apt.clientName === 'Current User');
+    if (history.length === 0) {
+      historyEl.innerHTML = '<p class="text-gray-500">No past bookings yet.</p>';
+    } else {
+      historyEl.innerHTML = history.map(apt => `
+        <div class="bg-gray-800/60 border border-gray-700 rounded-xl p-3 flex items-center justify-between">
+          <div>
+            <p class="font-semibold text-white">${apt.barberName}</p>
+            <p class="text-sm text-gray-400">${apt.service}</p>
+          </div>
+          <div class="text-right text-sm text-gray-300">
+            <p>${new Date(apt.date).toLocaleDateString()} • ${apt.time}</p>
+            <p class="text-gray-400">${apt.price}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  const refreshBtn = document.getElementById('refresh-history');
+  if (refreshBtn) {
+    refreshBtn.onclick = () => renderClientProfile();
+  }
 }
 
 // --- Appointment Functions ---
@@ -920,7 +1092,7 @@ function closeBookingModal() {
   document.getElementById('appointment-notes').value = '';
 }
 
-function confirmBooking() {
+async function confirmBooking() {
   const date = document.getElementById('appointment-date').value;
   const time = document.getElementById('appointment-time').value;
   const service = document.getElementById('appointment-service').value;
@@ -943,24 +1115,42 @@ function confirmBooking() {
     'beard-only': '$25'
   };
   
-  const newAppointment = {
-    id: Date.now(),
+  const appointmentData = {
     clientName: 'Current User',
+    clientId: 'current-user',
     barberName: currentBarberForBooking.name,
+    barberId: currentBarberForBooking.id,
     date: date,
     time: time,
     service: serviceMap[service],
     price: priceMap[service],
-    status: 'pending',
     notes: notes || 'No special requests'
   };
   
-  appointments.push(newAppointment);
-  renderClientAppointments();
-  renderBarberAppointments();
+  if (firebaseService) {
+    // Save to Firebase
+    const result = await firebaseService.createAppointment(appointmentData);
+    if (result.success) {
+      console.log('📅 Appointment saved to Firebase');
+      await loadAppointments(); // Reload appointments
+    } else {
+      alert('Failed to book appointment. Please try again.');
+      return;
+    }
+  } else {
+    // Fallback to local storage
+    const newAppointment = {
+      id: Date.now(),
+      ...appointmentData,
+      status: 'pending'
+    };
+    appointments.push(newAppointment);
+    renderClientAppointments();
+    renderBarberAppointments();
+  }
+  
   updateDashboardStats();
   closeBookingModal();
-  
   alert('Appointment booked successfully!');
 }
 
@@ -1103,8 +1293,217 @@ function findBarbersForStyle(styleName) {
   switchTab('barbers');
 }
 
+// --- Virtual Try-On Integration ---
+let virtualTryOnInstance = null;
+
+// Function to open virtual try-on for specific style
+async function tryOnStyle(styleName) {
+  console.log(`Opening virtual try-on for: ${styleName}`);
+  
+  // Show modal (you'll need to add this modal to your HTML)
+  const modal = document.getElementById('virtual-tryon-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    document.getElementById('current-tryon-style').innerHTML = `
+      <span class="text-sky-400 font-semibold">Trying on: ${styleName}</span>
+    `;
+  }
+  
+  // Initialize virtual try-on if needed
+  if (!virtualTryOnInstance) {
+    virtualTryOnInstance = new LineUpVirtualTryOn();
+  }
+  
+  // Load the specific style
+  await virtualTryOnInstance.initialize();
+  await virtualTryOnInstance.selectHairstyle(styleName);
+}
+
+// Virtual Try-On Integration Class
+class LineUpVirtualTryOn {
+  constructor() {
+    this.virtualTryOn = null;
+    this.isInitialized = false;
+    this.currentStyle = null;
+  }
+
+  async initialize() {
+    if (this.isInitialized) return;
+
+    try {
+      const loading = document.getElementById('tryon-loading');
+      if (loading) loading.classList.remove('hidden');
+      
+      this.virtualTryOn = new VirtualTryOn();
+      await this.virtualTryOn.initialize();
+      
+      this.isInitialized = true;
+      this.setupEventListeners();
+      
+      console.log('✅ Virtual Try-On ready!');
+    } catch (error) {
+      console.error('❌ Virtual Try-On failed:', error);
+      alert('Camera access required for Virtual Try-On');
+    } finally {
+      const loading = document.getElementById('tryon-loading');
+      if (loading) loading.classList.add('hidden');
+    }
+  }
+
+  setupEventListeners() {
+    const startBtn = document.getElementById('start-tryon');
+    const stopBtn = document.getElementById('stop-tryon');
+    const screenshotBtn = document.getElementById('take-screenshot');
+    const closeBtn = document.getElementById('close-tryon-modal');
+
+    if (startBtn) startBtn.addEventListener('click', () => this.startTryOn());
+    if (stopBtn) stopBtn.addEventListener('click', () => this.stopTryOn());
+    if (screenshotBtn) screenshotBtn.addEventListener('click', () => this.takeScreenshot());
+    if (closeBtn) closeBtn.addEventListener('click', () => this.closeTryOnModal());
+  }
+
+  async startTryOn() {
+    const videoElement = document.getElementById('virtual-tryon-video');
+    const canvasElement = document.getElementById('virtual-tryon-canvas');
+    
+    const success = await this.virtualTryOn.startTryOn(videoElement, canvasElement);
+    
+    if (success) {
+      document.getElementById('start-tryon').classList.add('hidden');
+      document.getElementById('stop-tryon').classList.remove('hidden');
+      document.getElementById('take-screenshot').classList.remove('hidden');
+    }
+  }
+
+  stopTryOn() {
+    this.virtualTryOn.stopTryOn();
+    document.getElementById('start-tryon').classList.remove('hidden');
+    document.getElementById('stop-tryon').classList.add('hidden');
+    document.getElementById('take-screenshot').classList.add('hidden');
+  }
+
+  async selectHairstyle(styleName) {
+    this.currentStyle = styleName;
+    if (this.virtualTryOn) {
+      await this.virtualTryOn.loadHairstyle(styleName);
+    }
+  }
+
+  async takeScreenshot() {
+    const screenshot = this.virtualTryOn.takeScreenshot();
+    if (screenshot && firebaseService) {
+      try {
+        // Save to Firebase Storage and create social post
+        const result = await firebaseService.saveVirtualTryOn(screenshot, this.currentStyle);
+        if (result.success) {
+          // Create social post with the saved image
+          const postData = {
+            username: 'you',
+            avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
+            image: result.imageUrl,
+            caption: `Trying on ${this.currentStyle} with LineUp AR! 🔥✨`
+          };
+          
+          await firebaseService.createSocialPost(postData);
+          alert('Screenshot saved and shared to social feed! 🎉');
+        }
+      } catch (error) {
+        console.error('Failed to save virtual try-on:', error);
+        alert('Failed to save screenshot. Please try again.');
+      }
+    } else {
+      // Fallback - add to local social feed
+      const newPost = {
+        id: Date.now(),
+        username: 'you',
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
+        image: screenshot,
+        caption: `Trying on ${this.currentStyle} with LineUp AR! 🔥`,
+        likes: 0,
+        timeAgo: 'now',
+        liked: false
+      };
+      
+      socialPosts.unshift(newPost);
+      renderSocialFeed();
+      alert('Screenshot saved to social feed!');
+    }
+  }
+
+  closeTryOnModal() {
+    this.stopTryOn();
+    const modal = document.getElementById('virtual-tryon-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+}
+
+// --- Firebase Data Loading Functions ---
+async function loadSocialFeed() {
+  if (!firebaseService) return;
+  
+  try {
+    const result = await firebaseService.getSocialPosts();
+    if (result.success) {
+      socialPosts = result.posts;
+      renderSocialFeed();
+      console.log('📱 Social feed loaded from Firebase');
+    }
+  } catch (error) {
+    console.error('❌ Failed to load social feed:', error);
+  }
+}
+
+async function loadBarberPortfolio() {
+  if (!firebaseService) return;
+  
+  try {
+    const result = await firebaseService.getPortfolio();
+    if (result.success) {
+      barberPortfolio = result.portfolio;
+      renderBarberPortfolio();
+      console.log('💼 Portfolio loaded from Firebase');
+    }
+  } catch (error) {
+    console.error('❌ Failed to load portfolio:', error);
+  }
+}
+
+async function loadAppointments() {
+  if (!firebaseService) return;
+  
+  try {
+    const result = await firebaseService.getAppointments();
+    if (result.success) {
+      appointments = result.appointments;
+      renderClientAppointments();
+      renderBarberAppointments();
+      console.log('📅 Appointments loaded from Firebase');
+    }
+  } catch (error) {
+    console.error('❌ Failed to load appointments:', error);
+  }
+}
+
+// Set up real-time listeners
+function setupRealtimeListeners() {
+  if (!firebaseService) return;
+  
+  // Real-time social feed updates
+  firebaseService.subscribeSocialPosts((posts) => {
+    socialPosts = posts;
+    renderSocialFeed();
+    console.log('🔄 Social feed updated in real-time');
+  });
+  
+  console.log('🔊 Real-time listeners set up');
+}
+
 // --- Make functions globally available ---
 window.toggleLike = toggleLike;
 window.openBookingModal = openBookingModal;
 window.confirmAppointment = confirmAppointment;
 window.findBarbersForStyle = findBarbersForStyle;
+window.tryOnStyle = tryOnStyle;
+window.loadSocialFeed = loadSocialFeed;
+window.loadBarberPortfolio = loadBarberPortfolio;
+window.loadAppointments = loadAppointments;

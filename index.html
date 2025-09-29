@@ -47,7 +47,7 @@
     <main id="main-content">
       <!-- CLIENT SIDE -->
       <div id="client-content">
-        <!-- AI Tab -->
+        <!-- AI Tab (Home) -->
         <div id="ai-tab-content" class="tab-content px-4">
           <section id="upload-section" class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 md:p-8 text-center transition-all duration-300">
             <div id="image-upload-area" class="border-2 border-dashed border-gray-600 rounded-xl p-8 md:p-12 cursor-pointer hover:border-sky-400 hover:bg-gray-800/50 transition-all duration-300">
@@ -126,29 +126,88 @@
           <div id="barber-list-container" class="space-y-4"></div>
         </div>
 
-        <!-- Social Tab -->
-        <div id="social-tab-content" class="tab-content hidden px-4">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-3xl font-bold">Community Looks</h2>
-            <button id="add-post-button" class="bg-sky-500 text-white px-4 py-2 rounded-full hover:bg-sky-600 transition-colors">+ Post</button>
-          </div>
-          <div id="social-feed-container" class="space-y-6"></div>
-        </div>
 
-        <!-- Appointments Tab -->
+        <!-- Appointments Tab (Bookings) -->
         <div id="appointments-tab-content" class="tab-content hidden px-4">
-          <h2 class="text-3xl font-bold text-center mb-6">My Appointments</h2>
+          <h2 class="text-3xl font-bold text-center mb-6">My Bookings</h2>
           <div id="client-appointments-container" class="space-y-4"></div>
           <div id="no-appointments" class="text-center py-12 text-gray-400">
             <p>No appointments scheduled.</p>
             <p class="text-sm mt-2">Book with a barber to get started!</p>
           </div>
         </div>
+
+        <!-- Profile Tab (Client) -->
+        <div id="profile-tab-content" class="tab-content hidden px-4">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-3xl font-bold">Profile</h2>
+            <span class="text-sm text-gray-400">Client</span>
+          </div>
+
+          <!-- Personal Info -->
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
+            <div class="flex items-center gap-4">
+              <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face" alt="You" class="w-16 h-16 rounded-full object-cover">
+              <div>
+                <p class="text-xl font-semibold">Current User</p>
+                <p class="text-gray-400 text-sm">Member since 2024</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- History -->
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-xl font-bold">Personal History</h3>
+              <button id="refresh-history" class="text-sky-400 text-sm hover:underline">Refresh</button>
+            </div>
+            <div id="client-profile-history" class="space-y-3">
+              <!-- Filled by JS from appointments -->
+            </div>
+          </div>
+
+          <!-- Payments -->
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
+            <h3 class="text-xl font-bold mb-3">Payment Methods</h3>
+            <div id="client-payment-methods" class="space-y-2">
+              <div class="flex items-center justify-between bg-gray-800/60 border border-gray-700 rounded-xl p-3">
+                <div class="flex items-center gap-3">
+                  <span>💳</span>
+                  <div>
+                    <p class="font-semibold">Visa •••• 4242</p>
+                    <p class="text-xs text-gray-400">Default</p>
+                  </div>
+                </div>
+                <button class="text-gray-400 text-sm hover:text-white">Remove</button>
+              </div>
+            </div>
+            <button id="add-payment" class="mt-3 w-full bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 rounded-lg">+ Add Card</button>
+          </div>
+
+          <!-- Settings -->
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5">
+            <h3 class="text-xl font-bold mb-4">Settings</h3>
+            <div class="space-y-3">
+              <label class="flex items-center justify-between">
+                <span class="text-gray-300">Notifications</span>
+                <input type="checkbox" class="w-5 h-5" checked>
+              </label>
+              <label class="flex items-center justify-between">
+                <span class="text-gray-300">Remind upcoming bookings</span>
+                <input type="checkbox" class="w-5 h-5" checked>
+              </label>
+              <label class="flex items-center justify-between">
+                <span class="text-gray-300">Dark Mode</span>
+                <input type="checkbox" class="w-5 h-5" checked disabled>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- BARBER SIDE -->
       <div id="barber-content" class="hidden">
-        <!-- Dashboard Tab -->
+        <!-- Dashboard Tab (Home) -->
         <div id="barber-dashboard-tab-content" class="tab-content px-4">
           <h2 class="text-3xl font-bold text-center mb-6">Barber Dashboard</h2>
           
@@ -185,42 +244,47 @@
           <div id="barber-portfolio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
 
-        <!-- Schedule Tab -->
+        <!-- Schedule Tab (Clients / Bookings) -->
         <div id="barber-schedule-tab-content" class="tab-content hidden px-4">
-          <h2 class="text-3xl font-bold text-center mb-6">My Schedule</h2>
+          <h2 class="text-3xl font-bold text-center mb-6">Clients & Bookings</h2>
           <div id="barber-appointments-container" class="space-y-4"></div>
+        </div>
+
+        <!-- Barber Profile / Shop Settings -->
+        <div id="barber-profile-tab-content" class="tab-content hidden px-4">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-3xl font-bold">Shop Settings</h2>
+            <span class="text-sm text-gray-400">Barber</span>
+          </div>
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
+            <h3 class="text-xl font-bold mb-3">Business Info</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input placeholder="Shop Name" class="bg-gray-800 border border-gray-700 rounded-lg p-3" value="Your Barber Shop">
+              <input placeholder="Phone" class="bg-gray-800 border border-gray-700 rounded-lg p-3" value="(555) 123-4567">
+              <input placeholder="Address" class="bg-gray-800 border border-gray-700 rounded-lg p-3 md:col-span-2" value="123 Main St, Atlanta, GA">
+            </div>
+          </div>
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5">
+            <h3 class="text-xl font-bold mb-3">Payments</h3>
+            <p class="text-gray-400 text-sm">Connect Stripe to accept payments.</p>
+            <button class="mt-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg">Connect Stripe</button>
+          </div>
         </div>
       </div>
     </main>
 
-    <!-- Tab Nav -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm border-t border-gray-700 max-w-4xl mx-auto">
-      <div id="client-nav" class="flex justify-around h-16">
-        <button class="tab-button flex flex-col items-center justify-center w-full text-sky-400 transition-colors tab-active" data-tab="ai">
-          <span class="text-xs">AI</span>
-        </button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="barbers">
-          <span class="text-xs">Barbers</span>
-        </button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="social">
-          <span class="text-xs">Social</span>
-        </button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="appointments">
-          <span class="text-xs">Appointments</span>
-        </button>
+    <!-- Shared Community Tab Content -->
+    <div id="community-tab-content" class="tab-content hidden px-4">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold">Community</h2>
+        <button id="add-post-button" class="bg-sky-500 text-white px-4 py-2 rounded-full hover:bg-sky-600 transition-colors">+ Post</button>
       </div>
-      
-      <div id="barber-nav" class="hidden flex justify-around h-16">
-        <button class="tab-button flex flex-col items-center justify-center w-full text-sky-400 transition-colors tab-active" data-tab="barber-dashboard">
-          <span class="text-xs">Dashboard</span>
-        </button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="barber-portfolio">
-          <span class="text-xs">Portfolio</span>
-        </button>
-        <button class="tab-button flex flex-col items-center justify-center w-full text-gray-400 transition-colors" data-tab="barber-schedule">
-          <span class="text-xs">Schedule</span>
-        </button>
-      </div>
+      <div id="social-feed-container" class="space-y-6"></div>
+    </div>
+
+    <!-- Dynamic Bottom Tab Nav (Rendered by JS) -->
+    <nav id="bottom-nav" class="fixed bottom-3 left-1/2 -translate-x-1/2 w-[95%] max-w-md bg-gray-900/80 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl">
+      <!-- Buttons will be injected by scripts-updated.js -->
     </nav>
   </div>
 
@@ -292,6 +356,53 @@
     </div>
   </div>
 
+  <!-- Virtual Try-On Modal -->
+  <div id="virtual-tryon-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-2xl font-bold">Virtual Try-On</h3>
+        <button id="close-tryon-modal" class="text-gray-400 hover:text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Virtual Try-On Interface -->
+      <div class="virtual-tryon-container mx-auto mb-6" style="width: 640px; height: 480px; position: relative; border-radius: 1rem; overflow: hidden; background: #1a1a1a;">
+        <video id="virtual-tryon-video" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;" autoplay muted playsinline></video>
+        <div id="virtual-tryon-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+        
+        <!-- Loading overlay -->
+        <div id="tryon-loading" class="absolute inset-0 bg-black/80 flex items-center justify-center hidden">
+          <div class="text-center">
+            <div class="loader mx-auto mb-4"></div>
+            <p class="text-white">Initializing Virtual Try-On...</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Controls -->
+      <div class="flex justify-center gap-4 mb-6">
+        <button id="start-tryon" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
+          Start Try-On
+        </button>
+        <button id="stop-tryon" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition-colors hidden">
+          Stop Try-On
+        </button>
+        <button id="take-screenshot" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors hidden">
+          📸 Take Screenshot & Share
+        </button>
+      </div>
+      
+      <!-- Style info -->
+      <div id="current-tryon-style" class="text-center text-gray-400 mb-4"></div>
+    </div>
+  </div>
+
+  <!-- Firebase Integration -->
+  <script type="module" src="firebase-simple.js"></script>
+  
   <script src="scripts-updated.js"></script>
 </body>
 </html>

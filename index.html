@@ -369,9 +369,9 @@
       </div>
       
       <!-- Virtual Try-On Interface -->
-      <div class="virtual-tryon-container mx-auto mb-6" style="width: 640px; height: 480px; position: relative; border-radius: 1rem; overflow: hidden; background: #1a1a1a;">
+        <div class="virtual-tryon-container mx-auto mb-6" style="width: 640px; height: 480px; position: relative; border-radius: 1rem; overflow: hidden; background: #1a1a1a;">
         <video id="virtual-tryon-video" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;" autoplay muted playsinline></video>
-        <div id="virtual-tryon-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+        <div id="virtual-tryon-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: auto;"></div>
         
         <!-- Loading overlay -->
         <div id="tryon-loading" class="absolute inset-0 bg-black/80 flex items-center justify-center hidden">
@@ -402,6 +402,9 @@
 
   <!-- Firebase Integration -->
   <script type="module" src="firebase-simple.js"></script>
+  
+  <!-- Try-On Engine -->
+  <script src="virtual-tryon.js"></script>
   
   <script src="scripts-updated.js"></script>
 </body>

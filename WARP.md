@@ -1,7 +1,3 @@
-# WARP.md
-
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
-
 ## Project Overview
 
 LineUp is a two-sided AI-powered haircut analysis and barber platform consisting of:

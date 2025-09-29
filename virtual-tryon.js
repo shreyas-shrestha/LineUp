@@ -28,6 +28,8 @@
       this.touchMoveHandler = null;
       this.touchEndHandler = null;
       this.activePointers = new Map();
+      this.mode = 'camera';
+      this.photoEl = null;
     }
 
     async initialize() {
@@ -39,6 +41,7 @@
     async startTryOn(videoElement, canvasElement) {
       this.videoEl = videoElement;
       this.canvasContainerEl = canvasElement;
+      this.mode = 'camera';
 
       try {
         this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
@@ -65,6 +68,31 @@
       this._attachInteractions();
 
       return true;
+    }
+
+    async startOnImage(photoElement, canvasElement, src) {
+      this.photoEl = photoElement;
+      this.canvasContainerEl = canvasElement;
+      this.mode = 'photo';
+
+      return new Promise((resolve, reject) => {
+        const onLoad = () => {
+          // Ensure overlay element exists
+          this._ensureOverlayElement();
+          // Default overlay position centered relative to container
+          const { width, height } = this._containerSize();
+          this.overlay.x = width / 2;
+          this.overlay.y = height * 0.35;
+          this.overlay.scale = Math.min(width / this.overlay.naturalWidth, height / this.overlay.naturalHeight) * 0.8;
+          this.overlay.rotation = 0;
+          this._updateOverlayTransform();
+          this._attachInteractions();
+          resolve(true);
+        };
+        this.photoEl.onload = onLoad;
+        this.photoEl.onerror = (e) => reject(e);
+        this.photoEl.src = src;
+      });
     }
 
     stopTryOn() {
@@ -98,39 +126,58 @@
     }
 
     takeScreenshot() {
-      const { width, height } = this._videoSize();
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
+      let canvas = document.createElement('canvas');
+      let ctx = canvas.getContext('2d');
 
-      // Draw the current video frame
-      ctx.drawImage(this.videoEl, 0, 0, width, height);
+      if (this.mode === 'photo' && this.photoEl) {
+        const width = this.photoEl.naturalWidth || 800;
+        const height = this.photoEl.naturalHeight || 800;
+        canvas.width = width;
+        canvas.height = height;
+        // Draw the uploaded photo
+        ctx.drawImage(this.photoEl, 0, 0, width, height);
 
-      // Draw overlay with transform
-      if (this.overlayImgEl && this.overlayImgEl.complete) {
-        // Map overlay DOM coords to video pixel coords
-        const dom = this.canvasContainerEl.getBoundingClientRect();
-        const videoDom = this.videoEl.getBoundingClientRect();
-
-        // Compute scale factors from DOM to video pixels
-        const sx = width / videoDom.width;
-        const sy = height / videoDom.height;
-
-        const centerXDom = this.overlay.x + (videoDom.left - dom.left);
-        const centerYDom = this.overlay.y + (videoDom.top - dom.top);
-
-        const centerX = (centerXDom - videoDom.left) * sx;
-        const centerY = (centerYDom - videoDom.top) * sy;
-
-        const drawW = this.overlay.naturalWidth * this.overlay.scale * sx;
-        const drawH = this.overlay.naturalHeight * this.overlay.scale * sy;
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(this.overlay.rotation);
-        ctx.drawImage(this.overlayImgEl, -drawW / 2, -drawH / 2, drawW, drawH);
-        ctx.restore();
+        if (this.overlayImgEl && this.overlayImgEl.complete) {
+          const dom = this.canvasContainerEl.getBoundingClientRect();
+          const photoDom = this.photoEl.getBoundingClientRect();
+          const sx = width / photoDom.width;
+          const sy = height / photoDom.height;
+          const centerXDom = this.overlay.x + (photoDom.left - dom.left);
+          const centerYDom = this.overlay.y + (photoDom.top - dom.top);
+          const centerX = (centerXDom - photoDom.left) * sx;
+          const centerY = (centerYDom - photoDom.top) * sy;
+          const drawW = this.overlay.naturalWidth * this.overlay.scale * sx;
+          const drawH = this.overlay.naturalHeight * this.overlay.scale * sy;
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          ctx.rotate(this.overlay.rotation);
+          ctx.drawImage(this.overlayImgEl, -drawW / 2, -drawH / 2, drawW, drawH);
+          ctx.restore();
+        }
+      } else {
+        // camera mode
+        const { width, height } = this._videoSize();
+        canvas.width = width;
+        canvas.height = height;
+        // Draw the current video frame
+        ctx.drawImage(this.videoEl, 0, 0, width, height);
+        if (this.overlayImgEl && this.overlayImgEl.complete) {
+          const dom = this.canvasContainerEl.getBoundingClientRect();
+          const videoDom = this.videoEl.getBoundingClientRect();
+          const sx = width / videoDom.width;
+          const sy = height / videoDom.height;
+          const centerXDom = this.overlay.x + (videoDom.left - dom.left);
+          const centerYDom = this.overlay.y + (videoDom.top - dom.top);
+          const centerX = (centerXDom - videoDom.left) * sx;
+          const centerY = (centerYDom - videoDom.top) * sy;
+          const drawW = this.overlay.naturalWidth * this.overlay.scale * sx;
+          const drawH = this.overlay.naturalHeight * this.overlay.scale * sy;
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          ctx.rotate(this.overlay.rotation);
+          ctx.drawImage(this.overlayImgEl, -drawW / 2, -drawH / 2, drawW, drawH);
+          ctx.restore();
+        }
       }
 
       return canvas.toDataURL('image/png');

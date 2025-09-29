@@ -154,6 +154,29 @@ const mockAppointments = [
   }
 ];
 
+// --- Style Example Images ---
+// Maps normalized style names to representative example photos
+const STYLE_IMAGE_MAP = {
+  'classic fade': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=1200&auto=format&fit=crop&q=80',
+  'textured quiff': 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=1200&auto=format&fit=crop&q=80',
+  'side part': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=80',
+  'messy crop': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=80',
+  'buzz cut': 'https://images.unsplash.com/photo-1514790193030-c89d266d5a9d?w=1200&auto=format&fit=crop&q=80',
+  // Generic fallbacks
+  'pompadour': 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=1200&auto=format&fit=crop&q=80',
+  'fade': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=1200&auto=format&fit=crop&q=80',
+  'taper': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=1200&auto=format&fit=crop&q=80'
+};
+
+function normalizeStyleName(name) {
+  return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function getStyleImage(name) {
+  const key = normalizeStyleName(name);
+  return STYLE_IMAGE_MAP[key] || null;
+}
+
 // --- Initialize ---
 window.addEventListener('DOMContentLoaded', async () => {
   console.log('LineUp Two-Sided Platform with Firebase initialized');
@@ -531,9 +554,11 @@ function displayResults(data) {
   recommendations.slice(0, 5).forEach((rec, index) => {
     const card = document.createElement('div');
     card.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden flex flex-col hover:border-sky-500/50 transition-all duration-300 transform hover:scale-105';
-    const placeholderImageUrl = `https://placehold.co/600x400/1a1a1a/38bdf8?text=${encodeURIComponent(rec.styleName || 'Style')}`;
+    const mappedImageUrl = getStyleImage(rec.styleName);
+    const fallbackUrl = `https://placehold.co/1200x800/1a1a1a/38bdf8?text=${encodeURIComponent(rec.styleName || 'Style')}`;
+    const heroImage = mappedImageUrl || fallbackUrl;
     card.innerHTML = `
-      <img src="${placeholderImageUrl}" alt="${rec.styleName}" class="w-full h-48 object-cover">
+      <img src="${heroImage}" alt="${rec.styleName}" class="w-full h-48 object-cover" onerror="this.src='${fallbackUrl}'">
       <div class="p-5 flex flex-col flex-grow">
         <h3 class="text-xl font-bold text-white mb-2">${rec.styleName || 'Unnamed Style'}</h3>
         <p class="text-gray-300 text-sm mb-4 flex-grow">${rec.description || 'No description available'}</p>
@@ -1364,10 +1389,22 @@ class LineUpVirtualTryOn {
 
   async startTryOn() {
     const videoElement = document.getElementById('virtual-tryon-video');
+    const photoElement = document.getElementById('virtual-tryon-photo');
     const canvasElement = document.getElementById('virtual-tryon-canvas');
-    
-    const success = await this.virtualTryOn.startTryOn(videoElement, canvasElement);
-    
+
+    let success = false;
+    if (imagePreview && imagePreview.src) {
+      // Use the uploaded photo
+      photoElement.style.display = 'block';
+      videoElement.style.display = 'none';
+      success = await this.virtualTryOn.startOnImage(photoElement, canvasElement, imagePreview.src);
+    } else {
+      // Fallback to camera
+      photoElement.style.display = 'none';
+      videoElement.style.display = 'block';
+      success = await this.virtualTryOn.startTryOn(videoElement, canvasElement);
+    }
+
     if (success) {
       document.getElementById('start-tryon').classList.add('hidden');
       document.getElementById('stop-tryon').classList.remove('hidden');

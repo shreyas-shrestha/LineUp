@@ -559,13 +559,14 @@ function displayResults(data) {
     const card = document.createElement('div');
     card.className = 'group relative bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-700/50 rounded-2xl p-6 hover:border-sky-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1';
     
-    const colors = [
-      { from: 'from-sky-500', to: 'to-blue-500', bg: 'bg-sky-500/10', text: 'text-sky-400' },
-      { from: 'from-purple-500', to: 'to-pink-500', bg: 'bg-purple-500/10', text: 'text-purple-400' },
-      { from: 'from-green-500', to: 'to-emerald-500', bg: 'bg-green-500/10', text: 'text-green-400' },
-      { from: 'from-orange-500', to: 'to-red-500', bg: 'bg-orange-500/10', text: 'text-orange-400' },
-      { from: 'from-indigo-500', to: 'to-violet-500', bg: 'bg-indigo-500/10', text: 'text-indigo-400' }
-    ];
+  const colors = [
+    { from: 'from-sky-500', to: 'to-blue-500', bg: 'bg-sky-500/10', text: 'text-sky-400', placeholder: 'bg-gradient-to-br from-sky-500/20 to-blue-500/20' },
+    { from: 'from-purple-500', to: 'to-pink-500', bg: 'bg-purple-500/10', text: 'text-purple-400', placeholder: 'bg-gradient-to-br from-purple-500/20 to-pink-500/20' },
+    { from: 'from-green-500', to: 'to-emerald-500', bg: 'bg-green-500/10', text: 'text-green-400', placeholder: 'bg-gradient-to-br from-green-500/20 to-emerald-500/20' },
+    { from: 'from-orange-500', to: 'to-red-500', bg: 'bg-orange-500/10', text: 'text-orange-400', placeholder: 'bg-gradient-to-br from-orange-500/20 to-red-500/20' },
+    { from: 'from-indigo-500', to: 'to-violet-500', bg: 'bg-indigo-500/10', text: 'text-indigo-400', placeholder: 'bg-gradient-to-br from-indigo-500/20 to-violet-500/20' },
+    { from: 'from-rose-500', to: 'to-pink-600', bg: 'bg-rose-500/10', text: 'text-rose-400', placeholder: 'bg-gradient-to-br from-rose-500/20 to-pink-600/20' }
+  ];
     const color = colors[index % colors.length];
     
     card.innerHTML = `

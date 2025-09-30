@@ -392,7 +392,7 @@ Return this EXACT JSON structure:
     ]
 }
 
-Provide exactly 5 haircut recommendations that would work best for this person's features."""
+Provide exactly 6 haircut recommendations that would work best for this person's features."""
 
         # Call Gemini API
         try:

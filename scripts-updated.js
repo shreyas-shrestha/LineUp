@@ -515,7 +515,6 @@ function displayResults(data) {
   statusSection.classList.add('hidden');
   resultsSection.classList.remove('hidden');
 
-  // Helper function to capitalize words properly
   const capitalizeWords = (str) => {
     if (!str || str === 'Unknown') return str;
     return str.split(' ').map(word => 
@@ -523,7 +522,7 @@ function displayResults(data) {
     ).join(' ');
   };
 
-  // Analysis Grid with improved styling
+  // Analysis Grid
   analysisGrid.innerHTML = '';
   const analysisData = [
     { label: 'Face Shape', value: capitalizeWords(data.analysis.faceShape) || 'Unknown' },
@@ -546,41 +545,81 @@ function displayResults(data) {
     analysisGrid.appendChild(div);
   });
 
-  // Recommendations with individual Find Barbers buttons
+  // Modern Recommendations - NO IMAGES, professional cards
   recommendationsContainer.innerHTML = '';
   const recommendations = data.recommendations || [];
   lastRecommendedStyles = recommendations.slice(0, 5).map(r => r.styleName);
   
   recommendations.slice(0, 5).forEach((rec, index) => {
     const card = document.createElement('div');
-    card.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden flex flex-col hover:border-sky-500/50 transition-all duration-300 transform hover:scale-105';
-    const mappedImageUrl = getStyleImage(rec.styleName);
-    const fallbackUrl = `https://placehold.co/1200x800/1a1a1a/38bdf8?text=${encodeURIComponent(rec.styleName || 'Style')}`;
-    const heroImage = mappedImageUrl || fallbackUrl;
+    card.className = 'group relative bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-700/50 rounded-2xl p-6 hover:border-sky-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1';
+    
+    const colors = [
+      { from: 'from-sky-500', to: 'to-blue-500', bg: 'bg-sky-500/10', text: 'text-sky-400' },
+      { from: 'from-purple-500', to: 'to-pink-500', bg: 'bg-purple-500/10', text: 'text-purple-400' },
+      { from: 'from-green-500', to: 'to-emerald-500', bg: 'bg-green-500/10', text: 'text-green-400' },
+      { from: 'from-orange-500', to: 'to-red-500', bg: 'bg-orange-500/10', text: 'text-orange-400' },
+      { from: 'from-indigo-500', to: 'to-violet-500', bg: 'bg-indigo-500/10', text: 'text-indigo-400' }
+    ];
+    const color = colors[index % colors.length];
+    
     card.innerHTML = `
-      <img src="${heroImage}" alt="${rec.styleName}" class="w-full h-48 object-cover" onerror="this.src='${fallbackUrl}'">
-      <div class="p-5 flex flex-col flex-grow">
-        <h3 class="text-xl font-bold text-white mb-2">${rec.styleName || 'Unnamed Style'}</h3>
-        <p class="text-gray-300 text-sm mb-4 flex-grow">${rec.description || 'No description available'}</p>
-        <p class="text-xs text-gray-400 mb-4">
-          <strong class="text-sky-400">Why it works:</strong> ${rec.reason || 'Great match for your features'}
-        </p>
-        <div class="grid grid-cols-1 gap-2">
+      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${color.from} ${color.to} rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      
+      <div class="absolute -top-3 -right-3 w-8 h-8 bg-gradient-to-br ${color.from} ${color.to} rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg">
+        ${index + 1}
+      </div>
+      
+      <div class="space-y-4">
+        <div class="${color.bg} rounded-xl p-4 border border-gray-700/50">
+          <h3 class="text-2xl font-bold text-white mb-1">${rec.styleName || 'Unnamed Style'}</h3>
+          <div class="flex items-center gap-2 text-xs ${color.text}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <span>Recommended for you</span>
+          </div>
+        </div>
+        
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm font-semibold text-gray-300 mb-1 flex items-center gap-2">
+              <svg class="w-4 h-4 ${color.text}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              About This Style
+            </p>
+            <p class="text-gray-400 text-sm leading-relaxed">${rec.description || 'No description available'}</p>
+          </div>
+          
+          <div class="pt-2 border-t border-gray-700/50">
+            <p class="text-sm font-semibold text-gray-300 mb-1 flex items-center gap-2">
+              <svg class="w-4 h-4 ${color.text}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              Why It Works
+            </p>
+            <p class="text-gray-400 text-sm leading-relaxed">${rec.reason || 'Great match for your features'}</p>
+          </div>
+        </div>
+        
+        <div class="space-y-2 pt-2">
           <button onclick="tryOnStyle('${rec.styleName}')" 
-                  class="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  class="w-full bg-gradient-to-r ${color.from} ${color.to} hover:shadow-lg text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 group/btn">
+            <svg class="w-5 h-5 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
             </svg>
-            Try It On (AR)
+            <span>Try It On with AR</span>
           </button>
+          
           <button onclick="findBarbersForStyle('${rec.styleName}')" 
-                  class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  class="w-full bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-200 font-semibold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/btn">
+            <svg class="w-5 h-5 ${color.text} group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
             </svg>
-            Find Barbers for This Style
+            <span>Find Local Barbers</span>
           </button>
         </div>
       </div>

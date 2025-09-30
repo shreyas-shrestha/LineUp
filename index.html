@@ -23,14 +23,9 @@
 </head>
 <body class="bg-black text-gray-200 min-h-screen">
   <div id="app" class="container mx-auto max-w-4xl pb-24">
-    <!-- Header -->
+    <!-- Header (Logo Removed) -->
     <header class="text-center p-4 md:p-8">
-      <div class="flex items-center justify-center gap-3 mb-2">
-        <div class="w-12 h-12 bg-gradient-to-r from-sky-400 to-purple-500 rounded-xl flex items-center justify-center">
-          <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 2h12c1.1 0 2 .9 2 2v16c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2zm1 3v2h10V5H7zm0 4v1h10V9H7zm0 3v1h10v-1H7zm0 3v1h10v-1H7z"/>
-          </svg>
-        </div>
+      <div class="flex items-center justify-center mb-2">
         <h1 class="text-4xl md:text-5xl font-bold gradient-text">LineUp</h1>
       </div>
       <p class="text-gray-400">AI Hairstylist & Barber Platform</p>
@@ -125,7 +120,6 @@
           <p id="barber-intro" class="text-center text-gray-400 mb-8">Enter your location to find real barbershops near you.</p>
           <div id="barber-list-container" class="space-y-4"></div>
         </div>
-
 
         <!-- Appointments Tab (Bookings) -->
         <div id="appointments-tab-content" class="tab-content hidden px-4">
@@ -288,7 +282,7 @@
     </nav>
   </div>
 
-  <!-- Modals (unchanged) -->
+  <!-- Modals -->
   
   <!-- Add Post Modal -->
   <div id="add-post-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
@@ -369,7 +363,7 @@
       </div>
       
       <!-- Virtual Try-On Interface -->
-        <div class="virtual-tryon-container mx-auto mb-6" style="width: 640px; height: 480px; position: relative; border-radius: 1rem; overflow: hidden; background: #1a1a1a;">
+      <div class="virtual-tryon-container mx-auto mb-6" style="width: 640px; height: 480px; position: relative; border-radius: 1rem; overflow: hidden; background: #1a1a1a;">
         <video id="virtual-tryon-video" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;" autoplay muted playsinline></video>
         <img id="virtual-tryon-photo" alt="Try-on photo" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none;" />
         <div id="virtual-tryon-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: auto;"></div>

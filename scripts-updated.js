@@ -499,6 +499,11 @@ function getMockData() {
         styleName: "Buzz Cut",
         description: "Very short all over, clean and minimal",
         reason: "Highlights facial features with zero styling needed"
+      },
+      {
+        styleName: "Undercut",
+        description: "Dramatic contrast with shaved sides and longer top",
+        reason: "Bold, edgy style that adds character and dimension"
       }
     ]
   };
@@ -548,9 +553,9 @@ function displayResults(data) {
   // Modern Recommendations - NO IMAGES, professional cards
   recommendationsContainer.innerHTML = '';
   const recommendations = data.recommendations || [];
-  lastRecommendedStyles = recommendations.slice(0, 5).map(r => r.styleName);
+  lastRecommendedStyles = recommendations.slice(0, 6).map(r => r.styleName);
   
-  recommendations.slice(0, 5).forEach((rec, index) => {
+  recommendations.slice(0, 6).forEach((rec, index) => {
     const card = document.createElement('div');
     card.className = 'group relative bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-700/50 rounded-2xl p-6 hover:border-sky-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1';
     

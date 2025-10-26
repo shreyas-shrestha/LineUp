@@ -11,16 +11,39 @@ class HairFastGANVirtualTryOn {
   }
 
   initializeHairstyleLibrary() {
-    // Map style names to reference images
-    // In production, these would be actual hairstyle reference images
+    // Map ALL style names and variations to reference images
+    // Using Unsplash CDN which supports CORS
     const styleRefs = {
-      'Modern Fade': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
+      // Core styles from AI recommendations
       'Classic Fade': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
+      'Modern Fade': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
+      'Fade': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
+      'Taper Fade': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
+      
       'Textured Quiff': 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&h=400&fit=crop',
+      'Quiff': 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&h=400&fit=crop',
+      'Pompadour': 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&h=400&fit=crop',
+      
       'Side Part': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=400&fit=crop',
+      'Side Part with Volume': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=400&fit=crop',
+      'Classic Side Part': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=400&fit=crop',
+      'Part': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=400&fit=crop',
+      
       'Messy Crop': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=400&fit=crop',
+      'Textured Crop': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=400&fit=crop',
+      'Crop': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=400&fit=crop',
+      
       'Buzz Cut': 'https://images.unsplash.com/photo-1514790193030-c89d266d5a9d?w=400&h=400&fit=crop',
-      'Undercut': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop'
+      'Short Buzz': 'https://images.unsplash.com/photo-1514790193030-c89d266d5a9d?w=400&h=400&fit=crop',
+      'Crew Cut': 'https://images.unsplash.com/photo-1514790193030-c89d266d5a9d?w=400&h=400&fit=crop',
+      
+      'Undercut': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
+      'Pompadour': 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&h=400&fit=crop',
+      
+      // Additional variations
+      'Short Hair': 'https://images.unsplash.com/photo-1514790193030-c89d266d5a9d?w=400&h=400&fit=crop',
+      'Long Hair': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=400&fit=crop',
+      'Medium Hair': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=400&fit=crop'
     };
 
     for (const [style, refUrl] of Object.entries(styleRefs)) {
@@ -28,7 +51,7 @@ class HairFastGANVirtualTryOn {
     }
 
     this.isInitialized = true;
-    console.log('✅ HairFastGAN virtual try-on initialized');
+    console.log(`✅ HairFastGAN virtual try-on initialized with ${this.hairstyleLibrary.size} hairstyle references`);
   }
 
   findMatchingStyle(styleName) {

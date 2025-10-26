@@ -1471,6 +1471,16 @@ class LineUpVirtualTryOn {
       return;
     }
     
+    if (!this.currentStyle) {
+      alert('No hairstyle selected');
+      return;
+    }
+    
+    if (!this.hairFastGAN) {
+      alert('Virtual try-on not initialized. Please try again.');
+      return;
+    }
+    
     try {
       const loading = document.getElementById('tryon-loading');
       if (loading) loading.classList.remove('hidden');
@@ -1478,18 +1488,19 @@ class LineUpVirtualTryOn {
       photoElement.style.display = 'block';
       photoElement.src = imagePreview.src;
       
-      if (this.currentStyle && this.hairFastGAN) {
-        const base64Data = await this.imageToBase64(imagePreview.src);
-        const result = await this.hairFastGAN.processVirtualTryOn(base64Data, this.currentStyle);
-        console.log('✅ Try-on processed:', result);
-      }
+      console.log('Converting image to base64...');
+      const base64Data = await this.imageToBase64(imagePreview.src);
+      console.log('Base64 conversion complete, sending to backend...');
+      
+      const result = await this.hairFastGAN.processVirtualTryOn(base64Data, this.currentStyle);
+      console.log('✅ Try-on processed:', result);
       
       document.getElementById('start-tryon').classList.add('hidden');
       document.getElementById('stop-tryon').classList.remove('hidden');
       document.getElementById('take-screenshot').classList.remove('hidden');
     } catch (error) {
-      console.error('❌ Error:', error);
-      alert('Failed to start virtual try-on');
+      console.error('❌ Detailed error:', error);
+      alert('Failed to start virtual try-on: ' + error.message);
     } finally {
       const loading = document.getElementById('tryon-loading');
       if (loading) loading.classList.add('hidden');
@@ -1510,16 +1521,32 @@ class LineUpVirtualTryOn {
   async imageToBase64(src) {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      
+      // Don't set crossOrigin for data URLs or same-origin images
+      if (src.startsWith('http://') || src.startsWith('https://')) {
+        img.crossOrigin = 'anonymous';
+      }
+      
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/jpeg').split(',')[1]);
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          const dataUrl = canvas.toDataURL('image/jpeg');
+          // Extract base64 part after comma
+          const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+          resolve(base64);
+        } catch (error) {
+          reject(new Error('Failed to convert image to base64: ' + error.message));
+        }
       };
-      img.onerror = reject;
+      
+      img.onerror = (error) => {
+        reject(new Error('Failed to load image: ' + error));
+      };
+      
       img.src = src;
     });
   }

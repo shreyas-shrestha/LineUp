@@ -31,16 +31,61 @@ class HairFastGANVirtualTryOn {
     console.log('✅ HairFastGAN virtual try-on initialized');
   }
 
+  findMatchingStyle(styleName) {
+    // First try exact match
+    if (this.hairstyleLibrary.has(styleName)) {
+      return styleName;
+    }
+    
+    // Try case-insensitive matching
+    const lowerStyleName = styleName.toLowerCase();
+    for (const [knownStyle] of this.hairstyleLibrary.entries()) {
+      const lowerKnownStyle = knownStyle.toLowerCase();
+      
+      // Exact match (case-insensitive)
+      if (lowerStyleName === lowerKnownStyle) {
+        return knownStyle;
+      }
+      
+      // Check if known style is contained in the requested style (e.g., "Side Part" in "Side Part with Volume")
+      if (lowerStyleName.includes(lowerKnownStyle)) {
+        return knownStyle;
+      }
+      
+      // Check if requested style is contained in known style
+      if (lowerKnownStyle.includes(lowerStyleName)) {
+        return knownStyle;
+      }
+      
+      // Split by spaces and check for keyword matches
+      const styleWords = lowerStyleName.split(/[\s\-_]+/);
+      const knownWords = lowerKnownStyle.split(/[\s\-_]+/);
+      
+      for (const styleWord of styleWords) {
+        for (const knownWord of knownWords) {
+          if (styleWord === knownWord && styleWord.length > 3) {
+            return knownStyle;
+          }
+        }
+      }
+    }
+    
+    return null;
+  }
+
   async processVirtualTryOn(userPhotoBase64, styleName) {
     try {
       console.log(`🎨 Processing virtual try-on for: ${styleName}`);
       
-      // Get reference hairstyle image URL
-      const referenceUrl = this.hairstyleLibrary.get(styleName);
-      
-      if (!referenceUrl) {
+      // Try to find matching hairstyle with fuzzy matching
+      const matchedStyle = this.findMatchingStyle(styleName);
+      if (!matchedStyle) {
         throw new Error(`No reference image found for style: ${styleName}`);
       }
+      
+      // Get reference hairstyle image URL
+      const referenceUrl = this.hairstyleLibrary.get(matchedStyle);
+      console.log(`Matched "${styleName}" to "${matchedStyle}"`);
 
       // Call backend HairFastGAN endpoint
       // Use global API_URL or default to the backend URL

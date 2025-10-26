@@ -218,44 +218,29 @@ class VirtualTryOn {
   }
 
   async startOnImage(photoElement, canvasElement, imageSrc) {
-    console.log('📸 Starting try-on with photo:', imageSrc);
     this.photoEl = photoElement;
     this.canvasContainerEl = canvasElement;
     this.mode = 'photo';
 
-    // Set the source directly
-    if (imageSrc) {
-      this.photoEl.src = imageSrc;
-    }
-
     return new Promise((resolve, reject) => {
       this.photoEl.onload = async () => {
         try {
-          console.log('✅ Photo loaded, setting up overlay...');
           // Setup overlay canvas
           this.setupOverlayCanvas();
           
-          // Detect face in photo and apply overlay
+          // Detect face in photo
           await this.detectAndApplyOverlay();
           
           this.isActive = true;
-          console.log('🖼️ Photo try-on started successfully');
+          console.log('🖼️ Photo try-on started');
           resolve(true);
         } catch (error) {
-          console.error('❌ Error starting photo try-on:', error);
           reject(error);
         }
       };
       
-      this.photoEl.onerror = (e) => {
-        console.error('❌ Photo load error:', e);
-        reject(e);
-      };
-      
-      // Trigger load if image is already cached
-      if (this.photoEl.complete) {
-        this.photoEl.onload();
-      }
+      this.photoEl.onerror = reject;
+      this.photoEl.src = imageSrc;
     });
   }
 
@@ -281,15 +266,12 @@ class VirtualTryOn {
 
   async detectAndApplyOverlay() {
     if (!this.currentStyle || !this.hairstyleImages[this.currentStyle]) {
-      console.log('⚠️ No hairstyle selected or image not found');
       return;
     }
 
     const img = this.hairstyleImages[this.currentStyle];
     const canvas = this.overlayCanvas;
     const ctx = this.overlayCtx;
-    
-    console.log('🎨 Applying overlay for style:', this.currentStyle);
     
     // Clear previous overlay
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -298,7 +280,6 @@ class VirtualTryOn {
     let faceData = await this.detectFace();
     
     if (!faceData) {
-      console.log('⚠️ No face detected, using default position');
       // Fallback: center of image
       faceData = {
         x: canvas.width * 0.5,
@@ -308,20 +289,13 @@ class VirtualTryOn {
       };
     }
 
-    console.log('📍 Face detected at:', faceData);
-
     // Draw hairstyle overlay on detected face
     const hairWidth = faceData.width * 1.2;
     const hairHeight = faceData.height * 0.8;
     const hairX = faceData.x - hairWidth / 2;
     const hairY = faceData.y - faceData.height * 0.5;
 
-    console.log('📏 Drawing hair overlay at:', { hairX, hairY, hairWidth, hairHeight });
-    
-    // Draw the hairstyle overlay
     ctx.drawImage(img, hairX, hairY, hairWidth, hairHeight);
-    
-    console.log('✅ Overlay applied successfully');
   }
 
   async detectFace() {

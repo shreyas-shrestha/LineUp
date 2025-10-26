@@ -1391,24 +1391,15 @@ let virtualTryOnInstance = null;
 
 // Function to open virtual try-on for specific style
 async function tryOnStyle(styleName) {
-  console.log(`🎭 Opening virtual try-on for: ${styleName}`);
+  console.log(`Opening virtual try-on for: ${styleName}`);
   
-  // Check if user has uploaded a photo
-  if (!imagePreview || !imagePreview.src) {
-    alert('Please upload a photo first to use virtual try-on');
-    return;
-  }
-  
-  // Show modal
+  // Show modal (you'll need to add this modal to your HTML)
   const modal = document.getElementById('virtual-tryon-modal');
   if (modal) {
     modal.classList.remove('hidden');
-    const styleElement = document.getElementById('current-tryon-style');
-    if (styleElement) {
-      styleElement.innerHTML = `
-        <span class="text-sky-400 font-semibold">Trying on: ${styleName}</span>
-      `;
-    }
+    document.getElementById('current-tryon-style').innerHTML = `
+      <span class="text-sky-400 font-semibold">Trying on: ${styleName}</span>
+    `;
   }
   
   // Initialize virtual try-on if needed
@@ -1419,8 +1410,6 @@ async function tryOnStyle(styleName) {
   // Load the specific style
   await virtualTryOnInstance.initialize();
   await virtualTryOnInstance.selectHairstyle(styleName);
-  
-  console.log('✅ Virtual try-on ready for:', styleName);
 }
 
 // Virtual Try-On Integration Class
@@ -1472,16 +1461,12 @@ class LineUpVirtualTryOn {
     const canvasElement = document.getElementById('virtual-tryon-canvas');
 
     let success = false;
-    console.log('🎬 Starting try-on, checking for uploaded photo...');
-    
     if (imagePreview && imagePreview.src) {
-      console.log('📸 Using uploaded photo for try-on');
       // Use the uploaded photo
       photoElement.style.display = 'block';
       videoElement.style.display = 'none';
       success = await this.virtualTryOn.startOnImage(photoElement, canvasElement, imagePreview.src);
     } else {
-      console.log('📹 No uploaded photo, falling back to camera');
       // Fallback to camera
       photoElement.style.display = 'none';
       videoElement.style.display = 'block';
@@ -1492,9 +1477,6 @@ class LineUpVirtualTryOn {
       document.getElementById('start-tryon').classList.add('hidden');
       document.getElementById('stop-tryon').classList.remove('hidden');
       document.getElementById('take-screenshot').classList.remove('hidden');
-    } else {
-      console.error('❌ Failed to start try-on');
-      alert('Failed to start virtual try-on. Please try again.');
     }
   }
 
@@ -1506,14 +1488,9 @@ class LineUpVirtualTryOn {
   }
 
   async selectHairstyle(styleName) {
-    console.log('🎨 Selecting hairstyle:', styleName);
     this.currentStyle = styleName;
     if (this.virtualTryOn) {
-      this.virtualTryOn.currentStyle = styleName;
-      // Apply the overlay if already started
-      if (this.isInitialized) {
-        await this.virtualTryOn.detectAndApplyOverlay();
-      }
+      await this.virtualTryOn.loadHairstyle(styleName);
     }
   }
 

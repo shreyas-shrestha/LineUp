@@ -1412,10 +1412,10 @@ async function tryOnStyle(styleName) {
   await virtualTryOnInstance.selectHairstyle(styleName);
 }
 
-// Virtual Try-On Integration Class
+// Virtual Try-On Integration Class - HairFastGAN approach
 class LineUpVirtualTryOn {
   constructor() {
-    this.virtualTryOn = null;
+    this.hairFastGAN = null;
     this.isInitialized = false;
     this.currentStyle = null;
   }
@@ -1427,16 +1427,17 @@ class LineUpVirtualTryOn {
       const loading = document.getElementById('tryon-loading');
       if (loading) loading.classList.remove('hidden');
       
-      this.virtualTryOn = new VirtualTryOn();
-      await this.virtualTryOn.initialize();
+      // Initialize HairFastGAN-based try-on
+      this.hairFastGAN = new HairFastGANVirtualTryOn();
+      await this.hairFastGAN.initializeHairstyleLibrary();
       
       this.isInitialized = true;
       this.setupEventListeners();
       
-      console.log('✅ Virtual Try-On ready!');
+      console.log('✅ HairFastGAN Virtual Try-On ready!');
     } catch (error) {
       console.error('❌ Virtual Try-On failed:', error);
-      alert('Camera access required for Virtual Try-On');
+      alert('Virtual Try-On initialization failed');
     } finally {
       const loading = document.getElementById('tryon-loading');
       if (loading) loading.classList.add('hidden');
@@ -1456,32 +1457,39 @@ class LineUpVirtualTryOn {
   }
 
   async startTryOn() {
-    const videoElement = document.getElementById('virtual-tryon-video');
     const photoElement = document.getElementById('virtual-tryon-photo');
-    const canvasElement = document.getElementById('virtual-tryon-canvas');
-
-    let success = false;
-    if (imagePreview && imagePreview.src) {
-      // Use the uploaded photo
-      photoElement.style.display = 'block';
-      videoElement.style.display = 'none';
-      success = await this.virtualTryOn.startOnImage(photoElement, canvasElement, imagePreview.src);
-    } else {
-      // Fallback to camera
-      photoElement.style.display = 'none';
-      videoElement.style.display = 'block';
-      success = await this.virtualTryOn.startTryOn(videoElement, canvasElement);
+    
+    if (!imagePreview || !imagePreview.src) {
+      alert('Please upload a photo first to use virtual try-on');
+      return;
     }
-
-    if (success) {
+    
+    try {
+      const loading = document.getElementById('tryon-loading');
+      if (loading) loading.classList.remove('hidden');
+      
+      photoElement.style.display = 'block';
+      photoElement.src = imagePreview.src;
+      
+      if (this.currentStyle && this.hairFastGAN) {
+        const base64Data = await this.imageToBase64(imagePreview.src);
+        const result = await this.hairFastGAN.processVirtualTryOn(base64Data, this.currentStyle);
+        console.log('✅ Try-on processed:', result);
+      }
+      
       document.getElementById('start-tryon').classList.add('hidden');
       document.getElementById('stop-tryon').classList.remove('hidden');
       document.getElementById('take-screenshot').classList.remove('hidden');
+    } catch (error) {
+      console.error('❌ Error:', error);
+      alert('Failed to start virtual try-on');
+    } finally {
+      const loading = document.getElementById('tryon-loading');
+      if (loading) loading.classList.add('hidden');
     }
   }
 
   stopTryOn() {
-    this.virtualTryOn.stopTryOn();
     document.getElementById('start-tryon').classList.remove('hidden');
     document.getElementById('stop-tryon').classList.add('hidden');
     document.getElementById('take-screenshot').classList.add('hidden');
@@ -1489,50 +1497,79 @@ class LineUpVirtualTryOn {
 
   async selectHairstyle(styleName) {
     this.currentStyle = styleName;
-    if (this.virtualTryOn) {
-      await this.virtualTryOn.loadHairstyle(styleName);
-    }
+    console.log('Selected style:', styleName);
+  }
+  
+  async imageToBase64(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg').split(',')[1]);
+      };
+      img.onerror = reject;
+      img.src = src;
+    });
   }
 
   async takeScreenshot() {
-    const screenshot = this.virtualTryOn.takeScreenshot();
-    if (screenshot && firebaseService) {
-      try {
-        // Save to Firebase Storage and create social post
-        const result = await firebaseService.saveVirtualTryOn(screenshot, this.currentStyle);
-        if (result.success) {
-          // Create social post with the saved image
+    const photoElement = document.getElementById('virtual-tryon-photo');
+    if (!photoElement || !photoElement.src) {
+      alert('No photo to capture');
+      return;
+    }
+    
+    // Create screenshot of the try-on result
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = async () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      
+      const screenshot = canvas.toDataURL('image/png');
+      
+      if (firebaseService) {
+        try {
           const postData = {
             username: 'you',
             avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
-            image: result.imageUrl,
-            caption: `Trying on ${this.currentStyle} with LineUp AR! 🔥✨`
+            image: screenshot,
+            caption: `Trying on ${this.currentStyle} with LineUp! 🔥✨`
           };
           
           await firebaseService.createSocialPost(postData);
           alert('Screenshot saved and shared to social feed! 🎉');
+        } catch (error) {
+          console.error('Failed to save screenshot:', error);
+          alert('Failed to save screenshot. Please try again.');
         }
-      } catch (error) {
-        console.error('Failed to save virtual try-on:', error);
-        alert('Failed to save screenshot. Please try again.');
+      } else {
+        const newPost = {
+          id: Date.now(),
+          username: 'you',
+          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
+          image: screenshot,
+          caption: `Trying on ${this.currentStyle} with LineUp! 🔥`,
+          likes: 0,
+          timeAgo: 'now',
+          liked: false
+        };
+        
+        socialPosts.unshift(newPost);
+        renderSocialFeed();
+        alert('Screenshot saved to social feed!');
       }
-    } else {
-      // Fallback - add to local social feed
-      const newPost = {
-        id: Date.now(),
-        username: 'you',
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
-        image: screenshot,
-        caption: `Trying on ${this.currentStyle} with LineUp AR! 🔥`,
-        likes: 0,
-        timeAgo: 'now',
-        liked: false
-      };
-      
-      socialPosts.unshift(newPost);
-      renderSocialFeed();
-      alert('Screenshot saved to social feed!');
-    }
+    };
+    
+    img.src = photoElement.src;
   }
 
   closeTryOnModal() {

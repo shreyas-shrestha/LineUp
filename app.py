@@ -1014,6 +1014,56 @@ def test():
         "features_active": True
     })
 
+# Virtual Try-On endpoint using HairFastGAN approach
+@app.route('/virtual-tryon', methods=['POST', 'OPTIONS'])
+@limiter.limit("5 per hour")  # More restrictive for processing-heavy operations
+def virtual_tryon():
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 200
+    
+    try:
+        data = request.get_json()
+        
+        # Get user photo (base64 encoded)
+        user_photo = data.get('userPhoto', '')
+        # Get reference hairstyle image URL or base64
+        hairstyle_reference = data.get('hairstyleReference', '')
+        style_name = data.get('styleName', '')
+        
+        if not user_photo:
+            return jsonify({"error": "User photo required"}), 400
+        
+        # NOTE: In production, this would:
+        # 1. Download/load the user photo
+        # 2. Load or map the hairstyle reference image
+        # 3. Use HairFastGAN model to apply hairstyle transfer
+        # 4. Return the result image as base64
+        
+        # For now, return a mock response indicating the flow
+        # This demonstrates the architecture without requiring full model setup
+        
+        response_data = {
+            "success": True,
+            "message": "Virtual try-on processing initiated",
+            "approach": "HairFastGAN-style transfer",
+            "note": "In production, this would use HairFastGAN model to transfer the hairstyle from reference to user photo",
+            "mock": True
+        }
+        
+        response = make_response(jsonify(response_data), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error in virtual try-on endpoint: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to process try-on"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
 # Rate limit exceeded handler
 @app.errorhandler(429)
 def rate_limit_exceeded(error):

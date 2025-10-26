@@ -52,6 +52,8 @@ social_posts = []
 barber_portfolios = {}
 appointments = []
 barber_profiles = {}
+subscription_packages = []  # Barber subscription packages
+client_subscriptions = []   # Client active subscriptions
 
 # Rate limiting cache for Google Places API
 places_api_cache = {}
@@ -887,6 +889,115 @@ def portfolio(barber_id=None):
         except Exception as e:
             logger.error(f"Error adding portfolio work: {str(e)}")
             response = make_response(jsonify({"error": "Failed to add work"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+
+# Subscription Packages endpoints
+@app.route('/subscription-packages', methods=['GET', 'POST', 'OPTIONS'])
+def handle_subscription_packages():
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        return response, 200
+    
+    if request.method == 'GET':
+        limiter.limit("100 per hour")(lambda: None)()
+        
+        barber_id = request.args.get('barber_id', None)
+        if barber_id:
+            packages = [pkg for pkg in subscription_packages if pkg.get('barberId') == barber_id]
+        else:
+            packages = subscription_packages
+        
+        response = make_response(jsonify({"packages": packages}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    elif request.method == 'POST':
+        limiter.limit("20 per hour")(lambda: None)()
+        
+        try:
+            data = request.get_json()
+            
+            new_package = {
+                "id": str(uuid.uuid4()),
+                "barberId": data.get("barberId", ""),
+                "barberName": data.get("barberName", ""),
+                "title": data.get("title", ""),
+                "description": data.get("description", ""),
+                "price": data.get("price", ""),
+                "numCuts": data.get("numCuts", 0),
+                "durationMonths": data.get("durationMonths", 0),
+                "discount": data.get("discount", ""),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            subscription_packages.append(new_package)
+            
+            response = make_response(jsonify({"success": True, "package": new_package}), 201)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error creating subscription package: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to create package"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+
+# Client Subscriptions endpoints
+@app.route('/client-subscriptions', methods=['GET', 'POST', 'OPTIONS'])
+def handle_client_subscriptions():
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        return response, 200
+    
+    if request.method == 'GET':
+        limiter.limit("100 per hour")(lambda: None)()
+        
+        client_id = request.args.get('client_id', 'current_user')
+        user_subscriptions = [sub for sub in client_subscriptions if sub.get('clientId') == client_id]
+        
+        response = make_response(jsonify({"subscriptions": user_subscriptions}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    elif request.method == 'POST':
+        limiter.limit("20 per hour")(lambda: None)()
+        
+        try:
+            data = request.get_json()
+            
+            new_subscription = {
+                "id": str(uuid.uuid4()),
+                "clientId": data.get("clientId", "current_user"),
+                "clientName": data.get("clientName", "Current User"),
+                "packageId": data.get("packageId", ""),
+                "packageTitle": data.get("packageTitle", ""),
+                "barberId": data.get("barberId", ""),
+                "barberName": data.get("barberName", ""),
+                "price": data.get("price", ""),
+                "numCuts": data.get("numCuts", 0),
+                "remainingCuts": data.get("numCuts", 0),
+                "purchaseDate": datetime.now().isoformat(),
+                "expiryDate": (datetime.now() + timedelta(days=30 * data.get("durationMonths", 1))).isoformat(),
+                "status": "active",
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            client_subscriptions.append(new_subscription)
+            
+            response = make_response(jsonify({"success": True, "subscription": new_subscription}), 201)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error creating subscription: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to create subscription"}), 400)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
 

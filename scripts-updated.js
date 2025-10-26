@@ -75,6 +75,8 @@ let socialPosts = [];
 let barberPortfolio = [];
 let appointments = [];
 let currentBarberForBooking = null;
+let subscriptionPackages = [];
+let clientSubscriptions = [];
 
 // --- Mock Data ---
 const mockSocialPosts = [
@@ -265,8 +267,24 @@ function setupEventListeners() {
   document.getElementById('cancel-booking').addEventListener('click', closeBookingModal);
   document.getElementById('confirm-booking').addEventListener('click', confirmBooking);
   
+  // Subscription packages
+  const createPackageBtn = document.getElementById('create-package-btn');
+  const createPackageModal = document.getElementById('create-package-modal');
+  const cancelPackage = document.getElementById('cancel-package');
+  const submitPackage = document.getElementById('submit-package');
+  
+  if (createPackageBtn) {
+    createPackageBtn.addEventListener('click', () => createPackageModal.classList.remove('hidden'));
+  }
+  if (cancelPackage) {
+    cancelPackage.addEventListener('click', closeCreatePackageModal);
+  }
+  if (submitPackage) {
+    submitPackage.addEventListener('click', handleCreatePackage);
+  }
+  
   // Close modals on outside click
-  [addPostModal, uploadWorkModal, bookAppointmentModal].forEach(modal => {
+  [addPostModal, uploadWorkModal, bookAppointmentModal, createPackageModal].forEach(modal => {
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.classList.add('hidden');
@@ -343,6 +361,11 @@ function switchTab(targetTab) {
   // If we navigated to profile in client mode, render it
   if (targetTab === 'profile') {
     renderClientProfile();
+  }
+  
+  // If we navigated to barber profile, load subscription packages
+  if (targetTab === 'barber-profile') {
+    loadSubscriptionPackages();
   }
 }
 
@@ -1368,15 +1391,24 @@ let virtualTryOnInstance = null;
 
 // Function to open virtual try-on for specific style
 async function tryOnStyle(styleName) {
-  console.log(`Opening virtual try-on for: ${styleName}`);
+  console.log(`🎭 Opening virtual try-on for: ${styleName}`);
   
-  // Show modal (you'll need to add this modal to your HTML)
+  // Check if user has uploaded a photo
+  if (!imagePreview || !imagePreview.src) {
+    alert('Please upload a photo first to use virtual try-on');
+    return;
+  }
+  
+  // Show modal
   const modal = document.getElementById('virtual-tryon-modal');
   if (modal) {
     modal.classList.remove('hidden');
-    document.getElementById('current-tryon-style').innerHTML = `
-      <span class="text-sky-400 font-semibold">Trying on: ${styleName}</span>
-    `;
+    const styleElement = document.getElementById('current-tryon-style');
+    if (styleElement) {
+      styleElement.innerHTML = `
+        <span class="text-sky-400 font-semibold">Trying on: ${styleName}</span>
+      `;
+    }
   }
   
   // Initialize virtual try-on if needed
@@ -1387,6 +1419,8 @@ async function tryOnStyle(styleName) {
   // Load the specific style
   await virtualTryOnInstance.initialize();
   await virtualTryOnInstance.selectHairstyle(styleName);
+  
+  console.log('✅ Virtual try-on ready for:', styleName);
 }
 
 // Virtual Try-On Integration Class
@@ -1438,12 +1472,16 @@ class LineUpVirtualTryOn {
     const canvasElement = document.getElementById('virtual-tryon-canvas');
 
     let success = false;
+    console.log('🎬 Starting try-on, checking for uploaded photo...');
+    
     if (imagePreview && imagePreview.src) {
+      console.log('📸 Using uploaded photo for try-on');
       // Use the uploaded photo
       photoElement.style.display = 'block';
       videoElement.style.display = 'none';
       success = await this.virtualTryOn.startOnImage(photoElement, canvasElement, imagePreview.src);
     } else {
+      console.log('📹 No uploaded photo, falling back to camera');
       // Fallback to camera
       photoElement.style.display = 'none';
       videoElement.style.display = 'block';
@@ -1454,6 +1492,9 @@ class LineUpVirtualTryOn {
       document.getElementById('start-tryon').classList.add('hidden');
       document.getElementById('stop-tryon').classList.remove('hidden');
       document.getElementById('take-screenshot').classList.remove('hidden');
+    } else {
+      console.error('❌ Failed to start try-on');
+      alert('Failed to start virtual try-on. Please try again.');
     }
   }
 
@@ -1465,9 +1506,14 @@ class LineUpVirtualTryOn {
   }
 
   async selectHairstyle(styleName) {
+    console.log('🎨 Selecting hairstyle:', styleName);
     this.currentStyle = styleName;
     if (this.virtualTryOn) {
-      await this.virtualTryOn.loadHairstyle(styleName);
+      this.virtualTryOn.currentStyle = styleName;
+      // Apply the overlay if already started
+      if (this.isInitialized) {
+        await this.virtualTryOn.detectAndApplyOverlay();
+      }
     }
   }
 
@@ -1580,6 +1626,104 @@ function setupRealtimeListeners() {
   console.log('🔊 Real-time listeners set up');
 }
 
+// --- Subscription Package Functions ---
+function closeCreatePackageModal() {
+  const modal = document.getElementById('create-package-modal');
+  if (modal) modal.classList.add('hidden');
+  
+  // Reset form
+  document.getElementById('package-title').value = '';
+  document.getElementById('package-description').value = '';
+  document.getElementById('package-num-cuts').value = '';
+  document.getElementById('package-duration').value = '';
+  document.getElementById('package-price').value = '';
+  document.getElementById('package-discount').value = '';
+}
+
+async function handleCreatePackage() {
+  const title = document.getElementById('package-title').value.trim();
+  const description = document.getElementById('package-description').value.trim();
+  const numCuts = parseInt(document.getElementById('package-num-cuts').value);
+  const duration = parseInt(document.getElementById('package-duration').value);
+  const price = document.getElementById('package-price').value.trim();
+  const discount = document.getElementById('package-discount').value.trim();
+  
+  if (!title || !description || !numCuts || !duration || !price) {
+    alert('Please fill in all required fields');
+    return;
+  }
+  
+  const packageData = {
+    barberId: 'current-barber',
+    barberName: 'Your Barber Shop',
+    title: title,
+    description: description,
+    numCuts: numCuts,
+    durationMonths: duration,
+    price: price,
+    discount: discount
+  };
+  
+  try {
+    const response = await fetch(`${API_URL}/subscription-packages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(packageData)
+    });
+    
+    if (!response.ok) throw new Error('Failed to create package');
+    
+    const result = await response.json();
+    subscriptionPackages.push(result.package);
+    renderSubscriptionPackages();
+    closeCreatePackageModal();
+    alert('Package created successfully!');
+  } catch (error) {
+    console.error('Error creating package:', error);
+    alert('Failed to create package. Please try again.');
+  }
+}
+
+async function loadSubscriptionPackages() {
+  try {
+    const response = await fetch(`${API_URL}/subscription-packages?barber_id=current-barber`);
+    const data = await response.json();
+    if (data.packages) {
+      subscriptionPackages = data.packages;
+      renderSubscriptionPackages();
+    }
+  } catch (error) {
+    console.error('Error loading packages:', error);
+  }
+}
+
+function renderSubscriptionPackages() {
+  const container = document.getElementById('subscription-packages-list');
+  if (!container) return;
+  
+  if (subscriptionPackages.length === 0) {
+    container.innerHTML = '<p class="text-gray-500 text-sm">No packages created yet.</p>';
+    return;
+  }
+  
+  container.innerHTML = subscriptionPackages.map(pkg => `
+    <div class="bg-gray-800/60 border border-gray-700 rounded-xl p-4">
+      <div class="flex justify-between items-start mb-2">
+        <div>
+          <h4 class="font-bold text-white">${pkg.title}</h4>
+          <p class="text-sm text-gray-400">${pkg.description}</p>
+        </div>
+        <span class="text-green-400 font-bold">${pkg.price}</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-xs text-gray-400 mt-3">
+        <span>${pkg.numCuts} cuts</span>
+        <span>${pkg.durationMonths} months</span>
+        ${pkg.discount ? `<span class="text-green-400">${pkg.discount}</span>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
 // --- Make functions globally available ---
 window.toggleLike = toggleLike;
 window.openBookingModal = openBookingModal;
@@ -1589,3 +1733,4 @@ window.tryOnStyle = tryOnStyle;
 window.loadSocialFeed = loadSocialFeed;
 window.loadBarberPortfolio = loadBarberPortfolio;
 window.loadAppointments = loadAppointments;
+window.loadSubscriptionPackages = loadSubscriptionPackages;

@@ -258,10 +258,22 @@
               <input placeholder="Address" class="bg-gray-800 border border-gray-700 rounded-lg p-3 md:col-span-2" value="123 Main St, Atlanta, GA">
             </div>
           </div>
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5">
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
             <h3 class="text-xl font-bold mb-3">Payments</h3>
             <p class="text-gray-400 text-sm">Connect Stripe to accept payments.</p>
             <button class="mt-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg">Connect Stripe</button>
+          </div>
+          
+          <!-- Subscription Packages -->
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="text-xl font-bold">Subscription Packages</h3>
+              <button id="create-package-btn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg text-sm">+ Create Package</button>
+            </div>
+            <p class="text-gray-400 text-sm mb-4">Create subscription packages to increase customer retention (e.g., 2 cuts/month for $80 or 5 cuts for $100).</p>
+            <div id="subscription-packages-list" class="space-y-3">
+              <!-- Packages will be loaded here -->
+            </div>
           </div>
         </div>
       </div>
@@ -346,6 +358,27 @@
       <div class="flex gap-3 mt-4">
         <button id="cancel-booking" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
         <button id="confirm-booking" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors">Book Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Subscription Package Modal -->
+  <div id="create-package-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+      <h3 class="text-2xl font-bold mb-4">Create Subscription Package</h3>
+      <input type="text" id="package-title" placeholder="Package Title (e.g., Monthly Haircuts)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 mb-3 focus:border-sky-400 focus:outline-none">
+      <textarea id="package-description" placeholder="Description (e.g., 2 haircuts per month at discounted rate)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 mb-3 focus:border-sky-400 focus:outline-none"></textarea>
+      <div class="grid grid-cols-2 gap-4 mb-3">
+        <input type="number" id="package-num-cuts" placeholder="Number of cuts" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+        <input type="number" id="package-duration" placeholder="Duration (months)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+      </div>
+      <div class="grid grid-cols-2 gap-4 mb-3">
+        <input type="text" id="package-price" placeholder="Price (e.g., $80)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+        <input type="text" id="package-discount" placeholder="Discount (e.g., 25% off)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button id="cancel-package" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
+        <button id="submit-package" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors">Create Package</button>
       </div>
     </div>
   </div>

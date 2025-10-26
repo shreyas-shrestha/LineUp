@@ -6,10 +6,11 @@ class HairFastGANVirtualTryOn {
   constructor() {
     this.isInitialized = false;
     this.hairstyleLibrary = new Map();
+    // Initialize synchronously since it doesn't need async
     this.initializeHairstyleLibrary();
   }
 
-  async initializeHairstyleLibrary() {
+  initializeHairstyleLibrary() {
     // Map style names to reference images
     // In production, these would be actual hairstyle reference images
     const styleRefs = {
@@ -42,7 +43,9 @@ class HairFastGANVirtualTryOn {
       }
 
       // Call backend HairFastGAN endpoint
-      const response = await fetch(`${API_URL}/virtual-tryon`, {
+      // Use global API_URL or default to the backend URL
+      const apiUrl = typeof API_URL !== 'undefined' ? API_URL : 'https://lineup-fjpn.onrender.com';
+      const response = await fetch(`${apiUrl}/virtual-tryon`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

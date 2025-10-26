@@ -1427,9 +1427,16 @@ class LineUpVirtualTryOn {
       const loading = document.getElementById('tryon-loading');
       if (loading) loading.classList.remove('hidden');
       
+      // Check if HairFastGANVirtualTryOn class is available
+      if (typeof HairFastGANVirtualTryOn === 'undefined') {
+        throw new Error('HairFastGANVirtualTryOn class not loaded. Check if hairfastgan-tryon.js is included.');
+      }
+      
       // Initialize HairFastGAN-based try-on
       this.hairFastGAN = new HairFastGANVirtualTryOn();
-      await this.hairFastGAN.initializeHairstyleLibrary();
+      
+      // Wait a moment for the class to fully initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       this.isInitialized = true;
       this.setupEventListeners();
@@ -1437,7 +1444,7 @@ class LineUpVirtualTryOn {
       console.log('✅ HairFastGAN Virtual Try-On ready!');
     } catch (error) {
       console.error('❌ Virtual Try-On failed:', error);
-      alert('Virtual Try-On initialization failed');
+      alert('Virtual Try-On initialization failed: ' + error.message);
     } finally {
       const loading = document.getElementById('tryon-loading');
       if (loading) loading.classList.add('hidden');

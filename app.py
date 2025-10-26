@@ -1014,7 +1014,7 @@ def test():
         "features_active": True
     })
 
-# Virtual Try-On endpoint using HairFastGAN approach
+# Virtual Try-On endpoint using HairCLIP via Replicate
 @app.route('/virtual-tryon', methods=['POST', 'OPTIONS'])
 @limiter.limit("5 per hour")  # More restrictive for processing-heavy operations
 def virtual_tryon():
@@ -1026,41 +1026,115 @@ def virtual_tryon():
         return response, 200
     
     try:
+        import requests as req
         data = request.get_json()
         
         # Get user photo (base64 encoded)
-        user_photo = data.get('userPhoto', '')
-        # Get reference hairstyle image URL or base64
-        hairstyle_reference = data.get('hairstyleReference', '')
-        style_name = data.get('styleName', '')
+        user_photo_base64 = data.get('userPhoto', '')
+        # Text description of desired hairstyle
+        style_description = data.get('styleDescription', '')
         
-        if not user_photo:
+        if not user_photo_base64:
             return jsonify({"error": "User photo required"}), 400
         
-        # NOTE: In production, this would:
-        # 1. Download/load the user photo
-        # 2. Load or map the hairstyle reference image
-        # 3. Use HairFastGAN model to apply hairstyle transfer
-        # 4. Return the result image as base64
+        if not style_description:
+            return jsonify({"error": "Style description required"}), 400
         
-        # For now, return a mock response indicating the flow
-        # This demonstrates the architecture without requiring full model setup
+        # Get Replicate API token from environment
+        REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
         
-        response_data = {
-            "success": True,
-            "message": "Virtual try-on processing initiated",
-            "approach": "HairFastGAN-style transfer",
-            "note": "In production, this would use HairFastGAN model to transfer the hairstyle from reference to user photo",
-            "mock": True
+        if not REPLICATE_API_TOKEN:
+            logger.warning("REPLICATE_API_TOKEN not found - returning mock response")
+            response_data = {
+                "success": True,
+                "message": "Virtual try-on processing (demo mode)",
+                "resultImage": user_photo_base64,  # Return original in demo mode
+                "mock": True
+            }
+            response = make_response(jsonify(response_data), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        # Convert base64 to data URI for Replicate
+        image_data_uri = f"data:image/jpeg;base64,{user_photo_base64}"
+        
+        # Call Replicate API with HairCLIP model
+        # Using the model from the example: catacolabs/hairclipv2
+        api_url = "https://api.replicate.com/v1/predictions"
+        headers = {
+            "Authorization": f"Token {REPLICATE_API_TOKEN}",
+            "Content-Type": "application/json"
         }
         
-        response = make_response(jsonify(response_data), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
+        payload = {
+            "version": "8d1f7da3b2e8d80a3d9f8f9c6b5a4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b",
+            "input": {
+                "image": image_data_uri,
+                "prompt": style_description
+            }
+        }
+        
+        logger.info(f"Calling Replicate API for hairstyle: {style_description}")
+        
+        # Create prediction
+        prediction_response = req.post(api_url, headers=headers, json=payload)
+        
+        if prediction_response.status_code != 201:
+            logger.error(f"Replicate API error: {prediction_response.text}")
+            raise Exception("Failed to create prediction")
+        
+        prediction_data = prediction_response.json()
+        prediction_id = prediction_data.get("id")
+        
+        # Poll for results (with timeout)
+        import time
+        max_attempts = 30
+        attempt = 0
+        
+        while attempt < max_attempts:
+            status_response = req.get(
+                f"{api_url}/{prediction_id}",
+                headers=headers
+            )
+            
+            if status_response.status_code != 200:
+                break
+            
+            status_data = status_response.json()
+            status = status_data.get("status")
+            
+            if status == "succeeded":
+                output_url = status_data.get("output")
+                if output_url:
+                    # Download the result image
+                    image_response = req.get(output_url)
+                    if image_response.status_code == 200:
+                        result_base64 = base64.b64encode(image_response.content).decode('utf-8')
+                        
+                        response_data = {
+                            "success": True,
+                            "message": "Hairstyle applied successfully",
+                            "resultImage": result_base64,
+                            "styleApplied": style_description
+                        }
+                        
+                        response = make_response(jsonify(response_data), 200)
+                        response.headers['Access-Control-Allow-Origin'] = '*'
+                        return response
+                break
+            elif status == "failed":
+                logger.error(f"Replicate prediction failed: {status_data.get('error')}")
+                break
+            
+            time.sleep(2)
+            attempt += 1
+        
+        # If we get here, something went wrong
+        raise Exception("Failed to process hairstyle change")
         
     except Exception as e:
         logger.error(f"Error in virtual try-on endpoint: {str(e)}")
-        response = make_response(jsonify({"error": "Failed to process try-on"}), 400)
+        response = make_response(jsonify({"error": f"Failed to process try-on: {str(e)}"}), 400)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 

@@ -1412,12 +1412,12 @@ async function tryOnStyle(styleName) {
   await virtualTryOnInstance.selectHairstyle(styleName);
 }
 
-// Virtual Try-On Integration Class - HairFastGAN approach
+// Virtual Try-On Integration Class - HairCLIP via Replicate
 class LineUpVirtualTryOn {
   constructor() {
-    this.hairFastGAN = null;
     this.isInitialized = false;
     this.currentStyle = null;
+    this.resultImage = null;
   }
 
   async initialize() {
@@ -1427,21 +1427,13 @@ class LineUpVirtualTryOn {
       const loading = document.getElementById('tryon-loading');
       if (loading) loading.classList.remove('hidden');
       
-      // Check if HairFastGANVirtualTryOn class is available
-      if (typeof HairFastGANVirtualTryOn === 'undefined') {
-        throw new Error('HairFastGANVirtualTryOn class not loaded. Check if hairfastgan-tryon.js is included.');
-      }
-      
-      // Initialize HairFastGAN-based try-on
-      this.hairFastGAN = new HairFastGANVirtualTryOn();
-      
-      // Wait a moment for the class to fully initialize
+      // Simple initialization - no external dependencies needed
       await new Promise(resolve => setTimeout(resolve, 100));
       
       this.isInitialized = true;
       this.setupEventListeners();
       
-      console.log('✅ HairFastGAN Virtual Try-On ready!');
+      console.log('✅ HairCLIP Virtual Try-On ready!');
     } catch (error) {
       console.error('❌ Virtual Try-On failed:', error);
       alert('Virtual Try-On initialization failed: ' + error.message);
@@ -1476,31 +1468,49 @@ class LineUpVirtualTryOn {
       return;
     }
     
-    if (!this.hairFastGAN) {
-      alert('Virtual try-on not initialized. Please try again.');
-      return;
-    }
-    
     try {
       const loading = document.getElementById('tryon-loading');
-      if (loading) loading.classList.remove('hidden');
-      
-      photoElement.style.display = 'block';
-      photoElement.src = imagePreview.src;
+      if (loading) {
+        loading.classList.remove('hidden');
+        loading.querySelector('p').textContent = 'Applying hairstyle with AI... This may take 30-60 seconds.';
+      }
       
       console.log('Converting image to base64...');
       const base64Data = await this.imageToBase64(imagePreview.src);
-      console.log('Base64 conversion complete, sending to backend...');
+      console.log('Sending to HairCLIP API...');
       
-      const result = await this.hairFastGAN.processVirtualTryOn(base64Data, this.currentStyle);
+      // Call backend with HairCLIP
+      const response = await fetch(`${API_URL}/virtual-tryon`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userPhoto: base64Data,
+          styleDescription: this.currentStyle
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to process hairstyle change');
+      }
+      
+      const result = await response.json();
       console.log('✅ Try-on processed:', result);
+      
+      if (result.success && result.resultImage) {
+        // Display the result image
+        this.resultImage = `data:image/jpeg;base64,${result.resultImage}`;
+        photoElement.style.display = 'block';
+        photoElement.src = this.resultImage;
+      } else {
+        throw new Error(result.message || 'No result image returned');
+      }
       
       document.getElementById('start-tryon').classList.add('hidden');
       document.getElementById('stop-tryon').classList.remove('hidden');
       document.getElementById('take-screenshot').classList.remove('hidden');
     } catch (error) {
       console.error('❌ Detailed error:', error);
-      alert('Failed to start virtual try-on: ' + error.message);
+      alert('Failed to apply hairstyle: ' + error.message);
     } finally {
       const loading = document.getElementById('tryon-loading');
       if (loading) loading.classList.add('hidden');
@@ -1511,10 +1521,12 @@ class LineUpVirtualTryOn {
     document.getElementById('start-tryon').classList.remove('hidden');
     document.getElementById('stop-tryon').classList.add('hidden');
     document.getElementById('take-screenshot').classList.add('hidden');
+    this.resultImage = null;
   }
 
   async selectHairstyle(styleName) {
     this.currentStyle = styleName;
+    this.resultImage = null; // Reset result when changing style
     console.log('Selected style:', styleName);
   }
   
@@ -1552,58 +1564,44 @@ class LineUpVirtualTryOn {
   }
 
   async takeScreenshot() {
-    const photoElement = document.getElementById('virtual-tryon-photo');
-    if (!photoElement || !photoElement.src) {
-      alert('No photo to capture');
+    if (!this.resultImage) {
+      alert('No result to capture. Please apply a hairstyle first.');
       return;
     }
     
-    // Create screenshot of the try-on result
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
+    const screenshot = this.resultImage;
     
-    img.onload = async () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-      
-      const screenshot = canvas.toDataURL('image/png');
-      
-      if (firebaseService) {
-        try {
-          const postData = {
-            username: 'you',
-            avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
-            image: screenshot,
-            caption: `Trying on ${this.currentStyle} with LineUp! 🔥✨`
-          };
-          
-          await firebaseService.createSocialPost(postData);
-          alert('Screenshot saved and shared to social feed! 🎉');
-        } catch (error) {
-          console.error('Failed to save screenshot:', error);
-          alert('Failed to save screenshot. Please try again.');
-        }
-      } else {
-        const newPost = {
-          id: Date.now(),
+    if (firebaseService) {
+      try {
+        const postData = {
           username: 'you',
           avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
           image: screenshot,
-          caption: `Trying on ${this.currentStyle} with LineUp! 🔥`,
-          likes: 0,
-          timeAgo: 'now',
-          liked: false
+          caption: `Trying on ${this.currentStyle} with LineUp AI! 🔥✨`
         };
         
-        socialPosts.unshift(newPost);
-        renderSocialFeed();
-        alert('Screenshot saved to social feed!');
+        await firebaseService.createSocialPost(postData);
+        alert('Screenshot saved and shared to social feed! 🎉');
+      } catch (error) {
+        console.error('Failed to save screenshot:', error);
+        alert('Failed to save screenshot. Please try again.');
       }
-    };
-    
-    img.src = photoElement.src;
+    } else {
+      const newPost = {
+        id: Date.now(),
+        username: 'you',
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
+        image: screenshot,
+        caption: `Trying on ${this.currentStyle} with LineUp AI! 🔥`,
+        likes: 0,
+        timeAgo: 'now',
+        liked: false
+      };
+      
+      socialPosts.unshift(newPost);
+      renderSocialFeed();
+      alert('Screenshot saved to social feed!');
+    }
   }
 
   closeTryOnModal() {

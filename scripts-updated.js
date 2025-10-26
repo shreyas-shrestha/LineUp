@@ -1393,13 +1393,34 @@ let virtualTryOnInstance = null;
 async function tryOnStyle(styleName) {
   console.log(`Opening virtual try-on for: ${styleName}`);
   
-  // Show modal (you'll need to add this modal to your HTML)
+  // Check if user has uploaded a photo
+  const imagePreview = document.getElementById('image-preview');
+  if (!imagePreview || !imagePreview.src || imagePreview.src === '') {
+    alert('Please upload a photo first to use virtual try-on');
+    return;
+  }
+  
+  // Show modal
   const modal = document.getElementById('virtual-tryon-modal');
   if (modal) {
     modal.classList.remove('hidden');
     document.getElementById('current-tryon-style').innerHTML = `
       <span class="text-sky-400 font-semibold">Trying on: ${styleName}</span>
     `;
+    
+    // Copy the uploaded image to the try-on viewer
+    const tryOnPhoto = document.getElementById('virtual-tryon-photo');
+    const tryOnVideo = document.getElementById('virtual-tryon-video');
+    
+    if (tryOnPhoto && imagePreview.src) {
+      tryOnPhoto.src = imagePreview.src;
+      tryOnPhoto.style.display = 'block';
+      
+      // Hide video element
+      if (tryOnVideo) {
+        tryOnVideo.style.display = 'none';
+      }
+    }
   }
   
   // Initialize virtual try-on if needed
@@ -1457,6 +1478,17 @@ class LineUpVirtualTryOn {
 
   async startTryOn() {
     const photoElement = document.getElementById('virtual-tryon-photo');
+    const imagePreview = document.getElementById('image-preview');
+    
+    console.log('🎬 Starting virtual try-on...');
+    console.log('Photo element:', photoElement);
+    console.log('Image preview:', imagePreview);
+    console.log('Current style:', this.currentStyle);
+    
+    if (!photoElement) {
+      alert('Virtual try-on photo element not found');
+      return;
+    }
     
     if (!imagePreview || !imagePreview.src) {
       alert('Please upload a photo first to use virtual try-on');
@@ -1477,7 +1509,8 @@ class LineUpVirtualTryOn {
       
       console.log('Converting image to base64...');
       const base64Data = await this.imageToBase64(imagePreview.src);
-      console.log('Sending to HairCLIP API...');
+      console.log('Base64 data length:', base64Data.length);
+      console.log('Sending to backend API...');
       
       // Call backend with HairCLIP
       const response = await fetch(`${API_URL}/virtual-tryon`, {
@@ -1489,8 +1522,12 @@ class LineUpVirtualTryOn {
         })
       });
       
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to process hairstyle change');
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error('Failed to process hairstyle change: ' + errorText);
       }
       
       const result = await response.json();
@@ -1499,8 +1536,19 @@ class LineUpVirtualTryOn {
       if (result.success && result.resultImage) {
         // Display the result image
         this.resultImage = `data:image/jpeg;base64,${result.resultImage}`;
+        
+        console.log('📸 Updating photo element with result...');
+        console.log('Result image data length:', result.resultImage.length);
+        
+        // Make sure the photo element is visible and set the source
         photoElement.style.display = 'block';
+        photoElement.style.zIndex = '10';
         photoElement.src = this.resultImage;
+        
+        // Force a reflow to ensure the update is applied
+        photoElement.offsetHeight;
+        
+        console.log('✅ Image updated! Photo element src:', photoElement.src.substring(0, 50) + '...');
       } else {
         throw new Error(result.message || 'No result image returned');
       }

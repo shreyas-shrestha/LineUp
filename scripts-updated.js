@@ -267,6 +267,19 @@ function setupEventListeners() {
   document.getElementById('cancel-booking').addEventListener('click', closeBookingModal);
   document.getElementById('confirm-booking').addEventListener('click', confirmBooking);
   
+  // Logo upload
+  const logoInput = document.getElementById('logo-input');
+  const logoPreviewContainer = document.getElementById('logo-preview-container');
+  const logoPreview = document.getElementById('logo-preview');
+  const logoPlaceholder = document.getElementById('logo-placeholder');
+  const uploadLogoBtn = document.getElementById('upload-logo-btn');
+  
+  if (uploadLogoBtn && logoPreviewContainer && logoInput) {
+    uploadLogoBtn.addEventListener('click', () => logoInput.click());
+    logoPreviewContainer.addEventListener('click', () => logoInput.click());
+    logoInput.addEventListener('change', handleLogoUpload);
+  }
+  
   // Subscription packages
   const createPackageBtn = document.getElementById('create-package-btn');
   const createPackageModal = document.getElementById('create-package-modal');
@@ -298,28 +311,26 @@ function switchMode(mode) {
   currentUserMode = mode;
   
   if (mode === 'client') {
-    clientModeBtn.classList.add('bg-sky-500', 'text-white');
-    clientModeBtn.classList.remove('text-gray-400');
-    barberModeBtn.classList.remove('bg-sky-500', 'text-white');
-    barberModeBtn.classList.add('text-gray-400');
+    clientModeBtn.classList.add('bg-white', 'shadow-sm');
+    clientModeBtn.classList.remove('text-gray-600');
+    barberModeBtn.classList.remove('bg-white', 'shadow-sm');
+    barberModeBtn.classList.add('text-gray-600');
     
     clientContent.classList.remove('hidden');
     barberContent.classList.add('hidden');
 
     renderBottomNav();
-    // Reset to first tab
     switchTab('ai');
   } else {
-    barberModeBtn.classList.add('bg-sky-500', 'text-white');
-    barberModeBtn.classList.remove('text-gray-400');
-    clientModeBtn.classList.remove('bg-sky-500', 'text-white');
-    clientModeBtn.classList.add('text-gray-400');
+    barberModeBtn.classList.add('bg-white', 'shadow-sm');
+    barberModeBtn.classList.remove('text-gray-600');
+    clientModeBtn.classList.remove('bg-white', 'shadow-sm');
+    clientModeBtn.classList.add('text-gray-600');
     
     barberContent.classList.remove('hidden');
     clientContent.classList.add('hidden');
 
     renderBottomNav();
-    // Reset to first tab
     switchTab('barber-dashboard');
   }
 }
@@ -331,22 +342,21 @@ function switchTab(targetTab) {
   // Update tab button active state
   document.querySelectorAll(`#bottom-nav .tab-button`).forEach(t => {
     t.classList.remove('tab-active');
-    t.classList.remove('text-sky-400');
-    t.classList.add('text-gray-400');
-    // remove center highlight active styles
-    t.classList.remove('bg-gradient-to-r','from-sky-500','to-purple-500','text-white','shadow-lg','-translate-y-2');
+    t.classList.remove('text-gray-900');
+    t.classList.add('text-gray-500');
+    // Keep center pill transform
+    if (!t.classList.contains('center-pill')) {
+      t.classList.remove('font-semibold');
+    }
   });
   
   const activeTab = document.querySelector(`#bottom-nav [data-tab="${targetTab}"]`);
   if (activeTab) {
     activeTab.classList.add('tab-active');
-    // If center pill, keep its special styles; else sky text
     if (!activeTab.classList.contains('center-pill')) {
-      activeTab.classList.add('text-sky-400');
-    } else {
-      activeTab.classList.add('bg-gradient-to-r','from-sky-500','to-purple-500','text-white','shadow-lg','-translate-y-2');
+      activeTab.classList.add('text-gray-900', 'font-semibold');
+      activeTab.classList.remove('text-gray-500');
     }
-    activeTab.classList.remove('text-gray-400');
   }
   
   // Hide all tab content
@@ -415,6 +425,25 @@ function handleImageUpload(e) {
       imagePreviewContainer.classList.remove('hidden');
     };
     img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Logo upload handler
+function handleLogoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const logoPreview = document.getElementById('logo-preview');
+    const logoPlaceholder = document.getElementById('logo-placeholder');
+    
+    if (logoPreview && logoPlaceholder) {
+      logoPreview.src = e.target.result;
+      logoPreview.classList.remove('hidden');
+      logoPlaceholder.classList.add('hidden');
+    }
   };
   reader.readAsDataURL(file);
 }
@@ -573,84 +602,39 @@ function displayResults(data) {
     analysisGrid.appendChild(div);
   });
 
-  // Modern Recommendations - NO IMAGES, professional cards
+  // Clean, minimal recommendations cards
   recommendationsContainer.innerHTML = '';
   const recommendations = data.recommendations || [];
   lastRecommendedStyles = recommendations.slice(0, 6).map(r => r.styleName);
   
   recommendations.slice(0, 6).forEach((rec, index) => {
     const card = document.createElement('div');
-    card.className = 'group relative bg-gradient-to-br from-gray-900 to-gray-800/50 border border-gray-700/50 rounded-2xl p-6 hover:border-sky-400/50 transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1';
-    
-  const colors = [
-    { from: 'from-sky-500', to: 'to-blue-500', bg: 'bg-sky-500/10', text: 'text-sky-400', placeholder: 'bg-gradient-to-br from-sky-500/20 to-blue-500/20' },
-    { from: 'from-purple-500', to: 'to-pink-500', bg: 'bg-purple-500/10', text: 'text-purple-400', placeholder: 'bg-gradient-to-br from-purple-500/20 to-pink-500/20' },
-    { from: 'from-green-500', to: 'to-emerald-500', bg: 'bg-green-500/10', text: 'text-green-400', placeholder: 'bg-gradient-to-br from-green-500/20 to-emerald-500/20' },
-    { from: 'from-orange-500', to: 'to-red-500', bg: 'bg-orange-500/10', text: 'text-orange-400', placeholder: 'bg-gradient-to-br from-orange-500/20 to-red-500/20' },
-    { from: 'from-indigo-500', to: 'to-violet-500', bg: 'bg-indigo-500/10', text: 'text-indigo-400', placeholder: 'bg-gradient-to-br from-indigo-500/20 to-violet-500/20' },
-    { from: 'from-rose-500', to: 'to-pink-600', bg: 'bg-rose-500/10', text: 'text-rose-400', placeholder: 'bg-gradient-to-br from-rose-500/20 to-pink-600/20' }
-  ];
-    const color = colors[index % colors.length];
+    card.className = 'card-hover bg-white border border-gray-200 rounded-lg p-5';
     
     card.innerHTML = `
-      <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${color.from} ${color.to} rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-      
-      <div class="absolute -top-3 -right-3 w-8 h-8 bg-gradient-to-br ${color.from} ${color.to} rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg">
-        ${index + 1}
+      <div class="mb-4">
+        <h3 class="text-lg font-semibold mb-1">${rec.styleName || 'Unnamed Style'}</h3>
+        <p class="text-gray-600 text-sm line-clamp-2">${rec.description || 'Professional haircut recommendation'}</p>
       </div>
       
-      <div class="space-y-4">
-        <div class="${color.bg} rounded-xl p-4 border border-gray-700/50">
-          <h3 class="text-2xl font-bold text-white mb-1">${rec.styleName || 'Unnamed Style'}</h3>
-          <div class="flex items-center gap-2 text-xs ${color.text}">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            <span>Recommended for you</span>
-          </div>
-        </div>
+      <div class="space-y-2">
+        <button onclick="tryOnStyle('${rec.styleName}')" 
+                class="w-full btn-primary px-4 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+          </svg>
+          Try it on
+        </button>
         
-        <div class="space-y-3">
-          <div>
-            <p class="text-sm font-semibold text-gray-300 mb-1 flex items-center gap-2">
-              <svg class="w-4 h-4 ${color.text}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              About This Style
-            </p>
-            <p class="text-gray-400 text-sm leading-relaxed">${rec.description || 'No description available'}</p>
-          </div>
-          
-          <div class="pt-2 border-t border-gray-700/50">
-            <p class="text-sm font-semibold text-gray-300 mb-1 flex items-center gap-2">
-              <svg class="w-4 h-4 ${color.text}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              Why It Works
-            </p>
-            <p class="text-gray-400 text-sm leading-relaxed">${rec.reason || 'Great match for your features'}</p>
-          </div>
-        </div>
-        
-        <div class="space-y-2 pt-2">
-          <button onclick="tryOnStyle('${rec.styleName}')" 
-                  class="w-full bg-gradient-to-r ${color.from} ${color.to} hover:shadow-lg text-white font-semibold py-3 px-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 group/btn">
-            <svg class="w-5 h-5 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-            </svg>
-            <span>Try It On with AR</span>
-          </button>
-          
-          <button onclick="findBarbersForStyle('${rec.styleName}')" 
-                  class="w-full bg-gray-800 hover:bg-gray-700 border border-gray-600 text-gray-200 font-semibold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group/btn">
-            <svg class="w-5 h-5 ${color.text} group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            </svg>
-            <span>Find Local Barbers</span>
-          </button>
-        </div>
+        <button onclick="findBarbersForStyle('${rec.styleName}')" 
+                class="w-full btn-secondary px-4 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          Find barbers
+        </button>
       </div>
     `;
     recommendationsContainer.appendChild(card);
@@ -984,45 +968,55 @@ async function toggleLike(postId) {
 function renderBottomNav() {
   if (!bottomNav) return;
 
-  const baseBtn = 'tab-button flex flex-col items-center justify-center h-16 flex-1 text-xs transition-all duration-200';
-  const centerBtn = 'tab-button center-pill flex flex-col items-center justify-center h-16 w-16 text-xs transition-all duration-200 rounded-full bg-gray-800 border border-gray-700 -translate-y-2';
+  const baseBtn = 'tab-button flex flex-col items-center justify-center h-14 flex-1 text-xs transition-all duration-200';
+  const centerBtn = 'tab-button center-pill flex items-center justify-center h-12 w-12 transition-all duration-200 rounded-full bg-black -translate-y-2';
+
+  // Clean SVG icons
+  const icons = {
+    home: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>',
+    explore: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>',
+    calendar: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>',
+    community: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>',
+    profile: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>',
+    scissors: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z"></path></svg>',
+    shop: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>'
+  };
 
   const clientTabs = [
-    { key: 'ai', label: 'Home', icon: '🏠' },
-    { key: 'barbers', label: 'Explore', icon: '🔍' },
-    { key: 'appointments', label: 'Bookings', icon: '📅', center: true },
-    { key: 'community', label: 'Community', icon: '👥' },
-    { key: 'profile', label: 'Profile', icon: '👤' }
+    { key: 'ai', label: 'Home', icon: icons.home },
+    { key: 'barbers', label: 'Explore', icon: icons.explore },
+    { key: 'appointments', label: 'Book', icon: icons.calendar, center: true },
+    { key: 'community', label: 'Community', icon: icons.community },
+    { key: 'profile', label: 'Profile', icon: icons.profile }
   ];
 
   const barberTabs = [
-    { key: 'barber-dashboard', label: 'Home', icon: '🏠' },
-    { key: 'barber-schedule', label: 'Bookings', icon: '📅' },
-    { key: 'barber-portfolio', label: 'Portfolio', icon: '✂️', center: true },
-    { key: 'community', label: 'Community', icon: '👥' },
-    { key: 'barber-profile', label: 'Shop', icon: '🏢' }
+    { key: 'barber-dashboard', label: 'Home', icon: icons.home },
+    { key: 'barber-schedule', label: 'Bookings', icon: icons.calendar },
+    { key: 'barber-portfolio', label: 'Work', icon: icons.scissors, center: true },
+    { key: 'community', label: 'Community', icon: icons.community },
+    { key: 'barber-profile', label: 'Shop', icon: icons.shop }
   ];
 
   const tabs = currentUserMode === 'client' ? clientTabs : barberTabs;
 
-  // Layout: space for center pill
+  // Layout: space for center pill - clean Uber-like design
   bottomNav.innerHTML = `
-    <div class="flex items-center justify-between px-3">
+    <div class="flex items-center justify-between px-4 py-1">
       ${tabs.map((t, idx) => {
         if (t.center) {
           return `
             <div class="flex-1 flex items-center justify-center">
-              <button class="${centerBtn} ${currentUserMode==='client' ? '' : ''} text-gray-200" data-tab="${t.key}">
-                <span class="text-lg leading-none">${t.icon}</span>
-                <span class="text-[10px] mt-1">${t.label}</span>
+              <button class="${centerBtn} text-white" data-tab="${t.key}">
+                ${t.icon}
               </button>
             </div>
           `;
         }
         return `
-          <button class="${baseBtn} text-gray-400" data-tab="${t.key}">
-            <span class="text-lg leading-none">${t.icon}</span>
-            <span class="text-[10px] mt-1">${t.label}</span>
+          <button class="${baseBtn} text-gray-500 hover:text-gray-900" data-tab="${t.key}">
+            ${t.icon}
+            <span class="mt-1 text-[11px]">${t.label}</span>
           </button>
         `;
       }).join('')}

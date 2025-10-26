@@ -9,32 +9,32 @@
   <style>
     body { font-family: 'Inter', sans-serif; overscroll-behavior-y: contain; }
     ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: #1a1a1a; }
-    ::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: #6a6a6a; }
-    .gradient-text { background: linear-gradient(90deg,#38bdf8,#a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #38bdf8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+    ::-webkit-scrollbar-track { background: #f8f8f8; }
+    ::-webkit-scrollbar-thumb { background: #d0d0d0; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #b0b0b0; }
+    .loader { border: 3px solid #f0f0f0; border-top: 3px solid #000; border-radius: 50%; width: 36px; height: 36px; animation: spin 0.8s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .tab-active { color: #38bdf8; }
-    .modal { backdrop-filter: blur(8px); }
-    .heart-animation { animation: heartBeat 0.6s ease-in-out; }
-    @keyframes heartBeat { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+    .tab-active { color: #000; font-weight: 600; }
+    .modal { backdrop-filter: blur(12px); }
+    .card-hover { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }
+    .btn-primary { background: #000; color: #fff; transition: all 0.2s; }
+    .btn-primary:hover { background: #333; }
+    .btn-secondary { background: #f0f0f0; color: #000; transition: all 0.2s; }
+    .btn-secondary:hover { background: #e0e0e0; }
   </style>
 </head>
-<body class="bg-black text-gray-200 min-h-screen">
+<body class="bg-white text-gray-900 min-h-screen">
   <div id="app" class="container mx-auto max-w-4xl pb-24">
-    <!-- Header (Logo Removed) -->
-    <header class="text-center p-4 md:p-8">
-      <div class="flex items-center justify-center mb-2">
-        <h1 class="text-4xl md:text-5xl font-bold gradient-text">LineUp</h1>
-      </div>
-      <p class="text-gray-400">AI Hairstylist & Barber Platform</p>
-      
-      <!-- Role Switcher -->
-      <div class="flex justify-center mt-4">
-        <div class="bg-gray-800 rounded-full p-1 flex">
-          <button id="client-mode" class="role-button px-6 py-2 rounded-full transition-all bg-sky-500 text-white">Client</button>
-          <button id="barber-mode" class="role-button px-6 py-2 rounded-full transition-all text-gray-400 hover:text-white">Barber</button>
+    <!-- Header -->
+    <header class="p-4 md:p-6 border-b border-gray-200">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold">LineUp</h1>
+        
+        <!-- Role Switcher -->
+        <div class="bg-gray-100 rounded-full p-0.5 flex">
+          <button id="client-mode" class="role-button px-5 py-1.5 rounded-full transition-all text-sm font-medium bg-white shadow-sm">Client</button>
+          <button id="barber-mode" class="role-button px-5 py-1.5 rounded-full transition-all text-sm font-medium text-gray-600 hover:text-gray-900">Barber</button>
         </div>
       </div>
     </header>
@@ -43,60 +43,52 @@
       <!-- CLIENT SIDE -->
       <div id="client-content">
         <!-- AI Tab (Home) -->
-        <div id="ai-tab-content" class="tab-content px-4">
-          <section id="upload-section" class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6 md:p-8 text-center transition-all duration-300">
-            <div id="image-upload-area" class="border-2 border-dashed border-gray-600 rounded-xl p-8 md:p-12 cursor-pointer hover:border-sky-400 hover:bg-gray-800/50 transition-all duration-300">
+        <div id="ai-tab-content" class="tab-content px-4 py-6">
+          <section id="upload-section">
+            <div class="text-center mb-6">
+              <h2 class="text-2xl font-bold mb-2">Find your perfect haircut</h2>
+              <p class="text-gray-600">Upload a photo and let AI recommend the best styles for you</p>
+            </div>
+            
+            <div id="image-upload-area" class="border-2 border-dashed border-gray-300 rounded-xl p-12 cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-all text-center">
               <input type="file" id="file-input" class="hidden" accept="image/*">
               <div class="flex flex-col items-center">
-                <svg class="w-12 h-12 text-gray-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                <svg class="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                 </svg>
-                <p class="font-semibold text-lg">Upload a photo to get started</p>
-                <p class="text-sm text-gray-400 mt-1">Use a clear, front-facing photo.</p>
+                <p class="font-medium text-gray-900 mb-1">Upload your photo</p>
+                <p class="text-sm text-gray-500">Best results with clear, front-facing photos</p>
               </div>
             </div>
-            <div id="image-preview-container" class="hidden mt-6">
-              <img id="image-preview" src="" alt="Uploaded photo" class="max-w-xs mx-auto rounded-xl shadow-lg"/>
-              <button id="analyze-button" class="mt-6 bg-sky-500 text-white font-bold py-3 px-8 rounded-full hover:bg-sky-600 transition-all duration-300 transform hover:scale-105">Analyze My Look</button>
+            
+            <div id="image-preview-container" class="hidden mt-6 text-center">
+              <img id="image-preview" src="" alt="Uploaded photo" class="max-w-xs mx-auto rounded-xl shadow-md border border-gray-200"/>
+              <button id="analyze-button" class="mt-6 btn-primary px-8 py-3 rounded-lg font-medium">Analyze my look</button>
             </div>
           </section>
 
-          <section id="status-section" class="text-center my-8 hidden">
+          <section id="status-section" class="text-center my-12 hidden">
             <div id="loader" class="mx-auto loader hidden"></div>
-            <p id="status-message" class="mt-4 text-lg"></p>
-            <div id="error-container" class="mt-4 bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-xl hidden">
-              <p id="error-message"></p>
-              <button id="try-again-button" class="mt-4 bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-600 transition-colors">Try Again</button>
+            <p id="status-message" class="mt-4 text-gray-600"></p>
+            <div id="error-container" class="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg hidden max-w-md mx-auto">
+              <p id="error-message" class="text-sm"></p>
+              <button id="try-again-button" class="mt-3 btn-secondary px-6 py-2 rounded-lg font-medium text-sm">Try again</button>
             </div>
           </section>
 
-          <section id="results-section" class="hidden mt-12">
-            <div class="bg-gradient-to-br from-gray-900/80 to-gray-800/50 border border-gray-700 rounded-2xl p-8 mb-8 backdrop-blur-sm">
-              <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 bg-gradient-to-r from-sky-400 to-purple-500 rounded-xl flex items-center justify-center">
-                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                  </svg>
-                </div>
-                <h2 class="text-3xl font-bold gradient-text">Your Analysis</h2>
-              </div>
-              <div id="analysis-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"></div>
+          <section id="results-section" class="hidden mt-8">
+            <!-- Simplified analysis - just show recommendations -->
+            <div class="mb-6">
+              <h2 class="text-2xl font-bold mb-2">Recommended for you</h2>
+              <p class="text-gray-600 text-sm">AI-powered haircut suggestions based on your face shape and features</p>
             </div>
-
-            <div>
-              <div class="text-center mb-8">
-                <div class="flex items-center justify-center gap-3 mb-4">
-                  <div class="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-                    </svg>
-                  </div>
-                  <h2 class="text-3xl font-bold gradient-text">Recommended Haircuts</h2>
-                </div>
-                <p class="text-gray-400">Click "Find Barbers" on any style to discover local experts</p>
-              </div>
-              <div id="recommendations-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-            </div>
+            <div id="recommendations-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            
+            <!-- Hidden analysis details (can be shown if needed) -->
+            <details class="mt-8 bg-gray-50 rounded-lg p-4">
+              <summary class="cursor-pointer font-medium text-sm text-gray-700 hover:text-gray-900">View detailed analysis</summary>
+              <div id="analysis-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-4"></div>
+            </details>
 
             <div class="text-center mt-8 border-t border-gray-700 pt-8">
               <p class="text-lg mb-4">Ready for the perfect cut?</p>
@@ -245,33 +237,54 @@
         </div>
 
         <!-- Barber Profile / Shop Settings -->
-        <div id="barber-profile-tab-content" class="tab-content hidden px-4">
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-3xl font-bold">Shop Settings</h2>
-            <span class="text-sm text-gray-400">Barber</span>
-          </div>
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
-            <h3 class="text-xl font-bold mb-3">Business Info</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input placeholder="Shop Name" class="bg-gray-800 border border-gray-700 rounded-lg p-3" value="Your Barber Shop">
-              <input placeholder="Phone" class="bg-gray-800 border border-gray-700 rounded-lg p-3" value="(555) 123-4567">
-              <input placeholder="Address" class="bg-gray-800 border border-gray-700 rounded-lg p-3 md:col-span-2" value="123 Main St, Atlanta, GA">
+        <div id="barber-profile-tab-content" class="tab-content hidden px-4 py-6">
+          <h2 class="text-2xl font-bold mb-6">Shop settings</h2>
+          
+          <!-- Logo Upload -->
+          <div class="bg-white border border-gray-200 rounded-lg p-5 mb-4">
+            <h3 class="text-lg font-semibold mb-3">Shop logo</h3>
+            <div class="flex items-center gap-4">
+              <div id="logo-preview-container" class="w-20 h-20 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-gray-400 transition-all">
+                <input type="file" id="logo-input" class="hidden" accept="image/*">
+                <img id="logo-preview" src="" alt="Shop logo" class="w-full h-full object-cover rounded-lg hidden"/>
+                <svg id="logo-placeholder" class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <button id="upload-logo-btn" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium">Upload logo</button>
+                <p class="text-xs text-gray-500 mt-1">Square image, at least 256x256px</p>
+              </div>
             </div>
           </div>
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
-            <h3 class="text-xl font-bold mb-3">Payments</h3>
-            <p class="text-gray-400 text-sm">Connect Stripe to accept payments.</p>
-            <button class="mt-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg">Connect Stripe</button>
+          
+          <!-- Business Info -->
+          <div class="bg-white border border-gray-200 rounded-lg p-5 mb-4">
+            <h3 class="text-lg font-semibold mb-3">Business information</h3>
+            <div class="space-y-3">
+              <input placeholder="Shop name" class="w-full bg-white border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:border-black" value="Your Barber Shop">
+              <input placeholder="Phone number" class="w-full bg-white border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:border-black" value="(555) 123-4567">
+              <input placeholder="Address" class="w-full bg-white border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:border-black" value="123 Main St, Atlanta, GA">
+            </div>
+          </div>
+          
+          <!-- Payments -->
+          <div class="bg-white border border-gray-200 rounded-lg p-5 mb-4">
+            <h3 class="text-lg font-semibold mb-2">Payment processing</h3>
+            <p class="text-gray-600 text-sm mb-3">Connect Stripe to accept online payments</p>
+            <button class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Connect Stripe</button>
           </div>
           
           <!-- Subscription Packages -->
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5">
+          <div class="bg-white border border-gray-200 rounded-lg p-5">
             <div class="flex justify-between items-center mb-3">
-              <h3 class="text-xl font-bold">Subscription Packages</h3>
-              <button id="create-package-btn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg text-sm">+ Create Package</button>
+              <div>
+                <h3 class="text-lg font-semibold">Subscription packages</h3>
+                <p class="text-gray-600 text-sm mt-0.5">Offer monthly deals to boost customer retention</p>
+              </div>
+              <button id="create-package-btn" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Create</button>
             </div>
-            <p class="text-gray-400 text-sm mb-4">Create subscription packages to increase customer retention (e.g., 2 cuts/month for $80 or 5 cuts for $100).</p>
-            <div id="subscription-packages-list" class="space-y-3">
+            <div id="subscription-packages-list" class="space-y-3 mt-4">
               <!-- Packages will be loaded here -->
             </div>
           </div>
@@ -289,7 +302,7 @@
     </div>
 
     <!-- Dynamic Bottom Tab Nav (Rendered by JS) -->
-    <nav id="bottom-nav" class="fixed bottom-3 left-1/2 -translate-x-1/2 w-[95%] max-w-md bg-gray-900/80 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl">
+    <nav id="bottom-nav" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white border border-gray-200 rounded-full shadow-lg">
       <!-- Buttons will be injected by scripts-updated.js -->
     </nav>
   </div>
@@ -431,9 +444,7 @@
   <!-- Firebase Integration -->
   <script type="module" src="firebase-simple.js"></script>
   
-  <!-- Try-On Engine -->
-  <script src="virtual-tryon.js"></script>
-  
+  <!-- Main App Script -->
   <script src="scripts-updated.js"></script>
 </body>
 </html>

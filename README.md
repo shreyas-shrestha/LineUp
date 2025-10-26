@@ -31,6 +31,11 @@ curl -X POST http://localhost:5000/analyze \
 
 # Test barber search
 curl "http://localhost:5000/barbers?location=Atlanta,GA"
+
+# Test virtual try-on endpoint (requires base64 image data)
+curl -X POST http://localhost:5000/virtual-tryon \
+  -H "Content-Type: application/json" \
+  -d '{"userPhoto": "base64data", "styleDescription": "Side Part with Volume"}'
 ```
 
 ### Dependency Management
@@ -67,6 +72,9 @@ The application is a **two-sided platform** with distinct user modes:
 #### Key Endpoints
 - `/analyze` - AI haircut analysis (10 req/hour limit)
 - `/barbers` - Real barbershop search with location
+- `/virtual-tryon` - Virtual try-on with hairstyle transformation (5 req/hour limit)
+- `/subscription-packages` - Barber subscription package management
+- `/client-subscriptions` - Client subscription tracking
 - `/social` - Social media feed functionality  
 - `/appointments` - Appointment booking and management
 - `/portfolio` - Barber portfolio management
@@ -82,6 +90,8 @@ The application is a **two-sided platform** with distinct user modes:
 #### Key Components
 - **Role Switcher**: Toggle between Client/Barber modes
 - **AI Analysis Flow**: Image upload → compression → API call → results display with improved UI and proper capitalization
+- **Virtual Try-On**: Upload photo → Select hairstyle → AI transformation (HairCLIP via Replicate or PIL fallback)
+- **Subscription Packages**: Barbers can create subscription deals (e.g., 2 cuts/month for $X)
 - **Individual Style Barber Search**: Each haircut recommendation has its own "Find Barbers" button for targeted searches
 - **Barber Discovery**: Location-based search with Google Places integration and enhanced UI feedback
 - **Social Feed**: Community posts with like/comment functionality
@@ -89,9 +99,11 @@ The application is a **two-sided platform** with distinct user modes:
 
 ### Data Flow Patterns
 1. **Image Analysis**: Frontend compresses images → Base64 encoding → Gemini API → Structured recommendations with individual barber search buttons
-2. **Individual Style Barber Search**: User clicks "Find Barbers" on specific haircut → Search for barbers specializing in that style
-3. **General Barber Search**: Location input → Geocoding → Places API → Enhanced results with specialties
-4. **Rate Limiting**: Daily API quotas tracked server-side with graceful fallbacks
+2. **Virtual Try-On**: User photo (base64) + style description → Backend `/virtual-tryon` → HairCLIP (if API key set) or PIL transformation → Transformed image displayed
+3. **Individual Style Barber Search**: User clicks "Find Barbers" on specific haircut → Search for barbers specializing in that style
+4. **General Barber Search**: Location input → Geocoding → Places API → Enhanced results with specialties
+5. **Subscription Management**: Barbers create packages → Stored in backend → Clients view and subscribe
+6. **Rate Limiting**: Daily API quotas tracked server-side with graceful fallbacks
 
 ## Development Guidelines
 
@@ -156,13 +168,20 @@ The application is a **two-sided platform** with distinct user modes:
 
 ### Manual Testing Workflow
 1. **Image Analysis**: Test with various face angles and lighting conditions
-2. **Location Search**: Verify with different location formats (ZIP, city, neighborhood)
-3. **Role Switching**: Ensure all tabs and features work in both Client/Barber modes
-4. **Responsive Design**: Test on mobile and desktop screen sizes
-5. **API Fallbacks**: Test behavior when external APIs are unavailable
+2. **Virtual Try-On**: Upload a photo → Select hairstyle → Verify transformed image displays (works without API key via PIL fallback)
+3. **Subscription Packages**: In Barber mode, create packages and verify they display correctly
+4. **Location Search**: Verify with different location formats (ZIP, city, neighborhood)
+5. **Role Switching**: Ensure all tabs and features work in both Client/Barber modes
+6. **Responsive Design**: Test on mobile and desktop screen sizes
+7. **API Fallbacks**: Test behavior when external APIs are unavailable
 
 ### Common Issues and Solutions
 - **CORS Errors**: Ensure API_URL in frontend matches deployed backend URL
 - **Image Upload Issues**: Check file size limits and supported formats
 - **API Rate Limits**: Monitor `/health` endpoint for usage tracking
 - **Location Search Problems**: Verify Google Places API key and billing setup
+- **Virtual Try-On Not Working**: 
+  - Check browser console (F12 → Network tab) for endpoint errors
+  - Verify `/virtual-tryon` endpoint exists and returns 200
+  - Works without REPLICATE_API_TOKEN (uses PIL fallback)
+  - With token: Ensure valid Replicate API key is set in environment

@@ -124,8 +124,8 @@ class AppointmentCreate(BaseModel):
     client_id: str = Field(default="current-user")
     barber_name: str = Field(..., min_length=1, max_length=100)
     barber_id: str = Field(..., min_length=1)
-    date: str = Field(..., regex=r'^\d{4}-\d{2}-\d{2}$')
-    time: str = Field(..., regex=r'^\d{2}:\d{2}$')
+    date: str = Field(..., pattern=r'^\d{4}-\d{2}-\d{2}$')
+    time: str = Field(..., pattern=r'^\d{2}:\d{2}$')
     service: str = Field(..., min_length=1, max_length=200)
     price: Optional[str] = Field(default="$0")
     notes: Optional[str] = Field(default="", max_length=1000)
@@ -161,7 +161,7 @@ class AppointmentCreate(BaseModel):
 
 class AppointmentStatusUpdate(BaseModel):
     """Validation for updating appointment status"""
-    status: str = Field(..., regex=r'^(pending|confirmed|cancelled|completed)$')
+    status: str = Field(..., pattern=r'^(pending|confirmed|cancelled|completed)$')
 
 
 class PortfolioItemCreate(BaseModel):
@@ -180,7 +180,7 @@ class SubscriptionPackageCreate(BaseModel):
     description: str = Field(..., min_length=1, max_length=500)
     num_cuts: int = Field(..., ge=1, le=50)
     duration_months: int = Field(..., ge=1, le=12)
-    price: str = Field(..., regex=r'^\$?\d+(\.\d{2})?$')
+    price: str = Field(..., pattern=r'^\$?\d+(\.\d{2})?$')
     discount: Optional[str] = Field(default="", max_length=50)
     
     @validator('num_cuts')

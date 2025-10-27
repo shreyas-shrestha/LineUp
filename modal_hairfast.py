@@ -25,18 +25,19 @@ app = modal.App("hairfast-lineup")
 # Define the image with HairFastGAN dependencies
 hairfast_image = (
     modal.Image.debian_slim(python_version="3.10")
-    .apt_install("git", "git-lfs", "libgl1-mesa-glx", "libglib2.0-0")
+    .apt_install("git", "git-lfs", "libgl1-mesa-glx", "libglib2.0-0", "cmake", "build-essential")
     .pip_install(
+        "numpy<2",  # Pin to 1.x for compatibility
         "torch==1.13.1",
         "torchvision==0.14.1",
-        "numpy",
         "pillow",
         "opencv-python-headless",
         "scipy",
         "ninja",
         "dlib",
         "face-alignment",
-        "gdown"
+        "gdown",
+        "fastapi"
     )
     .run_commands(
         # Clone HairFastGAN
@@ -113,7 +114,7 @@ def transform_hair(face_image_base64: str, style_description: str) -> dict:
 
 # Create web endpoint
 @app.function(image=hairfast_image)
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def hairfast_endpoint(request_data: dict) -> dict:
     """
     Web endpoint for HairFastGAN transformations

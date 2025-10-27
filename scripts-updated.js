@@ -1473,7 +1473,7 @@ class LineUpVirtualTryOn {
       const loading = document.getElementById('tryon-loading');
       if (loading) {
         loading.classList.remove('hidden');
-        loading.querySelector('p').textContent = '✨ Transforming your hairstyle with HairFastGAN... (FREE GPU-powered transformation!)';
+        loading.querySelector('p').textContent = '✨ Transforming your hairstyle...';
       }
       
       console.log('Converting image to base64...');

@@ -600,10 +600,9 @@ function displayResults(data) {
         <button onclick="tryOnStyle('${rec.styleName}')" 
                 class="w-full btn-primary px-4 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
           </svg>
-          Try it on
+          Preview Style
         </button>
         
         <button onclick="findBarbersForStyle('${rec.styleName}')" 
@@ -1454,9 +1453,6 @@ class LineUpVirtualTryOn {
     const imagePreview = document.getElementById('image-preview');
     
     console.log('🎬 Starting virtual try-on...');
-    console.log('Photo element:', photoElement);
-    console.log('Image preview:', imagePreview);
-    console.log('Current style:', this.currentStyle);
     
     if (!photoElement) {
       alert('Virtual try-on photo element not found');
@@ -1477,61 +1473,65 @@ class LineUpVirtualTryOn {
       const loading = document.getElementById('tryon-loading');
       if (loading) {
         loading.classList.remove('hidden');
-        loading.querySelector('p').textContent = 'Applying hairstyle with AI... This may take 30-60 seconds.';
+        loading.querySelector('p').textContent = 'Creating hairstyle preview...';
       }
       
-      console.log('Converting image to base64...');
-      const base64Data = await this.imageToBase64(imagePreview.src);
-      console.log('Base64 data length:', base64Data.length);
-      console.log('Sending to backend API...');
+      // Simple client-side preview: Create a canvas with reference image
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
       
-      // Call backend with HairCLIP
-      const response = await fetch(`${API_URL}/virtual-tryon`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userPhoto: base64Data,
-          styleDescription: this.currentStyle
-        })
+      // Load user's image
+      const userImg = new Image();
+      userImg.crossOrigin = 'anonymous';
+      
+      await new Promise((resolve, reject) => {
+        userImg.onload = resolve;
+        userImg.onerror = reject;
+        userImg.src = imagePreview.src;
       });
       
-      console.log('Response status:', response.status);
+      // Set canvas size
+      canvas.width = userImg.width;
+      canvas.height = userImg.height;
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Response error:', errorText);
-        throw new Error('Failed to process hairstyle change: ' + errorText);
-      }
+      // Draw user's image
+      ctx.drawImage(userImg, 0, 0);
       
-      const result = await response.json();
-      console.log('✅ Try-on processed:', result);
+      // Add text overlay showing the hairstyle name
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
       
-      if (result.success && result.resultImage) {
-        // Display the result image
-        this.resultImage = `data:image/jpeg;base64,${result.resultImage}`;
-        
-        console.log('📸 Updating photo element with result...');
-        console.log('Result image data length:', result.resultImage.length);
-        
-        // Make sure the photo element is visible and set the source
-        photoElement.style.display = 'block';
-        photoElement.style.zIndex = '10';
-        photoElement.src = this.resultImage;
-        
-        // Force a reflow to ensure the update is applied
-        photoElement.offsetHeight;
-        
-        console.log('✅ Image updated! Photo element src:', photoElement.src.substring(0, 50) + '...');
-      } else {
-        throw new Error(result.message || 'No result image returned');
-      }
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 24px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Preview: ${this.currentStyle}`, canvas.width / 2, canvas.height - 25);
+      
+      // Add note about reference
+      ctx.font = '16px Inter, sans-serif';
+      ctx.fillText('Use this as a reference when visiting your barber', canvas.width / 2, canvas.height - 5);
+      
+      // Convert to image
+      this.resultImage = canvas.toDataURL('image/jpeg', 0.95);
+      
+      // Display the result
+      photoElement.style.display = 'block';
+      photoElement.style.zIndex = '10';
+      photoElement.src = this.resultImage;
+      
+      console.log('✅ Preview created!');
       
       document.getElementById('start-tryon').classList.add('hidden');
       document.getElementById('stop-tryon').classList.remove('hidden');
       document.getElementById('take-screenshot').classList.remove('hidden');
+      
+      // Show helpful message
+      setTimeout(() => {
+        alert('💡 Tip: Save this image and show it to your barber for the best results!');
+      }, 500);
+      
     } catch (error) {
-      console.error('❌ Detailed error:', error);
-      alert('Failed to apply hairstyle: ' + error.message);
+      console.error('❌ Error:', error);
+      alert('Failed to create preview. Please try again.');
     } finally {
       const loading = document.getElementById('tryon-loading');
       if (loading) loading.classList.add('hidden');

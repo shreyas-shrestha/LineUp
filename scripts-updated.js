@@ -1478,29 +1478,56 @@ class LineUpVirtualTryOn {
       
       console.log('Converting image to base64...');
       const base64Data = await this.imageToBase64(imagePreview.src);
-      console.log('Sending to HairFastGAN API...');
       
-      // Call backend with HairFastGAN
-      const response = await fetch(`${API_URL}/virtual-tryon`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userPhoto: base64Data,
-          styleDescription: this.currentStyle
-        })
-      });
+      // Validate base64 data
+      if (!base64Data || base64Data.length < 100) {
+        throw new Error('Invalid image data - image may be corrupted');
+      }
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.log(`Sending to HairFastGAN API... (image size: ${(base64Data.length / 1024).toFixed(2)}KB)`);
+      
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+      
+      try {
+        // Call backend with HairFastGAN
+        const response = await fetch(`${API_URL}/virtual-tryon`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userPhoto: base64Data,
+            styleDescription: this.currentStyle
+          }),
+          signal: controller.signal
+        });
         
-        // Check if it's a setup error
-        if (response.status === 503 && errorData.setup_instructions) {
-          const instructions = errorData.setup_instructions;
-          alert(`⚠️ HairFastGAN Not Set Up Yet!\n\nTo enable ACTUAL visual hair transformations:\n\n1. Modal Labs (FREE $30/month): ${instructions.modal}\n2. Hugging Face (FREE tier): ${instructions.huggingface}\n\nSee HAIRFAST_SETUP.md for detailed instructions.`);
-          throw new Error('HairFastGAN not configured');
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            errorData = { error: `Server error: ${response.status} ${response.statusText}` };
+          }
+          
+          // Check if it's a setup error
+          if (response.status === 503 && errorData.setup_instructions) {
+            const instructions = errorData.setup_instructions;
+            alert(`⚠️ HairFastGAN Not Set Up Yet!\n\nTo enable ACTUAL visual hair transformations:\n\n1. Modal Labs (FREE $30/month): ${instructions.modal}\n2. Hugging Face (FREE tier): ${instructions.huggingface}\n\nSee HAIRFAST_SETUP.md for detailed instructions.`);
+            throw new Error('HairFastGAN not configured');
+          }
+          
+          console.error('Server error details:', errorData);
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
         }
-        
-        throw new Error(errorData.error || 'Failed to process hairstyle');
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Request timed out after 60 seconds. The GPU might be cold-starting. Please try again.');
+        }
+        throw fetchError;
       }
       
       const result = await response.json();
@@ -1529,9 +1556,27 @@ class LineUpVirtualTryOn {
       document.getElementById('take-screenshot').classList.remove('hidden');
       
     } catch (error) {
-      console.error('❌ Error:', error);
+      console.error('❌ Virtual Try-On Error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        style: this.currentStyle
+      });
+      
       if (!error.message.includes('not configured')) {
-        alert('Failed to transform hairstyle. Please try again or check setup instructions in HAIRFAST_SETUP.md');
+        let errorMessage = 'Failed to transform hairstyle.\n\n';
+        
+        if (error.message.includes('timeout') || error.message.includes('cold-starting')) {
+          errorMessage += '⏱️ The GPU is warming up (this takes ~30 seconds on first use).\nPlease try again in a moment!';
+        } else if (error.message.includes('Invalid image')) {
+          errorMessage += '📸 Image issue detected. Please try uploading a different photo.';
+        } else if (error.message.includes('HTTP 500')) {
+          errorMessage += '🔧 Server error. The Modal GPU might have crashed.\nCheck HAIRFAST_SETUP.md or try again in a minute.';
+        } else {
+          errorMessage += `Error: ${error.message}\n\nℹ️ Check browser console (F12) for details.`;
+        }
+        
+        alert(errorMessage);
       }
     } finally {
       const loading = document.getElementById('tryon-loading');

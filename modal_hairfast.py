@@ -37,7 +37,8 @@ hairfast_image = (
         "dlib",
         "face-alignment",
         "gdown",
-        "fastapi"
+        "fastapi",
+        "requests"  # For downloading reference hairstyle images
     )
     .run_commands(
         # Clone HairFastGAN
@@ -73,25 +74,70 @@ def transform_hair(face_image_base64: str, style_description: str) -> dict:
     
     from PIL import Image
     from hair_swap import HairFast, get_parser
-    import tempfile
-    import os
+    import requests
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
     
     try:
+        logger.info(f"Starting transformation for style: {style_description}")
+        
         # Decode input image
         face_bytes = base64.b64decode(face_image_base64)
         face_img = Image.open(io.BytesIO(face_bytes)).convert('RGB')
+        logger.info(f"Face image loaded: {face_img.size}")
         
         # HairFastGAN requires reference images for shape and color
-        # Use the same face image for now (will just enhance/modify existing hair)
-        # In production, you'd maintain a library of reference hairstyles
+        # Map style descriptions to reference hairstyle URLs
+        hairstyle_library = {
+            "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512&h=512&fit=crop",
+            "buzz": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512&h=512&fit=crop",
+            "quiff": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=512&h=512&fit=crop",
+            "pompadour": "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?w=512&h=512&fit=crop",
+            "undercut": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512&h=512&fit=crop",
+            "side part": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512&h=512&fit=crop",
+            "slick back": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=512&h=512&fit=crop",
+            "long": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=512&h=512&fit=crop",
+            "curly": "https://images.unsplash.com/photo-1524660988542-c440de9c0fde?w=512&h=512&fit=crop",
+            "textured": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512&h=512&fit=crop",
+            "crew cut": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512&h=512&fit=crop",
+            "ivy league": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512&h=512&fit=crop"
+        }
+        
+        # Find matching hairstyle reference
+        style_lower = style_description.lower()
+        reference_url = None
+        
+        for key, url in hairstyle_library.items():
+            if key in style_lower:
+                reference_url = url
+                logger.info(f"Matched style '{key}' for '{style_description}'")
+                break
+        
+        # Default to a classic style if no match
+        if not reference_url:
+            reference_url = hairstyle_library["side part"]
+            logger.warning(f"No match for '{style_description}', using default: side part")
+        
+        # Download reference image
+        logger.info(f"Downloading reference from: {reference_url}")
+        ref_response = requests.get(reference_url, timeout=10)
+        if ref_response.status_code != 200:
+            raise Exception(f"Failed to download reference image: HTTP {ref_response.status_code}")
+        
+        ref_img = Image.open(io.BytesIO(ref_response.content)).convert('RGB')
+        logger.info(f"Reference image loaded: {ref_img.size}")
         
         # Initialize HairFast
+        logger.info("Initializing HairFastGAN...")
         args = get_parser().parse_args([])
         hair_fast = HairFast(args)
         
-        # For now, use the same image as reference (will modify existing hair)
-        # TODO: Add hairstyle library mapping based on style_description
-        result = hair_fast(face_img, face_img, face_img)
+        # Transform: face image + reference hairstyle shape + reference hair color
+        logger.info("Running HairFastGAN transformation...")
+        result = hair_fast(face_img, ref_img, ref_img)
+        logger.info(f"Transformation complete! Result size: {result.size}")
         
         # Convert result to base64
         output_buffer = io.BytesIO()
@@ -103,10 +149,14 @@ def transform_hair(face_image_base64: str, style_description: str) -> dict:
             "result_image": result_base64,
             "style_applied": style_description,
             "model": "HairFastGAN",
-            "gpu_used": "NVIDIA T4"
+            "gpu_used": "NVIDIA T4",
+            "reference_used": reference_url
         }
         
     except Exception as e:
+        logger.error(f"Transformation failed: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return {
             "success": False,
             "error": str(e)

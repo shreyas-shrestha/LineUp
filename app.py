@@ -1045,36 +1045,57 @@ def virtual_tryon():
         MODAL_ENDPOINT = os.environ.get("MODAL_HAIRFAST_ENDPOINT")
         
         if MODAL_ENDPOINT:
-            logger.info("Using Modal Labs GPU endpoint for HairFastGAN")
+            logger.info(f"Using Modal Labs GPU endpoint: {MODAL_ENDPOINT}")
+            logger.info(f"Image size: {len(user_photo_base64)} bytes, Style: {style_description}")
             
             # Call Modal endpoint
             import requests as req
-            modal_response = req.post(
-                MODAL_ENDPOINT,
-                json={
-                    "face_image": user_photo_base64,
-                    "style_description": style_description
-                },
-                headers={"Content-Type": "application/json"},
-                timeout=30
-            )
-            
-            if modal_response.status_code == 200:
-                result_data = modal_response.json()
-                response_data = {
-                    "success": True,
-                    "message": f"HairFastGAN transformation complete: {style_description}",
-                    "resultImage": result_data.get("result_image"),
-                    "styleApplied": style_description,
-                    "poweredBy": "HairFastGAN (AIRI-Institute)"
-                }
+            try:
+                modal_response = req.post(
+                    MODAL_ENDPOINT,
+                    json={
+                        "face_image": user_photo_base64,
+                        "style_description": style_description
+                    },
+                    headers={"Content-Type": "application/json"},
+                    timeout=60  # Increased to 60 seconds for cold starts
+                )
                 
-                response = make_response(jsonify(response_data), 200)
-                response.headers['Access-Control-Allow-Origin'] = '*'
-                return response
-            else:
-                logger.error(f"Modal endpoint error: {modal_response.text}")
-                raise Exception("Modal endpoint failed")
+                logger.info(f"Modal response status: {modal_response.status_code}")
+                
+                if modal_response.status_code == 200:
+                    result_data = modal_response.json()
+                    
+                    # Validate response
+                    if not result_data.get("success"):
+                        error_msg = result_data.get("error", "Unknown error from Modal")
+                        logger.error(f"Modal processing error: {error_msg}")
+                        raise Exception(f"HairFastGAN error: {error_msg}")
+                    
+                    if not result_data.get("result_image"):
+                        logger.error("Modal returned success but no result_image")
+                        raise Exception("No transformed image received from HairFastGAN")
+                    
+                    logger.info(f"✅ HairFastGAN transformation successful")
+                    response_data = {
+                        "success": True,
+                        "message": f"HairFastGAN transformation complete: {style_description}",
+                        "resultImage": result_data.get("result_image"),
+                        "styleApplied": style_description,
+                        "poweredBy": "HairFastGAN (AIRI-Institute)"
+                    }
+                    
+                    response = make_response(jsonify(response_data), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
+                    return response
+                else:
+                    error_text = modal_response.text[:500]  # Limit error text
+                    logger.error(f"Modal endpoint HTTP {modal_response.status_code}: {error_text}")
+                    raise Exception(f"Modal endpoint returned {modal_response.status_code}: {error_text}")
+            
+            except req.exceptions.Timeout:
+                logger.error("Modal endpoint timeout after 60 seconds")
+                raise Exception("GPU processing timed out. The Modal endpoint might be cold-starting. Please try again.")
         
         # Fallback: Use Hugging Face Inference API (if no Modal endpoint)
         HF_API_KEY = os.environ.get("HF_API_KEY") or os.environ.get("HUGGINGFACE_API_KEY")

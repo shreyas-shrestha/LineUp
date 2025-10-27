@@ -309,6 +309,43 @@ def get_barbers():
         return jsonify(mock_result)
 
 
+@app.route('/search-barbers', methods=['GET', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def search_barbers():
+    """Search barbershops by name or location"""
+    if request.method == 'OPTIONS':
+        return make_response('', 200)
+    
+    query = request.args.get('query', '')
+    search_type = request.args.get('type', 'location')  # 'name' or 'location'
+    
+    if not query:
+        return jsonify({"error": "Query parameter is required"}), 400
+    
+    try:
+        if search_type == 'name':
+            # Search by business name
+            result = PlacesService.search_by_name(query)
+        else:
+            # Default to location search
+            result = PlacesService.find_barbers(query, [])
+            
+        result['query'] = query
+        result['search_type'] = search_type
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error searching barbers: {e}")
+        # Return empty result on error
+        return jsonify({
+            "barbers": [],
+            "query": query,
+            "search_type": search_type,
+            "error": str(e)
+        })
+
+
 # ============================================================================
 # ROUTES - PORTFOLIO
 # ============================================================================

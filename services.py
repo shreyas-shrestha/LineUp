@@ -477,6 +477,48 @@ class PlacesService:
             return PlacesService._get_mock_barbers(location)
     
     @staticmethod
+    def search_by_name(shop_name: str) -> dict:
+        """Search barbershops by business name"""
+        cache_key = f"barbers:name:{shop_name.lower()}"
+        
+        # Check cache first
+        cached = CacheService.get(cache_key)
+        if cached:
+            logger.info(f"Returning cached search for {shop_name}")
+            return {'barbers': cached, 'cached': True}
+        
+        if not Config.GOOGLE_PLACES_API_KEY:
+            logger.warning("Google Places API not configured, using mock data")
+            return {'barbers': [], 'mock_data': True}
+        
+        try:
+            # Search by name using Text Search
+            search_url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+            search_response = requests.get(search_url, params={
+                'query': f"{shop_name} barbershop hair salon",
+                'type': 'hair_care',
+                'key': Config.GOOGLE_PLACES_API_KEY
+            }, timeout=10)
+            
+            search_data = search_response.json()
+            if search_data['status'] not in ['OK', 'ZERO_RESULTS']:
+                raise ExternalAPIError('Google Places', f"Text search error: {search_data['status']}")
+            
+            if search_data['status'] == 'ZERO_RESULTS':
+                return {'barbers': [], 'real_data': True}
+            
+            barbers = PlacesService._process_places(search_data['results'][:10], [])
+            
+            # Cache results
+            CacheService.set(cache_key, barbers, Config.CACHE_DURATION)
+            
+            return {'barbers': barbers, 'real_data': True}
+            
+        except Exception as e:
+            logger.error(f"Places name search error: {e}")
+            return {'barbers': [], 'error': str(e)}
+    
+    @staticmethod
     def _process_places(places: list, styles: list) -> list:
         """Process raw Places API data"""
         barbers = []

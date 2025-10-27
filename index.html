@@ -55,11 +55,11 @@
       </div>
     </header>
 
-    <main id="main-content">
+    <main id="main-content" class="mt-6">
       <!-- CLIENT SIDE -->
       <div id="client-content">
         <!-- AI Tab (Home) -->
-        <div id="ai-tab-content" class="tab-content px-4 py-6">
+        <div id="ai-tab-content" class="tab-content px-4 py-8">
           <section id="upload-section">
             <div class="text-center mb-6">
               <h2 class="text-2xl font-bold mb-2 text-white">Find your perfect haircut</h2>
@@ -117,20 +117,21 @@
         </div>
 
         <!-- Barbers Tab -->
-        <div id="barbers-tab-content" class="tab-content hidden px-4">
+        <div id="barbers-tab-content" class="tab-content hidden px-4 py-8">
           <div class="flex justify-between items-center mb-6">
             <h2 class="text-3xl font-bold">Find Real Barbershops</h2>
             <button id="refresh-barbers" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors">Refresh</button>
           </div>
-          <div id="barber-search" class="mb-6">
-            <input type="text" id="location-search" placeholder="Enter ZIP code or city (e.g., 30308 or Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+          <div id="barber-search" class="mb-6 space-y-4">
+            <input type="text" id="location-search" placeholder="Search by ZIP, city, or neighborhood (e.g., 30308, Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+            <input type="text" id="shop-name-search" placeholder="Or search by shop name (e.g., Elite Cuts)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
           </div>
           <p id="barber-intro" class="text-center text-gray-400 mb-8">Enter your location to find real barbershops near you.</p>
           <div id="barber-list-container" class="space-y-4"></div>
         </div>
 
         <!-- Appointments Tab (Bookings) -->
-        <div id="appointments-tab-content" class="tab-content hidden px-4">
+        <div id="appointments-tab-content" class="tab-content hidden px-4 py-8">
           <h2 class="text-3xl font-bold text-center mb-6">My Bookings</h2>
           <div id="client-appointments-container" class="space-y-4"></div>
           <div id="no-appointments" class="text-center py-12 text-gray-400">
@@ -140,7 +141,7 @@
         </div>
 
         <!-- Profile Tab (Client) -->
-        <div id="profile-tab-content" class="tab-content hidden px-4">
+        <div id="profile-tab-content" class="tab-content hidden px-4 py-8">
           <div class="flex items-center justify-between mb-6">
             <h2 class="text-3xl font-bold">Profile</h2>
             <span class="text-sm text-gray-400">Client</span>
@@ -210,7 +211,7 @@
       <!-- BARBER SIDE -->
       <div id="barber-content" class="hidden">
         <!-- Dashboard Tab (Home) -->
-        <div id="barber-dashboard-tab-content" class="tab-content px-4">
+        <div id="barber-dashboard-tab-content" class="tab-content px-4 py-8">
           <h2 class="text-3xl font-bold text-center mb-6">Barber Dashboard</h2>
           
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -238,7 +239,7 @@
         </div>
 
         <!-- Portfolio Tab -->
-        <div id="barber-portfolio-tab-content" class="tab-content hidden px-4">
+        <div id="barber-portfolio-tab-content" class="tab-content hidden px-4 py-8">
           <div class="flex justify-between items-center mb-6">
             <h2 class="text-3xl font-bold">My Portfolio</h2>
             <button id="upload-work-button" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors">+ Upload Work</button>
@@ -247,13 +248,13 @@
         </div>
 
         <!-- Schedule Tab (Clients / Bookings) -->
-        <div id="barber-schedule-tab-content" class="tab-content hidden px-4">
+        <div id="barber-schedule-tab-content" class="tab-content hidden px-4 py-8">
           <h2 class="text-3xl font-bold text-center mb-6">Clients & Bookings</h2>
           <div id="barber-appointments-container" class="space-y-4"></div>
         </div>
 
         <!-- Barber Profile / Shop Settings -->
-        <div id="barber-profile-tab-content" class="tab-content hidden px-4 py-6">
+        <div id="barber-profile-tab-content" class="tab-content hidden px-4 py-8">
           <h2 class="text-2xl font-bold mb-6 text-white">Shop settings</h2>
           
           <!-- Business Info -->
@@ -291,7 +292,7 @@
     </main>
 
     <!-- Shared Community Tab Content -->
-    <div id="community-tab-content" class="tab-content hidden px-4">
+    <div id="community-tab-content" class="tab-content hidden px-4 py-8">
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-3xl font-bold">Community</h2>
         <button id="add-post-button" class="bg-sky-500 text-white px-4 py-2 rounded-full hover:bg-sky-600 transition-colors">+ Post</button>
@@ -390,6 +391,40 @@
       <div class="flex gap-3 mt-4">
         <button id="cancel-package" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
         <button id="submit-package" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors">Create Package</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Haircut Details Modal -->
+  <div id="haircut-details-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="haircut-modal-title" class="text-2xl font-bold">Haircut Details</h3>
+        <button id="close-haircut-modal" class="text-gray-400 hover:text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <div id="haircut-modal-content" class="space-y-6">
+        <!-- Content will be dynamically populated -->
+      </div>
+      
+      <div class="flex gap-3 mt-6">
+        <button id="haircut-modal-tryon" class="flex-1 btn-primary px-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+          Try This Style
+        </button>
+        <button id="haircut-modal-findbarbers" class="flex-1 btn-secondary px-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          Find Barbers
+        </button>
       </div>
     </div>
   </div>

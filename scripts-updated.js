@@ -570,25 +570,25 @@ function displayResults(data) {
     analysisGrid.appendChild(div);
   });
 
-  // Recommendations with colorful borders and drop shadows
+  // Recommendations with colorful TOP borders only
   recommendationsContainer.innerHTML = '';
   const recommendations = data.recommendations || [];
   lastRecommendedStyles = recommendations.slice(0, 6).map(r => r.styleName);
   
-  // Vibrant color scheme with borders and shadows
+  // Vibrant color scheme for top borders
   const colors = [
-    { border: 'border-sky-400', shadow: 'shadow-lg shadow-sky-500/50', text: 'text-sky-400' },
-    { border: 'border-purple-400', shadow: 'shadow-lg shadow-purple-500/50', text: 'text-purple-400' },
-    { border: 'border-green-400', shadow: 'shadow-lg shadow-green-500/50', text: 'text-green-400' },
-    { border: 'border-orange-400', shadow: 'shadow-lg shadow-orange-500/50', text: 'text-orange-400' },
-    { border: 'border-pink-400', shadow: 'shadow-lg shadow-pink-500/50', text: 'text-pink-400' },
-    { border: 'border-yellow-400', shadow: 'shadow-lg shadow-yellow-500/50', text: 'text-yellow-400' }
+    { topBorder: 'border-t-4 border-t-sky-400', text: 'text-sky-400' },
+    { topBorder: 'border-t-4 border-t-purple-400', text: 'text-purple-400' },
+    { topBorder: 'border-t-4 border-t-green-400', text: 'text-green-400' },
+    { topBorder: 'border-t-4 border-t-orange-400', text: 'text-orange-400' },
+    { topBorder: 'border-t-4 border-t-pink-400', text: 'text-pink-400' },
+    { topBorder: 'border-t-4 border-t-yellow-400', text: 'text-yellow-400' }
   ];
   
   recommendations.slice(0, 6).forEach((rec, index) => {
     const color = colors[index % colors.length];
     const card = document.createElement('div');
-    card.className = `card-hover bg-gray-900 border-2 ${color.border} ${color.shadow} rounded-lg p-5`;
+    card.className = `card-hover bg-gray-900 border border-gray-800 ${color.topBorder} rounded-lg p-5`;
     
     card.innerHTML = `
       <div class="mb-4">

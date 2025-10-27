@@ -1,0 +1,5 @@
+# Modal Labs Deployment Requirements
+# Install with: pip install -r modal-requirements.txt
+
+modal>=0.63.0
+

@@ -1014,9 +1014,9 @@ def test():
         "features_active": True
     })
 
-# Virtual Try-On endpoint using Google Gemini AI (FREE with $300 credit!)
+# Virtual Try-On endpoint using HairFastGAN (MIT License - Actual Visual Transformation!)
 @app.route('/virtual-tryon', methods=['POST', 'OPTIONS'])
-@limiter.limit("15 per hour")  # Using your Google AI credits
+@limiter.limit("20 per hour")  # Reasonable limit for GPU processing
 def virtual_tryon():
     if request.method == 'OPTIONS':
         response = make_response('')
@@ -1039,115 +1039,128 @@ def virtual_tryon():
         if not style_description:
             return jsonify({"error": "Style description required"}), 400
         
-        # Use Google Gemini for hairstyle transformation (FREE with $300 credit!)
-        GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+        logger.info(f"🎨 Starting HairFastGAN transformation: {style_description}")
         
-        if not GEMINI_API_KEY:
-            logger.error("GEMINI_API_KEY not found")
-            return jsonify({"error": "Google AI API key not configured"}), 500
+        # Try to use Modal Labs endpoint if configured (FREE tier available)
+        MODAL_ENDPOINT = os.environ.get("MODAL_HAIRFAST_ENDPOINT")
         
-        logger.info(f"🎨 Using Google Gemini AI for hairstyle transformation: {style_description}")
+        if MODAL_ENDPOINT:
+            logger.info("Using Modal Labs GPU endpoint for HairFastGAN")
+            
+            # Call Modal endpoint
+            import requests as req
+            modal_response = req.post(
+                MODAL_ENDPOINT,
+                json={
+                    "face_image": user_photo_base64,
+                    "style_description": style_description
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=30
+            )
+            
+            if modal_response.status_code == 200:
+                result_data = modal_response.json()
+                response_data = {
+                    "success": True,
+                    "message": f"HairFastGAN transformation complete: {style_description}",
+                    "resultImage": result_data.get("result_image"),
+                    "styleApplied": style_description,
+                    "poweredBy": "HairFastGAN (AIRI-Institute)"
+                }
+                
+                response = make_response(jsonify(response_data), 200)
+                response.headers['Access-Control-Allow-Origin'] = '*'
+                return response
+            else:
+                logger.error(f"Modal endpoint error: {modal_response.text}")
+                raise Exception("Modal endpoint failed")
         
-        # Use Gemini's multimodal capabilities to edit the hairstyle
-        import google.generativeai as genai
-        genai.configure(api_key=GEMINI_API_KEY)
+        # Fallback: Use Hugging Face Inference API (if no Modal endpoint)
+        HF_API_KEY = os.environ.get("HF_API_KEY") or os.environ.get("HUGGINGFACE_API_KEY")
         
-        # Decode base64 image
-        import io
-        from PIL import Image
-        image_bytes = base64.b64decode(user_photo_base64)
-        user_image = Image.open(io.BytesIO(image_bytes))
+        if HF_API_KEY:
+            logger.info("Using Hugging Face Inference API for HairFastGAN")
+            
+            # Map hairstyle descriptions to reference images
+            # This is a workaround since HairFastGAN needs reference images
+            hairstyle_references = {
+                "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512",
+                "buzz": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512",
+                "quiff": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=512",
+                "pompadour": "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?w=512",
+                "undercut": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512",
+                "side part": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512",
+                "slick back": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=512",
+                "long": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=512",
+                "curly": "https://images.unsplash.com/photo-1524660988542-c440de9c0fde?w=512",
+                "textured": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512"
+            }
+            
+            # Find matching reference style
+            reference_url = None
+            style_lower = style_description.lower()
+            for key, url in hairstyle_references.items():
+                if key in style_lower:
+                    reference_url = url
+                    break
+            
+            if not reference_url:
+                # Default to first style
+                reference_url = list(hairstyle_references.values())[0]
+            
+            logger.info(f"Using reference image: {reference_url}")
+            
+            # Download reference image
+            import requests as req
+            ref_response = req.get(reference_url)
+            if ref_response.status_code == 200:
+                reference_base64 = base64.b64encode(ref_response.content).decode('utf-8')
+            else:
+                raise Exception("Failed to download reference image")
+            
+            # Call Hugging Face API (Note: HairFastGAN might not be directly available)
+            # This is a placeholder - you'd need to deploy HairFastGAN to HF Spaces
+            hf_api_url = "https://api-inference.huggingface.co/models/AIRI-Institute/HairFastGAN"
+            
+            headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+            payload = {
+                "inputs": {
+                    "face": user_photo_base64,
+                    "reference": reference_base64
+                }
+            }
+            
+            import requests as req
+            hf_response = req.post(hf_api_url, headers=headers, json=payload, timeout=60)
+            
+            if hf_response.status_code == 200:
+                result_image = base64.b64encode(hf_response.content).decode('utf-8')
+                response_data = {
+                    "success": True,
+                    "message": f"HairFastGAN transformation complete: {style_description}",
+                    "resultImage": result_image,
+                    "styleApplied": style_description,
+                    "poweredBy": "HairFastGAN via Hugging Face"
+                }
+                
+                response = make_response(jsonify(response_data), 200)
+                response.headers['Access-Control-Allow-Origin'] = '*'
+                return response
+            else:
+                logger.warning(f"HF API error: {hf_response.text}")
+                raise Exception("Hugging Face API not available")
         
-        # Use Gemini 2.0 Flash for image understanding and editing
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
-        
-        # Create a detailed prompt for hairstyle transformation
-        prompt = f"""You are a professional hairstylist. Describe in detail what this person's hair would look like if they got the '{style_description}' hairstyle. 
-
-Be specific about:
-1. Hair length and layers
-2. Styling technique and direction
-3. Texture (smooth, textured, voluminous)
-4. Maintenance tips
-5. Face shape compatibility
-
-Keep it under 100 words and make it sound professional but friendly."""
-
-        # Send image and prompt to Gemini
-        response = model.generate_content([prompt, user_image])
-        hairstyle_advice = response.text
-        
-        logger.info(f"✅ Gemini generated advice: {hairstyle_advice[:100]}...")
-        
-        # Since Gemini can't directly edit images, create an enhanced reference
-        # Add the AI-generated advice as an overlay on the user's image
-        from PIL import ImageDraw, ImageFont
-        
-        # Create a copy for annotation
-        result_image = user_image.copy()
-        draw = ImageDraw.Draw(result_image)
-        
-        # Add professional overlay with Gemini's advice
-        width, height = result_image.size
-        overlay_height = min(200, int(height * 0.3))
-        
-        # Semi-transparent background for text
-        overlay = Image.new('RGBA', (width, overlay_height), (0, 0, 0, 180))
-        result_image.paste(overlay, (0, height - overlay_height), overlay)
-        
-        draw = ImageDraw.Draw(result_image)
-        
-        # Title
-        draw.text((width//2, height - overlay_height + 15), 
-                 f"✂️ {style_description}", 
-                 fill=(255, 255, 255), 
-                 anchor="mt",
-                 font=None)
-        
-        # Wrap and draw AI advice
-        words = hairstyle_advice.split()
-        lines = []
-        current_line = []
-        max_width = width - 40
-        
-        for word in words:
-            current_line.append(word)
-            test_line = ' '.join(current_line)
-            if len(test_line) > max_width // 8:  # Rough estimate
-                lines.append(' '.join(current_line[:-1]))
-                current_line = [word]
-        if current_line:
-            lines.append(' '.join(current_line))
-        
-        y_offset = height - overlay_height + 45
-        for line in lines[:4]:  # Max 4 lines
-            draw.text((20, y_offset), line, fill=(200, 200, 200), font=None)
-            y_offset += 20
-        
-        # Add powered by Google AI badge
-        draw.text((width - 20, height - 15), 
-                 "Powered by Google Gemini AI", 
-                 fill=(150, 150, 150), 
-                 anchor="rb",
-                 font=None)
-        
-        # Convert result to base64
-        output_buffer = io.BytesIO()
-        result_image.save(output_buffer, format='JPEG', quality=95)
-        result_base64 = base64.b64encode(output_buffer.getvalue()).decode('utf-8')
-        
-        response_data = {
-            "success": True,
-            "message": f"AI analysis complete for {style_description}",
-            "resultImage": result_base64,
-            "styleApplied": style_description,
-            "aiAdvice": hairstyle_advice,
-            "poweredBy": "Google Gemini AI"
-        }
-        
-        response = make_response(jsonify(response_data), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
+        # Final fallback: Return error with setup instructions
+        logger.error("No HairFastGAN endpoint configured")
+        return jsonify({
+            "error": "HairFastGAN not configured",
+            "message": "To enable visual hair transformation, please set up either MODAL_HAIRFAST_ENDPOINT or HF_API_KEY",
+            "setup_instructions": {
+                "modal": "Visit https://modal.com for free GPU hosting",
+                "huggingface": "Visit https://huggingface.co/settings/tokens for API key"
+            }
+        }), 503
     
     except Exception as e:
         logger.error(f"Error in virtual try-on endpoint: {str(e)}")

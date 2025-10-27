@@ -1473,14 +1473,14 @@ class LineUpVirtualTryOn {
       const loading = document.getElementById('tryon-loading');
       if (loading) {
         loading.classList.remove('hidden');
-        loading.querySelector('p').textContent = '🤖 Google Gemini AI is analyzing your hairstyle... (FREE with your $300 credit!)';
+        loading.querySelector('p').textContent = '✨ Transforming your hairstyle with HairFastGAN... (FREE GPU-powered transformation!)';
       }
       
       console.log('Converting image to base64...');
       const base64Data = await this.imageToBase64(imagePreview.src);
-      console.log('Sending to Google Gemini AI...');
+      console.log('Sending to HairFastGAN API...');
       
-      // Call backend with Google Gemini
+      // Call backend with HairFastGAN
       const response = await fetch(`${API_URL}/virtual-tryon`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1491,22 +1491,35 @@ class LineUpVirtualTryOn {
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error('Failed to process hairstyle: ' + errorText);
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        
+        // Check if it's a setup error
+        if (response.status === 503 && errorData.setup_instructions) {
+          const instructions = errorData.setup_instructions;
+          alert(`⚠️ HairFastGAN Not Set Up Yet!\n\nTo enable ACTUAL visual hair transformations:\n\n1. Modal Labs (FREE $30/month): ${instructions.modal}\n2. Hugging Face (FREE tier): ${instructions.huggingface}\n\nSee HAIRFAST_SETUP.md for detailed instructions.`);
+          throw new Error('HairFastGAN not configured');
+        }
+        
+        throw new Error(errorData.error || 'Failed to process hairstyle');
       }
       
       const result = await response.json();
-      console.log('✅ Google Gemini processed:', result);
+      console.log('✅ HairFastGAN transformation complete:', result);
       
       if (result.success && result.resultImage) {
-        // Display the result image with AI advice overlay
+        // Display the ACTUAL transformed hairstyle image!
         this.resultImage = `data:image/jpeg;base64,${result.resultImage}`;
         
         photoElement.style.display = 'block';
         photoElement.style.zIndex = '10';
         photoElement.src = this.resultImage;
         
-        console.log('✅ Image updated with AI advice!');
+        console.log('✅ Hair transformation complete! Showing result.');
+        
+        // Show success message
+        setTimeout(() => {
+          alert(`✨ Hair transformation complete!\n\n💇 Style: ${this.currentStyle}\n🤖 Powered by: ${result.poweredBy || 'HairFastGAN'}\n\n📸 Tip: Take a screenshot and show your barber!`);
+        }, 500);
       } else {
         throw new Error(result.message || 'No result image returned');
       }
@@ -1515,16 +1528,11 @@ class LineUpVirtualTryOn {
       document.getElementById('stop-tryon').classList.remove('hidden');
       document.getElementById('take-screenshot').classList.remove('hidden');
       
-      // Show AI advice in a nice alert
-      setTimeout(() => {
-        if (result.aiAdvice) {
-          alert(`🤖 ${result.poweredBy || 'Google Gemini AI'} Analysis:\n\n${result.aiAdvice}\n\n💡 Tip: Screenshot this and show your barber!`);
-        }
-      }, 500);
-      
     } catch (error) {
       console.error('❌ Error:', error);
-      alert('Failed to create preview. Please try again.');
+      if (!error.message.includes('not configured')) {
+        alert('Failed to transform hairstyle. Please try again or check setup instructions in HAIRFAST_SETUP.md');
+      }
     } finally {
       const loading = document.getElementById('tryon-loading');
       if (loading) loading.classList.add('hidden');

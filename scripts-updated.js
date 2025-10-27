@@ -311,10 +311,10 @@ function switchMode(mode) {
   currentUserMode = mode;
   
   if (mode === 'client') {
-    clientModeBtn.classList.add('bg-white', 'shadow-sm');
-    clientModeBtn.classList.remove('text-gray-600');
-    barberModeBtn.classList.remove('bg-white', 'shadow-sm');
-    barberModeBtn.classList.add('text-gray-600');
+    clientModeBtn.classList.add('bg-white', 'text-black', 'shadow-sm');
+    clientModeBtn.classList.remove('text-gray-400');
+    barberModeBtn.classList.remove('bg-white', 'text-black', 'shadow-sm');
+    barberModeBtn.classList.add('text-gray-400');
     
     clientContent.classList.remove('hidden');
     barberContent.classList.add('hidden');
@@ -322,10 +322,10 @@ function switchMode(mode) {
     renderBottomNav();
     switchTab('ai');
   } else {
-    barberModeBtn.classList.add('bg-white', 'shadow-sm');
-    barberModeBtn.classList.remove('text-gray-600');
-    clientModeBtn.classList.remove('bg-white', 'shadow-sm');
-    clientModeBtn.classList.add('text-gray-600');
+    barberModeBtn.classList.add('bg-white', 'text-black', 'shadow-sm');
+    barberModeBtn.classList.remove('text-gray-400');
+    clientModeBtn.classList.remove('bg-white', 'text-black', 'shadow-sm');
+    clientModeBtn.classList.add('text-gray-400');
     
     barberContent.classList.remove('hidden');
     clientContent.classList.add('hidden');
@@ -342,7 +342,7 @@ function switchTab(targetTab) {
   // Update tab button active state
   document.querySelectorAll(`#bottom-nav .tab-button`).forEach(t => {
     t.classList.remove('tab-active');
-    t.classList.remove('text-gray-900');
+    t.classList.remove('text-white');
     t.classList.add('text-gray-500');
     // Keep center pill transform
     if (!t.classList.contains('center-pill')) {
@@ -354,7 +354,7 @@ function switchTab(targetTab) {
   if (activeTab) {
     activeTab.classList.add('tab-active');
     if (!activeTab.classList.contains('center-pill')) {
-      activeTab.classList.add('text-gray-900', 'font-semibold');
+      activeTab.classList.add('text-white', 'font-semibold');
       activeTab.classList.remove('text-gray-500');
     }
   }
@@ -602,19 +602,30 @@ function displayResults(data) {
     analysisGrid.appendChild(div);
   });
 
-  // Clean, minimal recommendations cards
+  // Recommendations with colorful borders and drop shadows
   recommendationsContainer.innerHTML = '';
   const recommendations = data.recommendations || [];
   lastRecommendedStyles = recommendations.slice(0, 6).map(r => r.styleName);
   
+  // Vibrant color scheme with borders and shadows
+  const colors = [
+    { border: 'border-sky-400', shadow: 'shadow-lg shadow-sky-500/50', text: 'text-sky-400' },
+    { border: 'border-purple-400', shadow: 'shadow-lg shadow-purple-500/50', text: 'text-purple-400' },
+    { border: 'border-green-400', shadow: 'shadow-lg shadow-green-500/50', text: 'text-green-400' },
+    { border: 'border-orange-400', shadow: 'shadow-lg shadow-orange-500/50', text: 'text-orange-400' },
+    { border: 'border-pink-400', shadow: 'shadow-lg shadow-pink-500/50', text: 'text-pink-400' },
+    { border: 'border-yellow-400', shadow: 'shadow-lg shadow-yellow-500/50', text: 'text-yellow-400' }
+  ];
+  
   recommendations.slice(0, 6).forEach((rec, index) => {
+    const color = colors[index % colors.length];
     const card = document.createElement('div');
-    card.className = 'card-hover bg-white border border-gray-200 rounded-lg p-5';
+    card.className = `card-hover bg-gray-900 border-2 ${color.border} ${color.shadow} rounded-lg p-5`;
     
     card.innerHTML = `
       <div class="mb-4">
-        <h3 class="text-lg font-semibold mb-1">${rec.styleName || 'Unnamed Style'}</h3>
-        <p class="text-gray-600 text-sm line-clamp-2">${rec.description || 'Professional haircut recommendation'}</p>
+        <h3 class="text-lg font-semibold mb-1 text-white">${rec.styleName || 'Unnamed Style'}</h3>
+        <p class="text-gray-400 text-sm line-clamp-2">${rec.description || 'Professional haircut recommendation'}</p>
       </div>
       
       <div class="space-y-2">
@@ -629,7 +640,7 @@ function displayResults(data) {
         
         <button onclick="findBarbersForStyle('${rec.styleName}')" 
                 class="w-full btn-secondary px-4 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 ${color.text}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
           </svg>
@@ -969,7 +980,7 @@ function renderBottomNav() {
   if (!bottomNav) return;
 
   const baseBtn = 'tab-button flex flex-col items-center justify-center h-14 flex-1 text-xs transition-all duration-200';
-  const centerBtn = 'tab-button center-pill flex items-center justify-center h-12 w-12 transition-all duration-200 rounded-full bg-black -translate-y-2';
+  const centerBtn = 'tab-button center-pill flex items-center justify-center h-12 w-12 transition-all duration-200 rounded-full bg-white -translate-y-2';
 
   // Clean SVG icons
   const icons = {
@@ -1000,21 +1011,21 @@ function renderBottomNav() {
 
   const tabs = currentUserMode === 'client' ? clientTabs : barberTabs;
 
-  // Layout: space for center pill - clean Uber-like design
+  // Layout: space for center pill - dark theme with white accents
   bottomNav.innerHTML = `
     <div class="flex items-center justify-between px-4 py-1">
       ${tabs.map((t, idx) => {
         if (t.center) {
           return `
             <div class="flex-1 flex items-center justify-center">
-              <button class="${centerBtn} text-white" data-tab="${t.key}">
+              <button class="${centerBtn} text-black" data-tab="${t.key}">
                 ${t.icon}
               </button>
             </div>
           `;
         }
         return `
-          <button class="${baseBtn} text-gray-500 hover:text-gray-900" data-tab="${t.key}">
+          <button class="${baseBtn} text-gray-500 hover:text-white" data-tab="${t.key}">
             ${t.icon}
             <span class="mt-1 text-[11px]">${t.label}</span>
           </button>

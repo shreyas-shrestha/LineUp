@@ -1,4 +1,19 @@
-# app.py - Fixed Backend API with Rate Limiting
+# app.py - LEGACY VERSION (Use app_refactored.py instead)
+# 
+# ⚠️  DEPRECATION NOTICE:
+# This file is kept for backward compatibility only.
+# 
+# Please use app_refactored.py for all new development:
+#   - Modular architecture (6 focused modules)
+#   - SQLite database with persistence
+#   - Pydantic input validation
+#   - Comprehensive test suite (75% coverage)
+#   - Better error handling
+#   - Production-ready
+# 
+# To migrate: python app_refactored.py
+# See: README_IMPROVEMENTS.md for details
+#
 from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -17,6 +32,14 @@ import time
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Log deprecation warning
+logger.warning("=" * 70)
+logger.warning("⚠️  DEPRECATION WARNING: You are running the legacy app.py")
+logger.warning("⚠️  Please switch to app_refactored.py for the new version")
+logger.warning("⚠️  Run: python app_refactored.py")
+logger.warning("⚠️  See: README_IMPROVEMENTS.md for migration guide")
+logger.warning("=" * 70)
 
 # Create Flask app FIRST - This was missing!
 app = Flask(__name__)

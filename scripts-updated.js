@@ -28,7 +28,6 @@ const findBarberButton = document.getElementById('find-barber-button');
 const barberListContainer = document.getElementById('barber-list-container');
 const barberIntro = document.getElementById('barber-intro');
 const locationSearch = document.getElementById('location-search');
-const shopNameSearch = document.getElementById('shop-name-search');
 const refreshBarbersBtn = document.getElementById('refresh-barbers');
 const bottomNav = document.getElementById('bottom-nav');
 
@@ -110,56 +109,6 @@ const mockSocialPosts = [
     likes: 67,
     timeAgo: '1d',
     liked: false
-  },
-  {
-    id: 4,
-    username: 'alex_barber',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face',
-    image: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=400&h=400&fit=crop',
-    caption: 'Textured quiff transformation! Client loved it 💯',
-    likes: 89,
-    timeAgo: '1d',
-    liked: false
-  },
-  {
-    id: 5,
-    username: 'lisa_stylist',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face',
-    image: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&h=400&fit=crop',
-    caption: 'Long layers with face-framing highlights ✂️✨',
-    likes: 134,
-    timeAgo: '2d',
-    liked: true
-  },
-  {
-    id: 6,
-    username: 'david_fade',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=face',
-    image: 'https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?w=400&h=400&fit=crop',
-    caption: 'Mid fade with line up 🔥 Clean work!',
-    likes: 112,
-    timeAgo: '3d',
-    liked: false
-  },
-  {
-    id: 7,
-    username: 'emma_beauty',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face',
-    image: 'https://images.unsplash.com/photo-1560869713-7d0a29430803?w=400&h=400&fit=crop',
-    caption: 'Pixie cut perfection! Feeling empowered 💪',
-    likes: 201,
-    timeAgo: '4d',
-    liked: true
-  },
-  {
-    id: 8,
-    username: 'carlos_barber',
-    avatar: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=100&h=100&fit=crop&crop=face',
-    image: 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
-    caption: 'Another satisfied customer! Fade game strong 💈',
-    likes: 76,
-    timeAgo: '5d',
-    liked: false
   }
 ];
 
@@ -232,16 +181,14 @@ function getStyleImage(name) {
 
 // --- Initialize ---
 window.addEventListener('DOMContentLoaded', async () => {
-  console.log('%c🎉 LineUp App Initialized!', 'font-size: 18px; font-weight: bold; color: #38bdf8;');
-  console.log('%c📋 Feature Status Check:', 'font-weight: bold;');
-  console.log('  API URL:', API_URL);
+  console.log('LineUp Two-Sided Platform with Firebase initialized');
   
   // Wait for Firebase to be available
   setTimeout(async () => {
     firebaseService = window.firebaseService;
     
     if (firebaseService) {
-      console.log('  ✅ Firebase: Connected');
+      console.log('🔥 Firebase service connected');
       
       // Load real data from Firebase
       await loadSocialFeed();
@@ -251,12 +198,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       // Set up real-time listeners
       setupRealtimeListeners();
     } else {
-      console.log('  ⚠️  Firebase: Not configured (using local mode)');
-      console.log('     → Community posts: Working (local storage)');
-      console.log('     → Barber portfolio: Working (local storage)');
-      console.log('     → All uploads will save locally until page refresh');
-      
-      // Fallback to mock data - always show community posts
+      console.log('⚠️ Firebase not available, using mock data');
+      // Fallback to mock data
       socialPosts = [...mockSocialPosts];
       barberPortfolio = [...mockBarberPortfolio];
       appointments = [...mockAppointments];
@@ -267,23 +210,11 @@ window.addEventListener('DOMContentLoaded', async () => {
       renderBarberAppointments();
     }
     
-    // Always ensure community has content
-    if (socialPosts.length === 0) {
-      socialPosts = [...mockSocialPosts];
-      renderSocialFeed();
-    }
-    
-    console.log('  📍 Loading nearby barbers...');
     loadNearbyBarbers('Atlanta, GA');
     testBackendConnection();
     setupEventListeners();
     renderBottomNav();
     updateDashboardStats();
-    
-    console.log('%c✅ All features loaded! App is ready to use.', 'font-weight: bold; color: #10b981;');
-    console.log('%cℹ️  Note: Some features require backend to be running.', 'color: #94a3b8;');
-    console.log('%c   Run: python app_refactored.py', 'color: #94a3b8; font-family: monospace;');
-    
     // Default to client Home
     switchMode('client');
   }, 1000); // Give Firebase time to load
@@ -310,28 +241,11 @@ function setupEventListeners() {
   // Barber search
   refreshBarbersBtn.addEventListener('click', () => {
     const location = locationSearch.value || 'Atlanta, GA';
-    const shopName = shopNameSearch.value;
-    if (shopName) {
-      searchByShopName(shopName);
-    } else {
-      loadNearbyBarbers(location, lastRecommendedStyles);
-    }
+    loadNearbyBarbers(location, lastRecommendedStyles);
   });
   
   // Setup location search
   setupLocationSearch();
-  
-  // Setup shop name search
-  if (shopNameSearch) {
-    shopNameSearch.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        const shopName = shopNameSearch.value.trim();
-        if (shopName) {
-          searchByShopName(shopName);
-        }
-      }
-    });
-  }
   
   // Social modals
   addPostButton.addEventListener('click', () => addPostModal.classList.remove('hidden'));
@@ -674,25 +588,16 @@ function displayResults(data) {
   recommendations.slice(0, 6).forEach((rec, index) => {
     const color = colors[index % colors.length];
     const card = document.createElement('div');
-    card.className = `card-hover bg-gray-900 border border-gray-800 ${color.topBorder} rounded-lg p-5 cursor-pointer transition-all hover:border-${color.text.replace('text-', '')}`;
-    
-    // Store the recommendation data on the card
-    card.dataset.haircutData = JSON.stringify(rec);
+    card.className = `card-hover bg-gray-900 border border-gray-800 ${color.topBorder} rounded-lg p-5`;
     
     card.innerHTML = `
       <div class="mb-4">
-        <h3 class="text-lg font-semibold mb-1 text-white flex items-center justify-between">
-          ${rec.styleName || 'Unnamed Style'}
-          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-        </h3>
+        <h3 class="text-lg font-semibold mb-1 text-white">${rec.styleName || 'Unnamed Style'}</h3>
         <p class="text-gray-400 text-sm line-clamp-2">${rec.description || 'Professional haircut recommendation'}</p>
-        <p class="text-gray-500 text-xs mt-2 italic">Click to learn more</p>
       </div>
       
       <div class="space-y-2">
-        <button onclick="event.stopPropagation(); tryOnStyle('${rec.styleName}')" 
+        <button onclick="tryOnStyle('${rec.styleName}')" 
                 class="w-full btn-primary px-4 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
@@ -700,7 +605,7 @@ function displayResults(data) {
           Preview Style
         </button>
         
-        <button onclick="event.stopPropagation(); findBarbersForStyle('${rec.styleName}')" 
+        <button onclick="findBarbersForStyle('${rec.styleName}')" 
                 class="w-full btn-secondary px-4 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
           <svg class="w-4 h-4 ${color.text}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
@@ -710,10 +615,6 @@ function displayResults(data) {
         </button>
       </div>
     `;
-    
-    // Make entire card clickable to show details
-    card.addEventListener('click', () => showHaircutDetails(rec));
-    
     recommendationsContainer.appendChild(card);
   });
 }
@@ -981,10 +882,6 @@ async function submitSocialPost() {
     return;
   }
   
-  // Show loading feedback
-  submitPost.disabled = true;
-  submitPost.textContent = 'Posting...';
-  
   const postData = {
     username: 'you',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
@@ -992,45 +889,30 @@ async function submitSocialPost() {
     caption: caption
   };
   
-  try {
-    if (firebaseService) {
-      // Save to Firebase
-      const result = await firebaseService.createSocialPost(postData);
-      if (result.success) {
-        console.log('✨ Post saved to Firebase');
-        // Real-time listener will update the UI
-      } else {
-        throw new Error('Failed to save post');
-      }
+  if (firebaseService) {
+    // Save to Firebase
+    const result = await firebaseService.createSocialPost(postData);
+    if (result.success) {
+      console.log('✨ Post saved to Firebase');
+      // Real-time listener will update the UI
     } else {
-      // Fallback to local storage - ALWAYS WORKS
-      const newPost = {
-        id: Date.now(),
-        ...postData,
-        likes: 0,
-        timeAgo: 'just now',
-        liked: false
-      };
-      socialPosts.unshift(newPost);
-      renderSocialFeed();
-      console.log('✅ Post added locally (Firebase not configured)');
+      alert('Failed to save post. Please try again.');
+      return;
     }
-    
-    // Show success message
-    const tempMsg = document.createElement('div');
-    tempMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-    tempMsg.textContent = '✅ Post shared successfully!';
-    document.body.appendChild(tempMsg);
-    setTimeout(() => tempMsg.remove(), 3000);
-    
-    closeAddPostModal();
-  } catch (error) {
-    console.error('Error posting:', error);
-    alert('Failed to save post. Please try again.');
-  } finally {
-    submitPost.disabled = false;
-    submitPost.textContent = 'Post';
+  } else {
+    // Fallback to local storage
+    const newPost = {
+      id: Date.now(),
+      ...postData,
+      likes: 0,
+      timeAgo: 'now',
+      liked: false
+    };
+    socialPosts.unshift(newPost);
+    renderSocialFeed();
   }
+  
+  closeAddPostModal();
 }
 
 async function toggleLike(postId) {
@@ -1189,10 +1071,6 @@ async function submitPortfolioWork() {
     return;
   }
   
-  // Show loading feedback
-  submitWork.disabled = true;
-  submitWork.textContent = 'Uploading...';
-  
   const portfolioData = {
     barberId: 'current-barber',
     styleName: styleName,
@@ -1200,45 +1078,30 @@ async function submitPortfolioWork() {
     description: description
   };
   
-  try {
-    if (firebaseService) {
-      // Save to Firebase
-      const result = await firebaseService.addPortfolioItem(portfolioData);
-      if (result.success) {
-        console.log('🎨 Portfolio work saved to Firebase');
-        await loadBarberPortfolio(); // Reload portfolio
-      } else {
-        throw new Error('Failed to save portfolio work');
-      }
+  if (firebaseService) {
+    // Save to Firebase
+    const result = await firebaseService.addPortfolioItem(portfolioData);
+    if (result.success) {
+      console.log('🎨 Portfolio work saved to Firebase');
+      await loadBarberPortfolio(); // Reload portfolio
     } else {
-      // Fallback to local storage - ALWAYS WORKS
-      const newWork = {
-        id: Date.now(),
-        ...portfolioData,
-        likes: 0,
-        date: new Date().toISOString().split('T')[0]
-      };
-      barberPortfolio.unshift(newWork);
-      renderBarberPortfolio();
-      console.log('✅ Portfolio work added locally (Firebase not configured)');
+      alert('Failed to save portfolio work. Please try again.');
+      return;
     }
-    
-    // Show success message
-    const tempMsg = document.createElement('div');
-    tempMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-    tempMsg.textContent = '✅ Portfolio work uploaded successfully!';
-    document.body.appendChild(tempMsg);
-    setTimeout(() => tempMsg.remove(), 3000);
-    
-    updateDashboardStats();
-    closeUploadWorkModal();
-  } catch (error) {
-    console.error('Error uploading portfolio:', error);
-    alert('Failed to save portfolio work. Please try again.');
-  } finally {
-    submitWork.disabled = false;
-    submitWork.textContent = 'Upload';
+  } else {
+    // Fallback to local storage
+    const newWork = {
+      id: Date.now(),
+      ...portfolioData,
+      likes: 0,
+      date: new Date().toISOString().split('T')[0]
+    };
+    barberPortfolio.unshift(newWork);
+    renderBarberPortfolio();
   }
+  
+  updateDashboardStats();
+  closeUploadWorkModal();
 }
 
 // --- Client Profile Rendering ---
@@ -1625,9 +1488,7 @@ class LineUpVirtualTryOn {
       
       // Create abort controller for timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      let usePreviewMode = false;
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
       
       try {
         // Call backend with HairFastGAN
@@ -1654,68 +1515,19 @@ class LineUpVirtualTryOn {
           // Check if it's a setup error
           if (response.status === 503 && errorData.setup_instructions) {
             const instructions = errorData.setup_instructions;
-            console.warn('⚠️ HairFastGAN not configured, using preview mode');
-            usePreviewMode = true;
-          } else {
-            console.error('Server error details:', errorData);
-            usePreviewMode = true;
+            alert(`⚠️ HairFastGAN Not Set Up Yet!\n\nTo enable ACTUAL visual hair transformations:\n\n1. Modal Labs (FREE $30/month): ${instructions.modal}\n2. Hugging Face (FREE tier): ${instructions.huggingface}\n\nSee HAIRFAST_SETUP.md for detailed instructions.`);
+            throw new Error('HairFastGAN not configured');
           }
+          
+          console.error('Server error details:', errorData);
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
-        console.warn('Backend not available, using preview mode:', fetchError.message);
-        usePreviewMode = true;
-      }
-      
-      if (usePreviewMode) {
-        // PREVIEW MODE - Show reference with overlay
-        console.log('📸 Using preview mode (backend unavailable)');
-        
-        this.resultImage = imagePreview.src;
-        
-        photoElement.style.display = 'block';
-        photoElement.style.zIndex = '10';
-        photoElement.src = this.resultImage;
-        
-        // Add overlay message
-        const overlay = document.createElement('div');
-        overlay.id = 'preview-overlay';
-        overlay.className = 'absolute inset-0 bg-black/70 flex items-center justify-center z-20 p-6';
-        overlay.innerHTML = `
-          <div class="text-center max-w-md">
-            <div class="text-6xl mb-4">✂️</div>
-            <h3 class="text-2xl font-bold mb-3 text-white">Preview Mode</h3>
-            <p class="text-gray-300 mb-4">
-              Showing your original photo as reference.<br/>
-              Take this to your barber and ask for<br/>
-              <span class="text-sky-400 font-semibold">"${this.currentStyle}"</span>
-            </p>
-            <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 text-sm text-left space-y-2">
-              <p class="text-gray-400">💡 <strong class="text-white">Pro Tip:</strong></p>
-              <ul class="text-gray-300 space-y-1 ml-4">
-                <li>• Screenshot this as reference</li>
-                <li>• Show it to your barber</li>
-                <li>• Discuss styling options</li>
-              </ul>
-            </div>
-            <button onclick="document.getElementById('preview-overlay').remove()" class="mt-4 bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg font-medium">
-              Got it
-            </button>
-          </div>
-        `;
-        
-        const container = photoElement.parentElement;
-        const existingOverlay = container.querySelector('#preview-overlay');
-        if (existingOverlay) existingOverlay.remove();
-        container.appendChild(overlay);
-        
-        // Show screenshot button
-        const screenshotBtn = document.getElementById('take-screenshot');
-        if (screenshotBtn) {
-          screenshotBtn.classList.remove('hidden');
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Request timed out after 60 seconds. The GPU might be cold-starting. Please try again.');
         }
-        
-        return;
+        throw fetchError;
       }
       
       const result = await response.json();
@@ -2025,192 +1837,6 @@ function renderSubscriptionPackages() {
   `).join('');
 }
 
-// --- Haircut Details Modal ---
-function showHaircutDetails(haircut) {
-  const modal = document.getElementById('haircut-details-modal');
-  const title = document.getElementById('haircut-modal-title');
-  const content = document.getElementById('haircut-modal-content');
-  const tryonBtn = document.getElementById('haircut-modal-tryon');
-  const findBarbersBtn = document.getElementById('haircut-modal-findbarbers');
-  
-  if (!modal || !title || !content) return;
-  
-  title.textContent = haircut.styleName || 'Haircut Details';
-  
-  // Build detailed content
-  content.innerHTML = `
-    <div class="space-y-4">
-      <div>
-        <h4 class="text-sm font-semibold text-gray-400 uppercase mb-2">Description</h4>
-        <p class="text-white">${haircut.description || 'Professional haircut recommendation tailored to your face shape and features.'}</p>
-      </div>
-      
-      ${haircut.reasoning ? `
-      <div>
-        <h4 class="text-sm font-semibold text-gray-400 uppercase mb-2">Why This Works for You</h4>
-        <p class="text-white">${haircut.reasoning}</p>
-      </div>
-      ` : ''}
-      
-      ${haircut.faceShape ? `
-      <div>
-        <h4 class="text-sm font-semibold text-gray-400 uppercase mb-2">Best For</h4>
-        <div class="flex flex-wrap gap-2">
-          <span class="px-3 py-1 bg-sky-500/20 text-sky-400 rounded-full text-sm">${haircut.faceShape} face</span>
-          ${haircut.hairType ? `<span class="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-sm">${haircut.hairType} hair</span>` : ''}
-        </div>
-      </div>
-      ` : ''}
-      
-      <div>
-        <h4 class="text-sm font-semibold text-gray-400 uppercase mb-2">Styling Tips</h4>
-        <ul class="space-y-2">
-          <li class="flex items-start gap-2">
-            <svg class="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            <span class="text-white">Ask your barber to show you styling techniques</span>
-          </li>
-          <li class="flex items-start gap-2">
-            <svg class="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            <span class="text-white">Bring this reference photo to your appointment</span>
-          </li>
-          <li class="flex items-start gap-2">
-            <svg class="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            <span class="text-white">Consider your daily maintenance routine</span>
-          </li>
-        </ul>
-      </div>
-      
-      <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
-        <h4 class="text-sm font-semibold text-gray-400 uppercase mb-2">Maintenance</h4>
-        <p class="text-white text-sm">Regular trims every 3-4 weeks recommended to maintain this style.</p>
-      </div>
-    </div>
-  `;
-  
-  // Set up action buttons
-  tryonBtn.onclick = () => {
-    modal.classList.add('hidden');
-    tryOnStyle(haircut.styleName);
-  };
-  
-  findBarbersBtn.onclick = () => {
-    modal.classList.add('hidden');
-    findBarbersForStyle(haircut.styleName);
-  };
-  
-  modal.classList.remove('hidden');
-}
-
-// Close haircut details modal
-document.getElementById('close-haircut-modal')?.addEventListener('click', () => {
-  document.getElementById('haircut-details-modal')?.classList.add('hidden');
-});
-
-// --- Shop Name Search ---
-async function searchByShopName(shopName) {
-  console.log('🔍 Searching for shop:', shopName);
-  barberIntro.textContent = `Searching for "${shopName}"...`;
-  barberListContainer.innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-400 mx-auto"></div><p class="text-gray-400 mt-4">Searching barbershops...</p></div>';
-  
-  try {
-    // Add timeout to search request
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-    
-    const response = await fetch(`${API_URL}/search-barbers?query=${encodeURIComponent(shopName)}&type=name`, {
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log('Search results:', data);
-    
-    if (data.barbers && data.barbers.length > 0) {
-      barberIntro.textContent = `Found ${data.barbers.length} result(s) for "${shopName}"`;
-      renderBarberList(data.barbers);
-      console.log('✅ Search successful');
-    } else {
-      barberIntro.textContent = `No barbershops found with name "${shopName}". Try searching by location instead.`;
-      barberListContainer.innerHTML = `
-        <div class="text-center py-12">
-          <svg class="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-          <p class="text-gray-400 text-lg font-medium mb-2">No results found</p>
-          <p class="text-sm text-gray-500 mb-4">No barbershops matched "${shopName}"</p>
-          <button onclick="document.getElementById('location-search').focus()" class="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg">
-            Try Location Search
-          </button>
-        </div>
-      `;
-    }
-  } catch (error) {
-    console.error('❌ Error searching by shop name:', error);
-    
-    // Check if it's a network error or backend not running
-    const isNetworkError = error.name === 'AbortError' || error.message.includes('Failed to fetch') || error.message.includes('NetworkError');
-    
-    if (isNetworkError) {
-      barberIntro.textContent = '⚠️ Backend unavailable - Showing example results';
-      
-      // Show example/mock results instead of empty state
-      const mockResults = [
-        {
-          id: 'demo1',
-          name: `${shopName} (Example)`,
-          address: 'Backend not available - This is demo data',
-          rating: 4.5,
-          user_ratings_total: 100,
-          avgCost: 30,
-          specialties: ['Haircuts', 'Beard Trim', 'Styling']
-        }
-      ];
-      
-      barberListContainer.innerHTML = `
-        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4">
-          <p class="text-yellow-400 font-medium flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-            </svg>
-            Backend Not Running
-          </p>
-          <p class="text-gray-400 text-sm mt-2">
-            To enable real shop search, start the backend:<br/>
-            <code class="bg-gray-800 px-2 py-1 rounded text-xs">python app_refactored.py</code>
-          </p>
-        </div>
-      `;
-      renderBarberList(mockResults);
-      
-    } else {
-      barberIntro.textContent = 'Search failed. Please try again.';
-      barberListContainer.innerHTML = `
-        <div class="text-center py-12">
-          <svg class="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <p class="text-gray-400 text-lg font-medium mb-2">Search Error</p>
-          <p class="text-sm text-gray-500 mb-2">${error.message}</p>
-          <button onclick="searchByShopName('${shopName}')" class="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg mt-3">
-            Try Again
-          </button>
-        </div>
-      `;
-    }
-  }
-}
-
 // --- Make functions globally available ---
 window.toggleLike = toggleLike;
 window.openBookingModal = openBookingModal;
@@ -2221,5 +1847,3 @@ window.loadSocialFeed = loadSocialFeed;
 window.loadBarberPortfolio = loadBarberPortfolio;
 window.loadAppointments = loadAppointments;
 window.loadSubscriptionPackages = loadSubscriptionPackages;
-window.showHaircutDetails = showHaircutDetails;
-window.searchByShopName = searchByShopName;

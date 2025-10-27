@@ -4,16 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LineUp - AI Haircut Analysis & Barber Platform</title>
-  
-  <!-- PWA Meta Tags -->
-  <meta name="description" content="AI-powered haircut recommendations and barber booking platform">
-  <meta name="theme-color" content="#000000">
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/images/logo.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="LineUp">
-  
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -55,7 +45,7 @@
       </div>
     </header>
 
-    <main id="main-content" class="mt-6">
+    <main id="main-content">
       <!-- CLIENT SIDE -->
       <div id="client-content">
         <!-- AI Tab (Home) -->
@@ -122,9 +112,8 @@
             <h2 class="text-3xl font-bold">Find Real Barbershops</h2>
             <button id="refresh-barbers" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors">Refresh</button>
           </div>
-          <div id="barber-search" class="mb-6 space-y-4">
-            <input type="text" id="location-search" placeholder="Search by ZIP, city, or neighborhood (e.g., 30308, Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-            <input type="text" id="shop-name-search" placeholder="Or search by shop name (e.g., Elite Cuts)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+          <div id="barber-search" class="mb-6">
+            <input type="text" id="location-search" placeholder="Enter ZIP code or city (e.g., 30308 or Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
           </div>
           <p id="barber-intro" class="text-center text-gray-400 mb-8">Enter your location to find real barbershops near you.</p>
           <div id="barber-list-container" class="space-y-4"></div>
@@ -395,40 +384,6 @@
     </div>
   </div>
 
-  <!-- Haircut Details Modal -->
-  <div id="haircut-details-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h3 id="haircut-modal-title" class="text-2xl font-bold">Haircut Details</h3>
-        <button id="close-haircut-modal" class="text-gray-400 hover:text-white">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      
-      <div id="haircut-modal-content" class="space-y-6">
-        <!-- Content will be dynamically populated -->
-      </div>
-      
-      <div class="flex gap-3 mt-6">
-        <button id="haircut-modal-tryon" class="flex-1 btn-primary px-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-          </svg>
-          Try This Style
-        </button>
-        <button id="haircut-modal-findbarbers" class="flex-1 btn-secondary px-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
-          Find Barbers
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Virtual Try-On Modal -->
   <div id="virtual-tryon-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
     <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
@@ -480,78 +435,6 @@
   
   <!-- Firebase Integration -->
   <script type="module" src="firebase-simple.js"></script>
-  
-  <!-- Service Worker Registration (PWA) -->
-  <script>
-    // Register service worker for PWA support
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-          .then(registration => {
-            console.log('✅ Service Worker registered:', registration.scope);
-            
-            // Check for updates
-            registration.addEventListener('updatefound', () => {
-              const newWorker = registration.installing;
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New service worker available, show update prompt
-                  if (confirm('New version available! Reload to update?')) {
-                    newWorker.postMessage({ action: 'skipWaiting' });
-                    window.location.reload();
-                  }
-                }
-              });
-            });
-          })
-          .catch(error => {
-            console.log('⚠️ Service Worker registration failed:', error);
-          });
-      });
-      
-      // Handle service worker updates
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          refreshing = true;
-          window.location.reload();
-        }
-      });
-    }
-    
-    // Install prompt for PWA
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      
-      // Show install button (could be added to UI)
-      console.log('💾 PWA install available');
-      
-      // Optional: Show custom install UI
-      // You can add a button in the UI to trigger this
-      window.installPWA = () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-              console.log('✅ PWA installed');
-            }
-            deferredPrompt = null;
-          });
-        }
-      };
-    });
-    
-    // Check if running as PWA
-    const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
-                  window.navigator.standalone || 
-                  document.referrer.includes('android-app://');
-    
-    if (isPWA) {
-      console.log('📱 Running as PWA');
-    }
-  </script>
   
   <!-- Main App Script -->
   <script src="scripts-updated.js"></script>

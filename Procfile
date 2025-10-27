@@ -1,1 +1,1 @@
-web: gunicorn app_refactored:app
+web: gunicorn app:app

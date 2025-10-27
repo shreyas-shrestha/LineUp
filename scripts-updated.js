@@ -232,14 +232,16 @@ function getStyleImage(name) {
 
 // --- Initialize ---
 window.addEventListener('DOMContentLoaded', async () => {
-  console.log('LineUp Two-Sided Platform with Firebase initialized');
+  console.log('%c🎉 LineUp App Initialized!', 'font-size: 18px; font-weight: bold; color: #38bdf8;');
+  console.log('%c📋 Feature Status Check:', 'font-weight: bold;');
+  console.log('  API URL:', API_URL);
   
   // Wait for Firebase to be available
   setTimeout(async () => {
     firebaseService = window.firebaseService;
     
     if (firebaseService) {
-      console.log('🔥 Firebase service connected');
+      console.log('  ✅ Firebase: Connected');
       
       // Load real data from Firebase
       await loadSocialFeed();
@@ -249,7 +251,11 @@ window.addEventListener('DOMContentLoaded', async () => {
       // Set up real-time listeners
       setupRealtimeListeners();
     } else {
-      console.log('⚠️ Firebase not available, using mock data');
+      console.log('  ⚠️  Firebase: Not configured (using local mode)');
+      console.log('     → Community posts: Working (local storage)');
+      console.log('     → Barber portfolio: Working (local storage)');
+      console.log('     → All uploads will save locally until page refresh');
+      
       // Fallback to mock data - always show community posts
       socialPosts = [...mockSocialPosts];
       barberPortfolio = [...mockBarberPortfolio];
@@ -267,11 +273,17 @@ window.addEventListener('DOMContentLoaded', async () => {
       renderSocialFeed();
     }
     
+    console.log('  📍 Loading nearby barbers...');
     loadNearbyBarbers('Atlanta, GA');
     testBackendConnection();
     setupEventListeners();
     renderBottomNav();
     updateDashboardStats();
+    
+    console.log('%c✅ All features loaded! App is ready to use.', 'font-weight: bold; color: #10b981;');
+    console.log('%cℹ️  Note: Some features require backend to be running.', 'color: #94a3b8;');
+    console.log('%c   Run: python app_refactored.py', 'color: #94a3b8; font-family: monospace;');
+    
     // Default to client Home
     switchMode('client');
   }, 1000); // Give Firebase time to load
@@ -969,6 +981,10 @@ async function submitSocialPost() {
     return;
   }
   
+  // Show loading feedback
+  submitPost.disabled = true;
+  submitPost.textContent = 'Posting...';
+  
   const postData = {
     username: 'you',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
@@ -976,30 +992,45 @@ async function submitSocialPost() {
     caption: caption
   };
   
-  if (firebaseService) {
-    // Save to Firebase
-    const result = await firebaseService.createSocialPost(postData);
-    if (result.success) {
-      console.log('✨ Post saved to Firebase');
-      // Real-time listener will update the UI
+  try {
+    if (firebaseService) {
+      // Save to Firebase
+      const result = await firebaseService.createSocialPost(postData);
+      if (result.success) {
+        console.log('✨ Post saved to Firebase');
+        // Real-time listener will update the UI
+      } else {
+        throw new Error('Failed to save post');
+      }
     } else {
-      alert('Failed to save post. Please try again.');
-      return;
+      // Fallback to local storage - ALWAYS WORKS
+      const newPost = {
+        id: Date.now(),
+        ...postData,
+        likes: 0,
+        timeAgo: 'just now',
+        liked: false
+      };
+      socialPosts.unshift(newPost);
+      renderSocialFeed();
+      console.log('✅ Post added locally (Firebase not configured)');
     }
-  } else {
-    // Fallback to local storage
-    const newPost = {
-      id: Date.now(),
-      ...postData,
-      likes: 0,
-      timeAgo: 'now',
-      liked: false
-    };
-    socialPosts.unshift(newPost);
-    renderSocialFeed();
+    
+    // Show success message
+    const tempMsg = document.createElement('div');
+    tempMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+    tempMsg.textContent = '✅ Post shared successfully!';
+    document.body.appendChild(tempMsg);
+    setTimeout(() => tempMsg.remove(), 3000);
+    
+    closeAddPostModal();
+  } catch (error) {
+    console.error('Error posting:', error);
+    alert('Failed to save post. Please try again.');
+  } finally {
+    submitPost.disabled = false;
+    submitPost.textContent = 'Post';
   }
-  
-  closeAddPostModal();
 }
 
 async function toggleLike(postId) {
@@ -1158,6 +1189,10 @@ async function submitPortfolioWork() {
     return;
   }
   
+  // Show loading feedback
+  submitWork.disabled = true;
+  submitWork.textContent = 'Uploading...';
+  
   const portfolioData = {
     barberId: 'current-barber',
     styleName: styleName,
@@ -1165,30 +1200,45 @@ async function submitPortfolioWork() {
     description: description
   };
   
-  if (firebaseService) {
-    // Save to Firebase
-    const result = await firebaseService.addPortfolioItem(portfolioData);
-    if (result.success) {
-      console.log('🎨 Portfolio work saved to Firebase');
-      await loadBarberPortfolio(); // Reload portfolio
+  try {
+    if (firebaseService) {
+      // Save to Firebase
+      const result = await firebaseService.addPortfolioItem(portfolioData);
+      if (result.success) {
+        console.log('🎨 Portfolio work saved to Firebase');
+        await loadBarberPortfolio(); // Reload portfolio
+      } else {
+        throw new Error('Failed to save portfolio work');
+      }
     } else {
-      alert('Failed to save portfolio work. Please try again.');
-      return;
+      // Fallback to local storage - ALWAYS WORKS
+      const newWork = {
+        id: Date.now(),
+        ...portfolioData,
+        likes: 0,
+        date: new Date().toISOString().split('T')[0]
+      };
+      barberPortfolio.unshift(newWork);
+      renderBarberPortfolio();
+      console.log('✅ Portfolio work added locally (Firebase not configured)');
     }
-  } else {
-    // Fallback to local storage
-    const newWork = {
-      id: Date.now(),
-      ...portfolioData,
-      likes: 0,
-      date: new Date().toISOString().split('T')[0]
-    };
-    barberPortfolio.unshift(newWork);
-    renderBarberPortfolio();
+    
+    // Show success message
+    const tempMsg = document.createElement('div');
+    tempMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+    tempMsg.textContent = '✅ Portfolio work uploaded successfully!';
+    document.body.appendChild(tempMsg);
+    setTimeout(() => tempMsg.remove(), 3000);
+    
+    updateDashboardStats();
+    closeUploadWorkModal();
+  } catch (error) {
+    console.error('Error uploading portfolio:', error);
+    alert('Failed to save portfolio work. Please try again.');
+  } finally {
+    submitWork.disabled = false;
+    submitWork.textContent = 'Upload';
   }
-  
-  updateDashboardStats();
-  closeUploadWorkModal();
 }
 
 // --- Client Profile Rendering ---
@@ -1575,7 +1625,9 @@ class LineUpVirtualTryOn {
       
       // Create abort controller for timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      let usePreviewMode = false;
       
       try {
         // Call backend with HairFastGAN
@@ -1602,19 +1654,68 @@ class LineUpVirtualTryOn {
           // Check if it's a setup error
           if (response.status === 503 && errorData.setup_instructions) {
             const instructions = errorData.setup_instructions;
-            alert(`⚠️ HairFastGAN Not Set Up Yet!\n\nTo enable ACTUAL visual hair transformations:\n\n1. Modal Labs (FREE $30/month): ${instructions.modal}\n2. Hugging Face (FREE tier): ${instructions.huggingface}\n\nSee HAIRFAST_SETUP.md for detailed instructions.`);
-            throw new Error('HairFastGAN not configured');
+            console.warn('⚠️ HairFastGAN not configured, using preview mode');
+            usePreviewMode = true;
+          } else {
+            console.error('Server error details:', errorData);
+            usePreviewMode = true;
           }
-          
-          console.error('Server error details:', errorData);
-          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          throw new Error('Request timed out after 60 seconds. The GPU might be cold-starting. Please try again.');
+        console.warn('Backend not available, using preview mode:', fetchError.message);
+        usePreviewMode = true;
+      }
+      
+      if (usePreviewMode) {
+        // PREVIEW MODE - Show reference with overlay
+        console.log('📸 Using preview mode (backend unavailable)');
+        
+        this.resultImage = imagePreview.src;
+        
+        photoElement.style.display = 'block';
+        photoElement.style.zIndex = '10';
+        photoElement.src = this.resultImage;
+        
+        // Add overlay message
+        const overlay = document.createElement('div');
+        overlay.id = 'preview-overlay';
+        overlay.className = 'absolute inset-0 bg-black/70 flex items-center justify-center z-20 p-6';
+        overlay.innerHTML = `
+          <div class="text-center max-w-md">
+            <div class="text-6xl mb-4">✂️</div>
+            <h3 class="text-2xl font-bold mb-3 text-white">Preview Mode</h3>
+            <p class="text-gray-300 mb-4">
+              Showing your original photo as reference.<br/>
+              Take this to your barber and ask for<br/>
+              <span class="text-sky-400 font-semibold">"${this.currentStyle}"</span>
+            </p>
+            <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 text-sm text-left space-y-2">
+              <p class="text-gray-400">💡 <strong class="text-white">Pro Tip:</strong></p>
+              <ul class="text-gray-300 space-y-1 ml-4">
+                <li>• Screenshot this as reference</li>
+                <li>• Show it to your barber</li>
+                <li>• Discuss styling options</li>
+              </ul>
+            </div>
+            <button onclick="document.getElementById('preview-overlay').remove()" class="mt-4 bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg font-medium">
+              Got it
+            </button>
+          </div>
+        `;
+        
+        const container = photoElement.parentElement;
+        const existingOverlay = container.querySelector('#preview-overlay');
+        if (existingOverlay) existingOverlay.remove();
+        container.appendChild(overlay);
+        
+        // Show screenshot button
+        const screenshotBtn = document.getElementById('take-screenshot');
+        if (screenshotBtn) {
+          screenshotBtn.classList.remove('hidden');
         }
-        throw fetchError;
+        
+        return;
       }
       
       const result = await response.json();
@@ -2013,22 +2114,32 @@ document.getElementById('close-haircut-modal')?.addEventListener('click', () => 
 
 // --- Shop Name Search ---
 async function searchByShopName(shopName) {
-  console.log('Searching for shop:', shopName);
+  console.log('🔍 Searching for shop:', shopName);
   barberIntro.textContent = `Searching for "${shopName}"...`;
-  barberListContainer.innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-400 mx-auto"></div></div>';
+  barberListContainer.innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-400 mx-auto"></div><p class="text-gray-400 mt-4">Searching barbershops...</p></div>';
   
   try {
-    const response = await fetch(`${API_URL}/search-barbers?query=${encodeURIComponent(shopName)}&type=name`);
+    // Add timeout to search request
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+    
+    const response = await fetch(`${API_URL}/search-barbers?query=${encodeURIComponent(shopName)}&type=name`, {
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
-      throw new Error('Search failed');
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
     const data = await response.json();
+    console.log('Search results:', data);
     
     if (data.barbers && data.barbers.length > 0) {
       barberIntro.textContent = `Found ${data.barbers.length} result(s) for "${shopName}"`;
       renderBarberList(data.barbers);
+      console.log('✅ Search successful');
     } else {
       barberIntro.textContent = `No barbershops found with name "${shopName}". Try searching by location instead.`;
       barberListContainer.innerHTML = `
@@ -2036,23 +2147,67 @@ async function searchByShopName(shopName) {
           <svg class="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
           </svg>
-          <p class="text-gray-400">No results found</p>
-          <p class="text-sm text-gray-500 mt-2">Try searching by ZIP code or city</p>
+          <p class="text-gray-400 text-lg font-medium mb-2">No results found</p>
+          <p class="text-sm text-gray-500 mb-4">No barbershops matched "${shopName}"</p>
+          <button onclick="document.getElementById('location-search').focus()" class="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg">
+            Try Location Search
+          </button>
         </div>
       `;
     }
   } catch (error) {
-    console.error('Error searching by shop name:', error);
-    barberIntro.textContent = 'Search failed. Please try again.';
-    barberListContainer.innerHTML = `
-      <div class="text-center py-12">
-        <svg class="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <p class="text-gray-400">Search failed</p>
-        <p class="text-sm text-gray-500 mt-2">Please check your connection and try again</p>
-      </div>
-    `;
+    console.error('❌ Error searching by shop name:', error);
+    
+    // Check if it's a network error or backend not running
+    const isNetworkError = error.name === 'AbortError' || error.message.includes('Failed to fetch') || error.message.includes('NetworkError');
+    
+    if (isNetworkError) {
+      barberIntro.textContent = '⚠️ Backend unavailable - Showing example results';
+      
+      // Show example/mock results instead of empty state
+      const mockResults = [
+        {
+          id: 'demo1',
+          name: `${shopName} (Example)`,
+          address: 'Backend not available - This is demo data',
+          rating: 4.5,
+          user_ratings_total: 100,
+          avgCost: 30,
+          specialties: ['Haircuts', 'Beard Trim', 'Styling']
+        }
+      ];
+      
+      barberListContainer.innerHTML = `
+        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4">
+          <p class="text-yellow-400 font-medium flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            Backend Not Running
+          </p>
+          <p class="text-gray-400 text-sm mt-2">
+            To enable real shop search, start the backend:<br/>
+            <code class="bg-gray-800 px-2 py-1 rounded text-xs">python app_refactored.py</code>
+          </p>
+        </div>
+      `;
+      renderBarberList(mockResults);
+      
+    } else {
+      barberIntro.textContent = 'Search failed. Please try again.';
+      barberListContainer.innerHTML = `
+        <div class="text-center py-12">
+          <svg class="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <p class="text-gray-400 text-lg font-medium mb-2">Search Error</p>
+          <p class="text-sm text-gray-500 mb-2">${error.message}</p>
+          <button onclick="searchByShopName('${shopName}')" class="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg mt-3">
+            Try Again
+          </button>
+        </div>
+      `;
+    }
   }
 }
 

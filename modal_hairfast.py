@@ -1,6 +1,6 @@
 """
-Modal Labs deployment for HairFastGAN
-======================================
+Modal Labs deployment for HairFastGAN - FIXED VERSION
+======================================================
 This script deploys HairFastGAN on Modal's serverless GPU platform.
 
 FREE TIER: Modal provides $30/month free credits - enough for 1000+ transformations!
@@ -18,6 +18,8 @@ https://github.com/AIRI-Institute/HairFastGAN
 import modal
 import base64
 import io
+import sys
+import traceback
 
 # Create Modal app
 app = modal.App("hairfast-lineup")
@@ -38,7 +40,7 @@ hairfast_image = (
         "face-alignment",
         "gdown",
         "fastapi",
-        "requests"  # For downloading reference hairstyle images
+        "requests"
     )
     .run_commands(
         # Clone HairFastGAN
@@ -55,8 +57,9 @@ hairfast_image = (
 @app.function(
     image=hairfast_image,
     gpu="T4",  # FREE tier GPU!
-    timeout=300,
-    memory=8192
+    timeout=600,  # Increased timeout to 10 minutes
+    memory=8192,
+    keep_warm=1  # Keep one instance warm to avoid cold starts
 )
 def transform_hair(face_image_base64: str, style_description: str) -> dict:
     """
@@ -69,27 +72,59 @@ def transform_hair(face_image_base64: str, style_description: str) -> dict:
     Returns:
         dict with result_image (base64) and metadata
     """
-    import sys
-    sys.path.append("/root/HairFastGAN")
-    
-    from PIL import Image
-    from hair_swap import HairFast, get_parser
-    import requests
     import logging
     
+    # Set up logging
+    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
     
     try:
-        logger.info(f"Starting transformation for style: {style_description}")
+        logger.info("=" * 50)
+        logger.info(f"🎨 STARTING TRANSFORMATION")
+        logger.info(f"Style requested: {style_description}")
+        logger.info(f"Image data size: {len(face_image_base64)} bytes")
+        logger.info("=" * 50)
+        
+        # Add HairFastGAN to Python path
+        sys.path.insert(0, "/root/HairFastGAN")
+        logger.info("✅ Added HairFastGAN to path")
+        
+        # Import required modules
+        from PIL import Image
+        import requests
+        
+        logger.info("✅ Imported dependencies")
+        
+        # Validate base64 input
+        if not face_image_base64:
+            raise ValueError("Empty face_image_base64 provided")
+        
+        if len(face_image_base64) < 100:
+            raise ValueError(f"face_image_base64 too short: {len(face_image_base64)} bytes")
         
         # Decode input image
-        face_bytes = base64.b64decode(face_image_base64)
-        face_img = Image.open(io.BytesIO(face_bytes)).convert('RGB')
-        logger.info(f"Face image loaded: {face_img.size}")
+        logger.info("📸 Decoding face image...")
+        try:
+            face_bytes = base64.b64decode(face_image_base64)
+            logger.info(f"✅ Decoded {len(face_bytes)} bytes")
+        except Exception as e:
+            raise ValueError(f"Failed to decode base64: {str(e)}")
         
-        # HairFastGAN requires reference images for shape and color
-        # Map style descriptions to reference hairstyle URLs
+        try:
+            face_img = Image.open(io.BytesIO(face_bytes)).convert('RGB')
+            logger.info(f"✅ Face image loaded: {face_img.size}")
+        except Exception as e:
+            raise ValueError(f"Failed to open image: {str(e)}")
+        
+        # Resize if too large
+        max_size = 1024
+        if face_img.width > max_size or face_img.height > max_size:
+            ratio = min(max_size / face_img.width, max_size / face_img.height)
+            new_size = (int(face_img.width * ratio), int(face_img.height * ratio))
+            face_img = face_img.resize(new_size, Image.Resampling.LANCZOS)
+            logger.info(f"✅ Resized to: {face_img.size}")
+        
+        # Hairstyle reference library
         hairstyle_library = {
             "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512&h=512&fit=crop",
             "buzz": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512&h=512&fit=crop",
@@ -102,70 +137,105 @@ def transform_hair(face_image_base64: str, style_description: str) -> dict:
             "curly": "https://images.unsplash.com/photo-1524660988542-c440de9c0fde?w=512&h=512&fit=crop",
             "textured": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512&h=512&fit=crop",
             "crew cut": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512&h=512&fit=crop",
-            "ivy league": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512&h=512&fit=crop"
+            "classic": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512&h=512&fit=crop",
+            "modern": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512&h=512&fit=crop"
         }
         
         # Find matching hairstyle reference
         style_lower = style_description.lower()
         reference_url = None
+        matched_key = None
         
         for key, url in hairstyle_library.items():
             if key in style_lower:
                 reference_url = url
-                logger.info(f"Matched style '{key}' for '{style_description}'")
+                matched_key = key
+                logger.info(f"✅ Matched style '{key}' for '{style_description}'")
                 break
         
-        # Default to a classic style if no match
+        # Default to side part if no match
         if not reference_url:
             reference_url = hairstyle_library["side part"]
-            logger.warning(f"No match for '{style_description}', using default: side part")
+            matched_key = "side part"
+            logger.warning(f"⚠️ No match for '{style_description}', using default: {matched_key}")
         
         # Download reference image
-        logger.info(f"Downloading reference from: {reference_url}")
-        ref_response = requests.get(reference_url, timeout=10)
-        if ref_response.status_code != 200:
-            raise Exception(f"Failed to download reference image: HTTP {ref_response.status_code}")
-        
-        ref_img = Image.open(io.BytesIO(ref_response.content)).convert('RGB')
-        logger.info(f"Reference image loaded: {ref_img.size}")
+        logger.info(f"📥 Downloading reference from: {reference_url}")
+        try:
+            ref_response = requests.get(reference_url, timeout=30)
+            if ref_response.status_code != 200:
+                raise Exception(f"HTTP {ref_response.status_code}")
+            
+            ref_img = Image.open(io.BytesIO(ref_response.content)).convert('RGB')
+            logger.info(f"✅ Reference image loaded: {ref_img.size}")
+        except Exception as e:
+            raise Exception(f"Failed to download reference image: {str(e)}")
         
         # Initialize HairFast
-        logger.info("Initializing HairFastGAN...")
-        args = get_parser().parse_args([])
-        hair_fast = HairFast(args)
+        logger.info("🚀 Initializing HairFastGAN...")
+        try:
+            from hair_swap import HairFast, get_parser
+            
+            args = get_parser().parse_args([])
+            hair_fast = HairFast(args)
+            logger.info("✅ HairFastGAN initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize HairFastGAN: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise Exception(f"HairFastGAN initialization failed: {str(e)}")
         
-        # Transform: face image + reference hairstyle shape + reference hair color
-        logger.info("Running HairFastGAN transformation...")
-        result = hair_fast(face_img, ref_img, ref_img)
-        logger.info(f"Transformation complete! Result size: {result.size}")
+        # Run transformation
+        logger.info("✨ Running transformation...")
+        try:
+            result = hair_fast(face_img, ref_img, ref_img)
+            logger.info(f"✅ Transformation complete! Result size: {result.size}")
+        except Exception as e:
+            logger.error(f"Transformation failed: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise Exception(f"HairFastGAN transformation failed: {str(e)}")
         
         # Convert result to base64
+        logger.info("💾 Encoding result...")
         output_buffer = io.BytesIO()
         result.save(output_buffer, format='JPEG', quality=95)
         result_base64 = base64.b64encode(output_buffer.getvalue()).decode('utf-8')
+        logger.info(f"✅ Result encoded: {len(result_base64)} bytes")
+        
+        logger.info("=" * 50)
+        logger.info("🎉 TRANSFORMATION SUCCESSFUL")
+        logger.info("=" * 50)
         
         return {
             "success": True,
             "result_image": result_base64,
             "style_applied": style_description,
+            "matched_style": matched_key,
             "model": "HairFastGAN",
             "gpu_used": "NVIDIA T4",
             "reference_used": reference_url
         }
         
     except Exception as e:
-        logger.error(f"Transformation failed: {str(e)}")
-        import traceback
+        logger.error("=" * 50)
+        logger.error("❌ TRANSFORMATION FAILED")
+        logger.error(f"Error: {str(e)}")
+        logger.error("=" * 50)
         logger.error(traceback.format_exc())
+        
         return {
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "traceback": traceback.format_exc()
         }
 
-# Create web endpoint
-@app.function(image=hairfast_image)
-@modal.fastapi_endpoint(method="POST")
-def hairfast_endpoint(request_data: dict) -> dict:
+# Create web endpoint with better error handling
+@app.function(
+    image=hairfast_image,
+    timeout=60
+)
+@modal.web_endpoint(method="POST")
+async def hairfast_endpoint(request_data: dict) -> dict:
     """
     Web endpoint for HairFastGAN transformations
     
@@ -175,36 +245,88 @@ def hairfast_endpoint(request_data: dict) -> dict:
         "style_description": "fade with taper"
     }
     """
-    face_image = request_data.get("face_image", "")
-    style_description = request_data.get("style_description", "")
+    import logging
     
-    if not face_image or not style_description:
+    logger = logging.getLogger(__name__)
+    logger.info("🌐 Endpoint called")
+    
+    try:
+        # Validate request data
+        if not isinstance(request_data, dict):
+            return {
+                "success": False,
+                "error": "Request body must be a JSON object"
+            }
+        
+        face_image = request_data.get("face_image", "")
+        style_description = request_data.get("style_description", "")
+        
+        logger.info(f"Request: style='{style_description}', image_size={len(face_image)}")
+        
+        if not face_image:
+            return {
+                "success": False,
+                "error": "Missing required field: face_image"
+            }
+        
+        if not style_description:
+            return {
+                "success": False,
+                "error": "Missing required field: style_description"
+            }
+        
+        # Call the GPU function
+        logger.info("🚀 Calling GPU function...")
+        result = transform_hair.remote(face_image, style_description)
+        
+        logger.info(f"✅ GPU function returned: success={result.get('success')}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"❌ Endpoint error: {str(e)}")
+        logger.error(traceback.format_exc())
         return {
             "success": False,
-            "error": "Missing required fields: face_image and style_description"
+            "error": f"Endpoint error: {str(e)}",
+            "error_type": type(e).__name__
         }
-    
-    # Call the GPU function
-    result = transform_hair.remote(face_image, style_description)
-    return result
 
 # Local testing function
 @app.local_entrypoint()
 def test():
     """Test the deployment locally"""
     print("🚀 Testing HairFastGAN deployment...")
+    print("=" * 50)
     
     # Create a test image
     from PIL import Image
     import io
     
-    test_img = Image.new('RGB', (512, 512), color='white')
+    # Create a simple test image
+    test_img = Image.new('RGB', (512, 512), color=(255, 200, 200))
     buffer = io.BytesIO()
     test_img.save(buffer, format='JPEG')
     test_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
     
+    print(f"📸 Test image size: {len(test_base64)} bytes")
+    print("🎨 Testing transformation with 'fade haircut'...")
+    print("=" * 50)
+    
     result = transform_hair.remote(test_base64, "fade haircut")
-    print(f"✅ Result: {result.get('success')}")
-    print(f"📊 Model: {result.get('model')}")
-    print(f"💻 GPU: {result.get('gpu_used')}")
-
+    
+    print("\n" + "=" * 50)
+    print("📊 RESULTS:")
+    print("=" * 50)
+    print(f"✅ Success: {result.get('success')}")
+    
+    if result.get('success'):
+        print(f"📊 Model: {result.get('model')}")
+        print(f"💻 GPU: {result.get('gpu_used')}")
+        print(f"🎨 Style: {result.get('style_applied')}")
+        print(f"🔗 Reference: {result.get('reference_used')}")
+        print(f"📦 Result size: {len(result.get('result_image', ''))} bytes")
+    else:
+        print(f"❌ Error: {result.get('error')}")
+        print(f"📝 Error type: {result.get('error_type')}")
+    
+    print("=" * 50)

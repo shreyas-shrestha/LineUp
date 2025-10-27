@@ -267,19 +267,6 @@ function setupEventListeners() {
   document.getElementById('cancel-booking').addEventListener('click', closeBookingModal);
   document.getElementById('confirm-booking').addEventListener('click', confirmBooking);
   
-  // Logo upload
-  const logoInput = document.getElementById('logo-input');
-  const logoPreviewContainer = document.getElementById('logo-preview-container');
-  const logoPreview = document.getElementById('logo-preview');
-  const logoPlaceholder = document.getElementById('logo-placeholder');
-  const uploadLogoBtn = document.getElementById('upload-logo-btn');
-  
-  if (uploadLogoBtn && logoPreviewContainer && logoInput) {
-    uploadLogoBtn.addEventListener('click', () => logoInput.click());
-    logoPreviewContainer.addEventListener('click', () => logoInput.click());
-    logoInput.addEventListener('change', handleLogoUpload);
-  }
-  
   // Subscription packages
   const createPackageBtn = document.getElementById('create-package-btn');
   const createPackageModal = document.getElementById('create-package-modal');
@@ -425,25 +412,6 @@ function handleImageUpload(e) {
       imagePreviewContainer.classList.remove('hidden');
     };
     img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-// Logo upload handler
-function handleLogoUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const logoPreview = document.getElementById('logo-preview');
-    const logoPlaceholder = document.getElementById('logo-placeholder');
-    
-    if (logoPreview && logoPlaceholder) {
-      logoPreview.src = e.target.result;
-      logoPreview.classList.remove('hidden');
-      logoPlaceholder.classList.add('hidden');
-    }
   };
   reader.readAsDataURL(file);
 }

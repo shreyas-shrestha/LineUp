@@ -1,4 +1,4 @@
-# 💇 LineUp AI - v2.0
+#LineUp AI - v2.0
 
 **AI-Powered Haircut Analysis & Barber Booking Platform**
 

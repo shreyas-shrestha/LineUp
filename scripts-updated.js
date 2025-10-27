@@ -1473,60 +1473,53 @@ class LineUpVirtualTryOn {
       const loading = document.getElementById('tryon-loading');
       if (loading) {
         loading.classList.remove('hidden');
-        loading.querySelector('p').textContent = 'Creating hairstyle preview...';
+        loading.querySelector('p').textContent = '🤖 Google Gemini AI is analyzing your hairstyle... (FREE with your $300 credit!)';
       }
       
-      // Simple client-side preview: Create a canvas with reference image
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      console.log('Converting image to base64...');
+      const base64Data = await this.imageToBase64(imagePreview.src);
+      console.log('Sending to Google Gemini AI...');
       
-      // Load user's image
-      const userImg = new Image();
-      userImg.crossOrigin = 'anonymous';
-      
-      await new Promise((resolve, reject) => {
-        userImg.onload = resolve;
-        userImg.onerror = reject;
-        userImg.src = imagePreview.src;
+      // Call backend with Google Gemini
+      const response = await fetch(`${API_URL}/virtual-tryon`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userPhoto: base64Data,
+          styleDescription: this.currentStyle
+        })
       });
       
-      // Set canvas size
-      canvas.width = userImg.width;
-      canvas.height = userImg.height;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error('Failed to process hairstyle: ' + errorText);
+      }
       
-      // Draw user's image
-      ctx.drawImage(userImg, 0, 0);
+      const result = await response.json();
+      console.log('✅ Google Gemini processed:', result);
       
-      // Add text overlay showing the hairstyle name
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-      
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 24px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`Preview: ${this.currentStyle}`, canvas.width / 2, canvas.height - 25);
-      
-      // Add note about reference
-      ctx.font = '16px Inter, sans-serif';
-      ctx.fillText('Use this as a reference when visiting your barber', canvas.width / 2, canvas.height - 5);
-      
-      // Convert to image
-      this.resultImage = canvas.toDataURL('image/jpeg', 0.95);
-      
-      // Display the result
-      photoElement.style.display = 'block';
-      photoElement.style.zIndex = '10';
-      photoElement.src = this.resultImage;
-      
-      console.log('✅ Preview created!');
+      if (result.success && result.resultImage) {
+        // Display the result image with AI advice overlay
+        this.resultImage = `data:image/jpeg;base64,${result.resultImage}`;
+        
+        photoElement.style.display = 'block';
+        photoElement.style.zIndex = '10';
+        photoElement.src = this.resultImage;
+        
+        console.log('✅ Image updated with AI advice!');
+      } else {
+        throw new Error(result.message || 'No result image returned');
+      }
       
       document.getElementById('start-tryon').classList.add('hidden');
       document.getElementById('stop-tryon').classList.remove('hidden');
       document.getElementById('take-screenshot').classList.remove('hidden');
       
-      // Show helpful message
+      // Show AI advice in a nice alert
       setTimeout(() => {
-        alert('💡 Tip: Save this image and show it to your barber for the best results!');
+        if (result.aiAdvice) {
+          alert(`🤖 ${result.poweredBy || 'Google Gemini AI'} Analysis:\n\n${result.aiAdvice}\n\n💡 Tip: Screenshot this and show your barber!`);
+        }
       }, 500);
       
     } catch (error) {

@@ -1014,9 +1014,9 @@ def test():
         "features_active": True
     })
 
-# Virtual Try-On endpoint using HairCLIP via Replicate
+# Virtual Try-On endpoint using Google Gemini AI (FREE with $300 credit!)
 @app.route('/virtual-tryon', methods=['POST', 'OPTIONS'])
-@limiter.limit("5 per hour")  # More restrictive for processing-heavy operations
+@limiter.limit("15 per hour")  # Using your Google AI credits
 def virtual_tryon():
     if request.method == 'OPTIONS':
         response = make_response('')
@@ -1026,7 +1026,6 @@ def virtual_tryon():
         return response, 200
     
     try:
-        import requests as req
         data = request.get_json()
         
         # Get user photo (base64 encoded)
@@ -1040,256 +1039,116 @@ def virtual_tryon():
         if not style_description:
             return jsonify({"error": "Style description required"}), 400
         
-        # Get Replicate API token from environment
-        REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
+        # Use Google Gemini for hairstyle transformation (FREE with $300 credit!)
+        GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
         
-        if not REPLICATE_API_TOKEN:
-            logger.warning("REPLICATE_API_TOKEN not found - using local transformation")
-            
-            # Apply visual transformation using PIL to show hairstyle change
-            from PIL import Image, ImageEnhance, ImageFilter, ImageDraw, ImageFont
-            import io
-            
-            try:
-                # Decode the base64 image
-                image_bytes = base64.b64decode(user_photo_base64)
-                image = Image.open(io.BytesIO(image_bytes))
-                
-                # Convert to RGB if necessary
-                if image.mode != 'RGB':
-                    image = image.convert('RGB')
-                
-                # Create a copy for transformation
-                transformed = image.copy()
-                
-                # Apply hairstyle-specific transformations
-                style_lower = style_description.lower()
-                
-                # Enhance the top portion (hair area) of the image
-                width, height = transformed.size
-                hair_region_height = int(height * 0.4)  # Top 40% is typically hair
-                
-                # Create an overlay effect for the hair region
-                overlay = Image.new('RGBA', (width, hair_region_height), (0, 0, 0, 0))
-                draw = ImageDraw.Draw(overlay)
-                
-                # Apply different effects based on hairstyle
-                if 'dark' in style_lower or 'black' in style_lower:
-                    # Darken hair area
-                    hair_crop = transformed.crop((0, 0, width, hair_region_height))
-                    enhancer = ImageEnhance.Brightness(hair_crop)
-                    hair_crop = enhancer.enhance(0.7)
-                    transformed.paste(hair_crop, (0, 0))
-                elif 'blonde' in style_lower or 'light' in style_lower:
-                    # Lighten hair area
-                    hair_crop = transformed.crop((0, 0, width, hair_region_height))
-                    enhancer = ImageEnhance.Brightness(hair_crop)
-                    hair_crop = enhancer.enhance(1.3)
-                    transformed.paste(hair_crop, (0, 0))
-                elif 'curly' in style_lower or 'wavy' in style_lower:
-                    # Add texture effect
-                    hair_crop = transformed.crop((0, 0, width, hair_region_height))
-                    hair_crop = hair_crop.filter(ImageFilter.DETAIL)
-                    enhancer = ImageEnhance.Sharpness(hair_crop)
-                    hair_crop = enhancer.enhance(1.5)
-                    transformed.paste(hair_crop, (0, 0))
-                elif 'sleek' in style_lower or 'straight' in style_lower:
-                    # Smooth effect
-                    hair_crop = transformed.crop((0, 0, width, hair_region_height))
-                    hair_crop = hair_crop.filter(ImageFilter.SMOOTH)
-                    enhancer = ImageEnhance.Contrast(hair_crop)
-                    hair_crop = enhancer.enhance(1.2)
-                    transformed.paste(hair_crop, (0, 0))
-                else:
-                    # Generic enhancement
-                    hair_crop = transformed.crop((0, 0, width, hair_region_height))
-                    enhancer = ImageEnhance.Color(hair_crop)
-                    hair_crop = enhancer.enhance(1.2)
-                    enhancer = ImageEnhance.Contrast(hair_crop)
-                    hair_crop = enhancer.enhance(1.1)
-                    transformed.paste(hair_crop, (0, 0))
-                
-                # Add a subtle gradient overlay for professional look
-                gradient = Image.new('RGBA', (width, hair_region_height), (255, 255, 255, 0))
-                for y in range(hair_region_height):
-                    alpha = int(15 * (1 - y / hair_region_height))  # Fade from top to bottom
-                    draw_grad = ImageDraw.Draw(gradient)
-                    draw_grad.rectangle([(0, y), (width, y+1)], fill=(255, 255, 255, alpha))
-                
-                # Convert transformed to RGBA for compositing
-                if transformed.mode != 'RGBA':
-                    transformed = transformed.convert('RGBA')
-                
-                # Composite the gradient
-                hair_section = transformed.crop((0, 0, width, hair_region_height))
-                hair_section = Image.alpha_composite(hair_section, gradient)
-                transformed.paste(hair_section, (0, 0))
-                
-                # Convert back to RGB
-                transformed = transformed.convert('RGB')
-                
-                # Encode result
-                output_buffer = io.BytesIO()
-                transformed.save(output_buffer, format='JPEG', quality=95)
-                result_base64 = base64.b64encode(output_buffer.getvalue()).decode('utf-8')
-                
-                response_data = {
-                    "success": True,
-                    "message": f"Applied {style_description} transformation (preview mode)",
-                    "resultImage": result_base64,
-                    "styleApplied": style_description,
-                    "mock": False
-                }
-                response = make_response(jsonify(response_data), 200)
-                response.headers['Access-Control-Allow-Origin'] = '*'
-                return response
-                
-            except Exception as img_error:
-                logger.error(f"Image transformation error: {str(img_error)}")
-                # Fallback to original image
-                response_data = {
-                    "success": True,
-                    "message": "Virtual try-on processing (demo mode)",
-                    "resultImage": user_photo_base64,
-                    "mock": True
-                }
-                response = make_response(jsonify(response_data), 200)
-                response.headers['Access-Control-Allow-Origin'] = '*'
-                return response
+        if not GEMINI_API_KEY:
+            logger.error("GEMINI_API_KEY not found")
+            return jsonify({"error": "Google AI API key not configured"}), 500
         
-        # Try to use Replicate SDK if available, otherwise use REST API
-        try:
-            import replicate
-            
-            logger.info(f"Using Replicate SDK for hairstyle: {style_description}")
-            
-            # Convert base64 to bytes for Replicate
-            image_bytes = base64.b64decode(user_photo_base64)
-            
-            # Save temporarily to pass to Replicate
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_file:
-                tmp_file.write(image_bytes)
-                tmp_file_path = tmp_file.name
-            
-            try:
-                # Use Replicate's HairCLIP model
-                output = replicate.run(
-                    "catacolabs/hairclipv2:0f6b7b9b4b5e4e9f8f4c3e2d1c0b9a8",
-                    input={
-                        "image": open(tmp_file_path, "rb"),
-                        "prompt": style_description
-                    }
-                )
-                
-                # Clean up temp file
-                os.unlink(tmp_file_path)
-                
-                # Download the output image
-                if output:
-                    output_url = output if isinstance(output, str) else output[0]
-                    image_response = req.get(output_url)
-                    if image_response.status_code == 200:
-                        result_base64 = base64.b64encode(image_response.content).decode('utf-8')
-                        
-                        response_data = {
-                            "success": True,
-                            "message": "Hairstyle applied successfully",
-                            "resultImage": result_base64,
-                            "styleApplied": style_description
-                        }
-                        
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
-                        return response
-            except Exception as replicate_error:
-                logger.error(f"Replicate SDK error: {str(replicate_error)}")
-                # Clean up temp file if it exists
-                if os.path.exists(tmp_file_path):
-                    os.unlink(tmp_file_path)
-                raise replicate_error
-                
-        except ImportError:
-            logger.warning("Replicate SDK not available, using REST API")
-            
-            # Fallback to REST API
-            image_data_uri = f"data:image/jpeg;base64,{user_photo_base64}"
-            
-            api_url = "https://api.replicate.com/v1/predictions"
-            headers = {
-                "Authorization": f"Token {REPLICATE_API_TOKEN}",
-                "Content-Type": "application/json"
-            }
-            
-            # Try different model format
-            payload = {
-                "version": "catacolabs/hairclipv2",
-                "input": {
-                    "image": image_data_uri,
-                    "prompt": style_description
-                }
-            }
-            
-            logger.info(f"Calling Replicate REST API for hairstyle: {style_description}")
-            
-            prediction_response = req.post(api_url, headers=headers, json=payload)
-            
-            if prediction_response.status_code != 201:
-                logger.error(f"Replicate API error: {prediction_response.text}")
-                raise Exception(f"Failed to create prediction: {prediction_response.text}")
-            
-            prediction_data = prediction_response.json()
-            prediction_id = prediction_data.get("id")
-            
-            # Poll for results
-            import time
-            max_attempts = 60  # Increased timeout
-            attempt = 0
-            
-            while attempt < max_attempts:
-                status_response = req.get(
-                    f"{api_url}/{prediction_id}",
-                    headers=headers
-                )
-                
-                if status_response.status_code != 200:
-                    break
-                
-                status_data = status_response.json()
-                status = status_data.get("status")
-                
-                logger.info(f"Replicate status (attempt {attempt}): {status}")
-                
-                if status == "succeeded":
-                    output = status_data.get("output")
-                    if output:
-                        output_url = output if isinstance(output, str) else output[0]
-                        # Download the result image
-                        image_response = req.get(output_url)
-                        if image_response.status_code == 200:
-                            result_base64 = base64.b64encode(image_response.content).decode('utf-8')
-                            
-                            response_data = {
-                                "success": True,
-                                "message": "Hairstyle applied successfully",
-                                "resultImage": result_base64,
-                                "styleApplied": style_description
-                            }
-                            
-                            response = make_response(jsonify(response_data), 200)
-                            response.headers['Access-Control-Allow-Origin'] = '*'
-                            return response
-                    break
-                elif status == "failed":
-                    error_msg = status_data.get('error', 'Unknown error')
-                    logger.error(f"Replicate prediction failed: {error_msg}")
-                    raise Exception(f"Prediction failed: {error_msg}")
-                
-                time.sleep(2)
-                attempt += 1
-            
-            raise Exception("Timed out waiting for result")
+        logger.info(f"🎨 Using Google Gemini AI for hairstyle transformation: {style_description}")
         
+        # Use Gemini's multimodal capabilities to edit the hairstyle
+        import google.generativeai as genai
+        genai.configure(api_key=GEMINI_API_KEY)
+        
+        # Decode base64 image
+        import io
+        from PIL import Image
+        image_bytes = base64.b64decode(user_photo_base64)
+        user_image = Image.open(io.BytesIO(image_bytes))
+        
+        # Use Gemini 2.0 Flash for image understanding and editing
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        
+        # Create a detailed prompt for hairstyle transformation
+        prompt = f"""You are a professional hairstylist. Describe in detail what this person's hair would look like if they got the '{style_description}' hairstyle. 
+
+Be specific about:
+1. Hair length and layers
+2. Styling technique and direction
+3. Texture (smooth, textured, voluminous)
+4. Maintenance tips
+5. Face shape compatibility
+
+Keep it under 100 words and make it sound professional but friendly."""
+
+        # Send image and prompt to Gemini
+        response = model.generate_content([prompt, user_image])
+        hairstyle_advice = response.text
+        
+        logger.info(f"✅ Gemini generated advice: {hairstyle_advice[:100]}...")
+        
+        # Since Gemini can't directly edit images, create an enhanced reference
+        # Add the AI-generated advice as an overlay on the user's image
+        from PIL import ImageDraw, ImageFont
+        
+        # Create a copy for annotation
+        result_image = user_image.copy()
+        draw = ImageDraw.Draw(result_image)
+        
+        # Add professional overlay with Gemini's advice
+        width, height = result_image.size
+        overlay_height = min(200, int(height * 0.3))
+        
+        # Semi-transparent background for text
+        overlay = Image.new('RGBA', (width, overlay_height), (0, 0, 0, 180))
+        result_image.paste(overlay, (0, height - overlay_height), overlay)
+        
+        draw = ImageDraw.Draw(result_image)
+        
+        # Title
+        draw.text((width//2, height - overlay_height + 15), 
+                 f"✂️ {style_description}", 
+                 fill=(255, 255, 255), 
+                 anchor="mt",
+                 font=None)
+        
+        # Wrap and draw AI advice
+        words = hairstyle_advice.split()
+        lines = []
+        current_line = []
+        max_width = width - 40
+        
+        for word in words:
+            current_line.append(word)
+            test_line = ' '.join(current_line)
+            if len(test_line) > max_width // 8:  # Rough estimate
+                lines.append(' '.join(current_line[:-1]))
+                current_line = [word]
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        y_offset = height - overlay_height + 45
+        for line in lines[:4]:  # Max 4 lines
+            draw.text((20, y_offset), line, fill=(200, 200, 200), font=None)
+            y_offset += 20
+        
+        # Add powered by Google AI badge
+        draw.text((width - 20, height - 15), 
+                 "Powered by Google Gemini AI", 
+                 fill=(150, 150, 150), 
+                 anchor="rb",
+                 font=None)
+        
+        # Convert result to base64
+        output_buffer = io.BytesIO()
+        result_image.save(output_buffer, format='JPEG', quality=95)
+        result_base64 = base64.b64encode(output_buffer.getvalue()).decode('utf-8')
+        
+        response_data = {
+            "success": True,
+            "message": f"AI analysis complete for {style_description}",
+            "resultImage": result_base64,
+            "styleApplied": style_description,
+            "aiAdvice": hairstyle_advice,
+            "poweredBy": "Google Gemini AI"
+        }
+        
+        response = make_response(jsonify(response_data), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
     except Exception as e:
         logger.error(f"Error in virtual try-on endpoint: {str(e)}")
         response = make_response(jsonify({"error": f"Failed to process try-on: {str(e)}"}), 400)
@@ -1310,23 +1169,26 @@ def rate_limit_exceeded(error):
 # Handle 404
 @app.errorhandler(404)
 def not_found(e):
-    return jsonify({
-        "error": "Endpoint not found", 
-        "available": ["/", "/health", "/analyze", "/social", "/portfolio", "/appointments", "/barbers", "/test"]
-    }), 404
+    response = make_response(jsonify({
+        "error": "Not found",
+        "message": "The requested resource does not exist"
+    }), 404)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 # Handle 500
 @app.errorhandler(500)
 def server_error(e):
-    logger.error(f"500 error: {str(e)}")
-    return jsonify({"error": "Internal server error"}), 500
+    response = make_response(jsonify({
+        "error": "Internal server error",
+        "message": "Something went wrong on our end. Please try again later."
+    }), 500)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    logger.info(f"Starting LineUp Backend v2.0 with Rate Limiting on port {port}")
-    logger.info(f"Gemini API configured: {model is not None}")
-    logger.info(f"Expected frontend: https://lineupai.onrender.com")
-    logger.info("Rate limits: AI Analysis (10/hr), Social Posts (20/hr), General (1000/hr)")
-    logger.info("CORS enabled for all origins")
-    logger.info("Features: AI Analysis, Social Feed, Barber Portfolios, Appointments")
-    app.run(host="0.0.0.0", port=port, debug=False)
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    # Initialize mock data on startup
+    initialize_mock_data()
+    logger.info(f"🚀 Starting LineUp API server on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)  # debug=False for production

@@ -49,9 +49,8 @@ pip freeze > requirements.txt
 
 ### Environment Setup
 Required environment variables for full functionality:
-- `GEMINI_API_KEY`: Google Gemini API key for AI analysis
+- `GEMINI_API_KEY`: Google Gemini API key for AI analysis AND virtual try-on (FREE with $300 credit!)
 - `GOOGLE_PLACES_API_KEY`: Google Places API key for real barber data
-- `REPLICATE_API_TOKEN`: Replicate API token for HairCLIP virtual try-on (get at https://replicate.com/account)
 - `PORT`: Port for Flask app (defaults to 5000)
 
 ## Architecture Overview

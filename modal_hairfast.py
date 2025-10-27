@@ -40,7 +40,9 @@ hairfast_image = (
         "face-alignment",
         "gdown",
         "fastapi",
-        "requests"
+        "requests",  # For downloading reference hairstyle images
+        "addict",  # Required by HairFastGAN for nested dicts
+        "yacs"  # Required by HairFastGAN for config management
     )
     .run_commands(
         # Clone HairFastGAN

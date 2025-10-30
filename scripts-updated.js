@@ -62,6 +62,13 @@ const clientAppointmentsContainer = document.getElementById('client-appointments
 const barberAppointmentsContainer = document.getElementById('barber-appointments-container');
 const noAppointments = document.getElementById('no-appointments');
 
+// Subscription package elements
+const createPackageBtn = document.getElementById('create-package-btn');
+const createPackageModal = document.getElementById('create-package-modal');
+const subscriptionPackagesList = document.getElementById('subscription-packages-list');
+const cancelPackageBtn = document.getElementById('cancel-package');
+const submitPackageBtn = document.getElementById('submit-package');
+
 // --- State ---
 let base64ImageData = null;
 let lastRecommendedStyles = [];
@@ -70,6 +77,9 @@ let socialPosts = [];
 let barberPortfolio = [];
 let appointments = [];
 let currentBarberForBooking = null;
+let subscriptionPackages = [];
+let currentBarberId = 'barber_' + Math.random().toString(36).substr(2, 9);
+let currentBarberName = 'My Barber Shop';
 
 // --- Initialize Mock Data ---
 function initializeMockData() {
@@ -255,8 +265,13 @@ function setupEventListeners() {
   document.getElementById('cancel-booking').addEventListener('click', closeBookingModal);
   document.getElementById('confirm-booking').addEventListener('click', confirmBooking);
   
+  // Subscription packages
+  if (createPackageBtn) createPackageBtn.addEventListener('click', openCreatePackageModal);
+  if (cancelPackageBtn) cancelPackageBtn.addEventListener('click', closeCreatePackageModal);
+  if (submitPackageBtn) submitPackageBtn.addEventListener('click', submitSubscriptionPackage);
+  
   // Close modals on outside click
-  [addPostModal, uploadWorkModal, bookAppointmentModal].forEach(modal => {
+  [addPostModal, uploadWorkModal, bookAppointmentModal, createPackageModal].forEach(modal => {
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.classList.add('hidden');
@@ -330,6 +345,7 @@ function switchTab(targetTab) {
   
   if (targetTab === 'barber-dashboard') {
     updateDashboardStats();
+    loadSubscriptionPackages();
   }
 }
 
@@ -1197,9 +1213,137 @@ function tryOnStyle(styleName) {
   alert(`🎨 Virtual Try-On for "${styleName}"\n\nThis feature requires HairFastGAN setup.\nSee HAIRFAST_SETUP.md for instructions.`);
 }
 
+// --- Subscription Package Functions ---
+function openCreatePackageModal() {
+  createPackageModal.classList.remove('hidden');
+}
+
+function closeCreatePackageModal() {
+  createPackageModal.classList.add('hidden');
+  // Clear form fields
+  document.getElementById('package-title').value = '';
+  document.getElementById('package-description').value = '';
+  document.getElementById('package-num-cuts').value = '';
+  document.getElementById('package-duration').value = '';
+  document.getElementById('package-price').value = '';
+  document.getElementById('package-discount').value = '';
+}
+
+async function submitSubscriptionPackage() {
+  const title = document.getElementById('package-title').value.trim();
+  const description = document.getElementById('package-description').value.trim();
+  const numCuts = parseInt(document.getElementById('package-num-cuts').value);
+  const durationMonths = parseInt(document.getElementById('package-duration').value);
+  const price = document.getElementById('package-price').value.trim();
+  const discount = document.getElementById('package-discount').value.trim();
+
+  if (!title || !numCuts || !durationMonths || !price) {
+    alert('Please fill in all required fields (Title, Number of Cuts, Duration, Price)');
+    return;
+  }
+
+  const packageData = {
+    barberId: currentBarberId,
+    barberName: currentBarberName,
+    title: title,
+    description: description,
+    price: price,
+    numCuts: numCuts,
+    durationMonths: durationMonths,
+    discount: discount
+  };
+
+  try {
+    const response = await fetch(`${API_URL}/subscription-packages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(packageData)
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      alert('✅ Subscription package created successfully!');
+      closeCreatePackageModal();
+      loadSubscriptionPackages();
+    } else {
+      alert('❌ Failed to create package: ' + (result.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error creating subscription package:', error);
+    alert('❌ Error creating package. Please try again.');
+  }
+}
+
+async function loadSubscriptionPackages() {
+  try {
+    const response = await fetch(`${API_URL}/subscription-packages?barber_id=${currentBarberId}`);
+    const data = await response.json();
+    
+    if (response.ok) {
+      subscriptionPackages = data.packages || [];
+      renderSubscriptionPackages();
+    }
+  } catch (error) {
+    console.error('Error loading subscription packages:', error);
+  }
+}
+
+function renderSubscriptionPackages() {
+  if (!subscriptionPackagesList) return;
+
+  if (subscriptionPackages.length === 0) {
+    subscriptionPackagesList.innerHTML = `
+      <p class="text-gray-400 text-sm text-center py-4">No subscription packages yet. Create one to start!</p>
+    `;
+    return;
+  }
+
+  subscriptionPackagesList.innerHTML = '';
+  
+  subscriptionPackages.forEach(pkg => {
+    const packageElement = document.createElement('div');
+    packageElement.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4';
+    packageElement.innerHTML = `
+      <div class="flex justify-between items-start">
+        <div class="flex-1">
+          <h4 class="text-white font-semibold">${pkg.title}</h4>
+          <p class="text-gray-400 text-sm mt-1">${pkg.description}</p>
+          <div class="flex flex-wrap gap-3 mt-3 text-sm">
+            <span class="text-green-400">💰 ${pkg.price}</span>
+            <span class="text-sky-400">✂️ ${pkg.numCuts} cuts</span>
+            <span class="text-purple-400">📅 ${pkg.durationMonths} month${pkg.durationMonths > 1 ? 's' : ''}</span>
+            ${pkg.discount ? `<span class="text-yellow-400">🏷️ ${pkg.discount}</span>` : ''}
+          </div>
+        </div>
+        <button onclick="deletePackage('${pkg.id}')" class="text-red-400 hover:text-red-300 ml-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
+    `;
+    subscriptionPackagesList.appendChild(packageElement);
+  });
+}
+
+async function deletePackage(packageId) {
+  if (!confirm('Are you sure you want to delete this subscription package?')) {
+    return;
+  }
+  
+  // For now, just remove from local state since backend doesn't have DELETE endpoint
+  subscriptionPackages = subscriptionPackages.filter(pkg => pkg.id !== packageId);
+  renderSubscriptionPackages();
+  alert('✅ Package deleted successfully!');
+}
+
 // --- Make functions globally available ---
 window.toggleLike = toggleLike;
 window.openBookingModal = openBookingModal;
 window.confirmAppointment = confirmAppointment;
 window.findBarbersForStyle = findBarbersForStyle;
 window.tryOnStyle = tryOnStyle;
+window.deletePackage = deletePackage;

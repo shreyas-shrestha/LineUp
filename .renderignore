@@ -1,39 +1,43 @@
-# Ignore all Python-related files for static site deployment
-*.py
-*.pyc
-*.pyo
-*.pyd
-__pycache__/
-.Python
-*.so
-*.egg
-*.egg-info/
+# CRITICAL: Exclude Python virtual environments
 .venv/
 venv/
 env/
 ENV/
-.env
-.env.local
-.env.*.local
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
-# Ignore Python dependency files
-requirements.txt
-Procfile
-modal-requirements.txt
-modal_hairfast.py
+# Python-related
+*.py
+*.egg-info/
+.Python
+build/
+dist/
+.pytest_cache/
 
-# Ignore development files  
+# Development files
 .git/
 .gitignore
 .DS_Store
 *.log
+node_modules/
 .coverage
 htmlcov/
-.pytest_cache/
-node_modules/
-dist/
-build/
+
+# Configuration and docs
+requirements.txt
+modal-requirements.txt
+Procfile
 *.md
 HAIRFAST_SETUP.md
 IMPLEMENTATION_SUMMARY.md
 README.md
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Keep only static site files
+# HTML, CSS, JS, images will be deployed

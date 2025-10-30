@@ -1096,50 +1096,115 @@ def virtual_tryon():
                 
                 logger.info(f"Using prompt: {hair_prompt}")
                 
+                # Reference hairstyle images for Style-Your-Hair model
+                # Using high-quality stock images as reference styles
+                reference_hair_images = {
+                    "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512",
+                    "buzz": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512",
+                    "quiff": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=512",
+                    "pompadour": "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?w=512",
+                    "undercut": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512",
+                    "side part": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512",
+                    "slick back": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=512",
+                    "long": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=512",
+                    "curly": "https://images.unsplash.com/photo-1524660988542-c440de9c0fde?w=512",
+                    "textured": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512",
+                    "mohawk": "https://images.unsplash.com/photo-1560264280-88b68371db39?w=512",
+                    "crew cut": "https://images.unsplash.com/photo-1556137744-c88c25c44e09?w=512",
+                    "afro": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512"
+                }
+                
+                # Find matching reference image
+                reference_url = reference_hair_images.get("fade")  # Default
+                for key in reference_hair_images:
+                    if key in style_lower:
+                        reference_url = reference_hair_images[key]
+                        break
+                
+                logger.info(f"Using reference image: {reference_url}")
+                
                 # Use Style-Your-Hair model for REAL hair style transfer
-                # This model actually changes the hairstyle!
+                # This model transfers hairstyle from reference image to face
                 output = replicate.run(
                     "cjwbw/style-your-hair:d28c54ed4e370318f03e2e7e763938e33cf8b2d9b4ac1ad42af0de78cb1e6ea3",
                     input={
-                        "input_image": face_data_uri,
-                        "target_image": face_data_uri,  # Using same image - model will use style description
-                        "editing_type": "text",  # Use text-based editing
-                        "text_prompt": hair_prompt,
-                        "optimization_steps": 100  # Balance between speed and quality
+                        "face_image": face_data_uri,
+                        "style_image": reference_url,
+                        "color_transfer": "True"
                     }
                 )
                 
-                logger.info(f"Replicate output type: {type(output)}")
+                logger.info(f"Replicate API called successfully")
+                logger.info(f"Output type: {type(output)}")
                 
-                # Download result
+                # Handle different output types from Replicate
+                result_url = None
+                
                 if output:
-                    # Output is a URL or iterator
-                    result_url = str(output) if not hasattr(output, '__iter__') else list(output)[0] if output else None
-                    
-                    if result_url:
-                        logger.info(f"Downloading result from: {result_url}")
-                        import requests as req
-                        result_response = req.get(result_url, timeout=30)
-                        
-                        if result_response.status_code == 200:
-                            result_base64 = base64.b64encode(result_response.content).decode('utf-8')
-                            
-                            response_data = {
-                                "success": True,
-                                "message": f"✨ Hair style transformation complete: {style_description}",
-                                "resultImage": result_base64,
-                                "styleApplied": style_description,
-                                "poweredBy": "Replicate Style-Your-Hair AI"
-                            }
-                            
-                            response = make_response(jsonify(response_data), 200)
-                            response.headers['Access-Control-Allow-Origin'] = '*'
-                            logger.info("✅ AI hair transformation successful!")
-                            return response
-                        else:
-                            logger.error(f"Failed to download result: {result_response.status_code}")
+                    # Try multiple ways to extract the URL
+                    if isinstance(output, str):
+                        result_url = output
+                        logger.info(f"Output is string URL: {result_url}")
+                    elif hasattr(output, '__iter__'):
+                        try:
+                            output_list = list(output)
+                            if output_list and len(output_list) > 0:
+                                result_url = output_list[0]
+                                logger.info(f"Output is iterator, first item: {result_url}")
+                        except Exception as iter_error:
+                            logger.error(f"Error iterating output: {str(iter_error)}")
+                    else:
+                        result_url = str(output)
+                        logger.info(f"Output converted to string: {result_url}")
                 
-                raise Exception("No valid output from hair style model")
+                if not result_url:
+                    logger.error("No result URL found in output")
+                    raise Exception("Model produced no output URL")
+                
+                # Download and verify the result
+                logger.info(f"Downloading result from: {result_url}")
+                import requests as req
+                
+                try:
+                    result_response = req.get(result_url, timeout=60)  # Longer timeout for large images
+                    logger.info(f"Download response status: {result_response.status_code}")
+                    
+                    if result_response.status_code == 200:
+                        # Verify it's an image
+                        content_type = result_response.headers.get('content-type', '')
+                        logger.info(f"Content type: {content_type}")
+                        
+                        if 'image' not in content_type.lower() and len(result_response.content) < 1000:
+                            logger.error(f"Downloaded content doesn't appear to be an image: {result_response.content[:200]}")
+                            raise Exception("Invalid image data from model")
+                        
+                        result_base64 = base64.b64encode(result_response.content).decode('utf-8')
+                        logger.info(f"Image converted to base64: {len(result_base64)} chars")
+                        
+                        response_data = {
+                            "success": True,
+                            "message": f"✨ Real AI hair transformation complete: {style_description}",
+                            "resultImage": result_base64,
+                            "styleApplied": style_description,
+                            "poweredBy": "Replicate Style-Your-Hair AI",
+                            "note": "This is a real AI transformation!"
+                        }
+                        
+                        response = make_response(jsonify(response_data), 200)
+                        response.headers['Access-Control-Allow-Origin'] = '*'
+                        logger.info("✅ AI hair transformation successful!")
+                        return response
+                    else:
+                        logger.error(f"Failed to download result: HTTP {result_response.status_code}")
+                        logger.error(f"Response: {result_response.text[:500]}")
+                        raise Exception(f"Failed to download result: {result_response.status_code}")
+                        
+                except req.exceptions.Timeout:
+                    logger.error("Download timeout after 60 seconds")
+                    raise Exception("Result download timed out")
+                except Exception as download_error:
+                    logger.error(f"Download error: {str(download_error)}")
+                    raise
                 
             except Exception as e:
                 logger.error(f"Replicate hair style transfer error: {str(e)}")

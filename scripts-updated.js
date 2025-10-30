@@ -1208,9 +1208,110 @@ function updateDashboardStats() {
   if (portfolioCountElement) portfolioCountElement.textContent = barberPortfolio.length;
 }
 
-// --- Virtual Try-On Stub ---
-function tryOnStyle(styleName) {
-  alert(`🎨 Virtual Try-On for "${styleName}"\n\nThis feature requires HairFastGAN setup.\nSee HAIRFAST_SETUP.md for instructions.`);
+// --- Virtual Try-On Implementation ---
+async function tryOnStyle(styleName) {
+  // Check if user has uploaded a photo
+  if (!base64ImageData) {
+    alert(`📸 Please upload a photo first!\n\nGo to the AI Analysis tab and upload your photo, then come back to try on styles.`);
+    return;
+  }
+
+  // Show loading state
+  const loadingMsg = `🎨 Applying "${styleName}" to your photo...\n\nThis may take a few seconds...`;
+  console.log(loadingMsg);
+  
+  // Create a simple loading indicator
+  const originalButton = event?.target;
+  if (originalButton) {
+    originalButton.disabled = true;
+    originalButton.textContent = 'Processing...';
+  }
+
+  try {
+    // Call the backend virtual try-on endpoint
+    const response = await fetch(`${API_URL}/virtual-tryon`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userPhoto: base64ImageData,
+        styleDescription: styleName
+      })
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      // Display the result image in a modal or new section
+      displayTryOnResult(result.resultImage, styleName, result.poweredBy);
+      
+      alert(`✅ Try-On Complete!\n\nStyle: ${styleName}\n${result.message || ''}\n\nScroll down to see your new look!`);
+    } else {
+      throw new Error(result.error || 'Try-on failed');
+    }
+  } catch (error) {
+    console.error('Try-on error:', error);
+    alert(`❌ Try-On Error\n\n${error.message}\n\nThe preview feature works immediately - no setup needed!\n\nFor AI enhancement: See HAIR_TRYON_SETUP.md`);
+  } finally {
+    // Restore button state
+    if (originalButton) {
+      originalButton.disabled = false;
+      originalButton.textContent = 'Try On';
+    }
+  }
+}
+
+function displayTryOnResult(resultImageBase64, styleName, poweredBy) {
+  // Find or create results container
+  let resultsContainer = document.getElementById('tryon-results-container');
+  
+  if (!resultsContainer) {
+    // Create container if it doesn't exist
+    resultsContainer = document.createElement('div');
+    resultsContainer.id = 'tryon-results-container';
+    resultsContainer.className = 'mt-8 bg-gray-900 border border-gray-800 rounded-lg p-6';
+    
+    // Add it after recommendations
+    const recommendationsContainer = document.getElementById('recommendations-container');
+    if (recommendationsContainer) {
+      recommendationsContainer.insertAdjacentElement('afterend', resultsContainer);
+    }
+  }
+
+  // Display the result
+  resultsContainer.innerHTML = `
+    <h3 class="text-2xl font-bold mb-4 text-white">✨ Your Try-On Result</h3>
+    <div class="bg-gray-800 rounded-lg p-4">
+      <p class="text-gray-300 mb-3">Style: <span class="text-sky-400 font-semibold">${styleName}</span></p>
+      <img src="data:image/jpeg;base64,${resultImageBase64}" 
+           alt="Try-on result" 
+           class="w-full max-w-md mx-auto rounded-lg shadow-lg mb-3">
+      <p class="text-gray-400 text-sm text-center">${poweredBy || 'Preview Mode'}</p>
+      <div class="flex gap-3 mt-4">
+        <button onclick="document.getElementById('tryon-results-container').remove()" 
+                class="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">
+          Close
+        </button>
+        <button onclick="downloadTryOnImage('${resultImageBase64}', '${styleName}')" 
+                class="flex-1 bg-sky-500 text-white py-2 px-4 rounded-lg hover:bg-sky-600 transition-colors">
+          Download Image
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Scroll to results
+  resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function downloadTryOnImage(base64Data, styleName) {
+  const link = document.createElement('a');
+  link.href = `data:image/jpeg;base64,${base64Data}`;
+  link.download = `lineup-tryon-${styleName.replace(/\s+/g, '-').toLowerCase()}.jpg`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 // --- Subscription Package Functions ---
@@ -1347,3 +1448,4 @@ window.confirmAppointment = confirmAppointment;
 window.findBarbersForStyle = findBarbersForStyle;
 window.tryOnStyle = tryOnStyle;
 window.deletePackage = deletePackage;
+window.downloadTryOnImage = downloadTryOnImage;

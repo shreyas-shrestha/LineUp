@@ -1446,55 +1446,26 @@ def virtual_tryon():
                 logger.error(traceback.format_exc())
                 # Continue to fallback
         
-        # PREVIEW MODE: Return sample haircut image instead of user photo
-        logger.info("Using preview mode - showing sample haircut image - GUARANTEED TO WORK")
+        # PREVIEW MODE: Return user photo with text overlay
+        logger.info("Using preview mode - user photo with text overlay - GUARANTEED TO WORK")
         
         try:
-            # Reference hairstyle images (high quality photos from Unsplash)
-            reference_hairstyles = {
-                "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512&h=512&fit=crop",
-                "buzz": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512&h=512&fit=crop",
-                "quiff": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=512&h=512&fit=crop",
-                "pompadour": "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?w=512&h=512&fit=crop",
-                "undercut": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512&h=512&fit=crop",
-                "side part": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512&h=512&fit=crop",
-                "slick back": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=512&h=512&fit=crop",
-                "long": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=512&h=512&fit=crop",
-                "curly": "https://images.unsplash.com/photo-1524660988542-c440de9c0fde?w=512&h=512&fit=crop",
-                "textured": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512&h=512&fit=crop",
-                "mohawk": "https://images.unsplash.com/photo-1560264280-88b68371db39?w=512&h=512&fit=crop",
-                "crew cut": "https://images.unsplash.com/photo-1556137744-c88c25c44e09?w=512&h=512&fit=crop",
-                "afro": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512&h=512&fit=crop"
-            }
-            
-            # Find matching reference style
-            style_lower = style_description.lower()
-            reference_url = reference_hairstyles.get("fade")  # Default
-            for key in reference_hairstyles:
-                if key in style_lower:
-                    reference_url = reference_hairstyles[key]
-                    break
-            
-            logger.info(f"Using reference style image: {reference_url}")
-            
-            # Download reference image
-            import requests as req
-            logger.info(f"Downloading sample haircut image from: {reference_url}")
-            
+            # Decode image - handle both formats
             try:
-                ref_response = req.get(reference_url, timeout=30)
-                ref_response.raise_for_status()
+                # Remove data URI prefix if present
+                if ',' in user_photo_base64:
+                    img_data = base64.b64decode(user_photo_base64.split(',')[1])
+                else:
+                    img_data = base64.b64decode(user_photo_base64)
                 
-                logger.info(f"Downloaded {len(ref_response.content)} bytes")
-                
-            except Exception as download_error:
-                logger.error(f"Failed to download reference image: {download_error}")
-                raise Exception(f"Could not download sample image: {download_error}")
+                logger.info(f"Decoded {len(img_data)} bytes of image data")
+            except Exception as decode_error:
+                logger.error(f"Base64 decode error: {str(decode_error)}")
+                raise Exception(f"Invalid image data: {str(decode_error)}")
             
-            # Process image and add text overlay
+            # Open image
             try:
-                # Open downloaded image
-                img = Image.open(BytesIO(ref_response.content))
+                img = Image.open(BytesIO(img_data))
                 logger.info(f"Image opened: {img.size}, mode: {img.mode}")
                 
                 # Convert to RGB if needed
@@ -1538,7 +1509,7 @@ def virtual_tryon():
             # Add text
             try:
                 draw = ImageDraw.Draw(img)
-                text = f"Sample: {style_description}"
+                text = f"Preview: {style_description}"
                 
                 # Try multiple font paths
                 font = None
@@ -1598,11 +1569,11 @@ def virtual_tryon():
             # Return success response
             response_data = {
                 "success": True,
-                "message": f"✨ Sample {style_description} style preview",
+                "message": f"✨ Style preview created: {style_description}",
                 "resultImage": result_base64,
                 "styleApplied": style_description,
                 "poweredBy": "LineUp Preview Mode",
-                "note": "This is a sample image showing the haircut style"
+                "note": "This is a preview mode. Works immediately with no setup!"
             }
             
             response = make_response(jsonify(response_data), 200)

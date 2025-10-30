@@ -29,7 +29,7 @@ Version 2.0 is a **complete rewrite** with 10 major improvements using **100% FR
 - **[README_IMPROVEMENTS.md](README_IMPROVEMENTS.md)** - Complete feature guide
 - **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Technical details
 - **[DEPLOYMENT.md](DEPLOYMENT.md)** - Deploy to production (FREE hosting)
-- **[HAIRFAST_SETUP.md](HAIRFAST_SETUP.md)** - Virtual try-on setup
+- **[HAIR_TRYON_SETUP.md](HAIR_TRYON_SETUP.md)** - Virtual try-on setup (works immediately!)
 
 ### 🚀 Quick Start
 
@@ -106,11 +106,10 @@ pip freeze > requirements.txt
 Required environment variables for full functionality:
 - `GEMINI_API_KEY`: Google Gemini API key for AI hair analysis
 - `GOOGLE_PLACES_API_KEY`: Google Places API key for real barber data
-- `MODAL_HAIRFAST_ENDPOINT`: Modal Labs endpoint for HairFastGAN transformations (FREE $30/month credit!)
-- `HF_API_KEY`: Hugging Face API key (alternative to Modal for HairFastGAN)
+- `REPLICATE_API_TOKEN`: (Optional) Replicate API key for AI hair transformation enhancement
 - `PORT`: Port for Flask app (defaults to 5000)
 
-**For Virtual Try-On Setup**: See `HAIRFAST_SETUP.md` for detailed instructions on deploying HairFastGAN
+**For Virtual Try-On**: Works immediately with preview mode! See `HAIR_TRYON_SETUP.md` for optional AI enhancement (5 min setup)
 
 ## Architecture Overview
 
@@ -130,10 +129,11 @@ The application is a **two-sided platform** with distinct user modes:
 #### Key Endpoints
 - `/analyze` - AI haircut analysis with Google Gemini (10 req/hour limit)
 - `/barbers` - Real barbershop search with location via Google Places API
-- `/virtual-tryon` - **Visual hair transformation using HairFastGAN** (20 req/hour limit)
-  - Requires `MODAL_HAIRFAST_ENDPOINT` or `HF_API_KEY` to be configured
-  - Returns actual transformed image, not just text advice
-  - See `HAIRFAST_SETUP.md` for deployment instructions
+- `/virtual-tryon` - **Visual hair transformation** (20 req/hour limit)
+  - Works immediately with preview mode (no setup required!)
+  - Optional: Add `REPLICATE_API_TOKEN` for AI enhancement
+  - Returns transformed image with hairstyle preview
+  - See `HAIR_TRYON_SETUP.md` for optional AI upgrade
 - `/subscription-packages` - Barber subscription package management (GET/POST)
 - `/client-subscriptions` - Client subscription tracking (GET/POST)
 - `/social` - Social media feed functionality (GET/POST)
@@ -145,16 +145,16 @@ The application is a **two-sided platform** with distinct user modes:
 - **Single-page application** with role-based content switching
 - **Tab-based navigation** for different features
 - **Responsive design** using TailwindCSS
-- **Modal system** for image uploads, posts, and appointments
+- **Modal dialogs** for image uploads, posts, and appointments
 - **Real-time UI updates** without page refreshes
 
 #### Key Components
 - **Role Switcher**: Toggle between Client/Barber modes
 - **AI Analysis Flow**: Image upload → compression → Gemini API → structured recommendations
-- **Virtual Try-On**: Upload photo → Select hairstyle → **HairFastGAN GPU transformation** → actual visual result
-  - Uses Modal Labs serverless GPU (FREE $30/month credit)
-  - Returns transformed image showing new hairstyle on user's photo
-  - Fallback to Hugging Face API if Modal not configured
+- **Virtual Try-On**: Upload photo → Select hairstyle → Image transformation → visual result
+  - Works immediately with preview mode (no setup!)
+  - Optional AI enhancement with Replicate (simple 5-min setup)
+  - Returns transformed image showing hairstyle preview on user's photo
 - **Subscription Packages**: Barbers create subscription deals (e.g., 2 cuts/month for $X)
 - **Individual Style Barber Search**: Each recommendation has "Find Barbers" button
 - **Barber Discovery**: Location-based search with Google Places API
@@ -163,7 +163,7 @@ The application is a **two-sided platform** with distinct user modes:
 
 ### Data Flow Patterns
 1. **Image Analysis**: Frontend compresses images → Base64 encoding → Gemini API → Structured recommendations
-2. **Virtual Try-On**: User photo (base64) + style description → Backend `/virtual-tryon` → **Modal Labs HairFastGAN GPU** → Actual transformed image returned → Displayed in UI
+2. **Virtual Try-On**: User photo (base64) + style description → Backend `/virtual-tryon` → Image processing (preview or AI) → Transformed image returned → Displayed in UI
 3. **Individual Style Barber Search**: User clicks "Find Barbers" → Google Places API search for that style
 4. **General Barber Search**: Location input → Geocoding → Places API → Enhanced results with specialties
 5. **Subscription Management**: Barbers create packages → Stored in backend → Clients view and subscribe
@@ -179,7 +179,7 @@ The application is a **two-sided platform** with distinct user modes:
 ### Frontend State Management
 - **Global State Variables**: `currentUserMode`, `lastRecommendedStyles`, `socialPosts`, etc.
 - **Event-Driven Updates**: UI components re-render when underlying data changes
-- **Modal Management**: Centralized show/hide logic with cleanup functions
+- **Modal Dialog Management**: Centralized show/hide logic with cleanup functions
 
 ### Image Handling
 - **Client-Side Compression**: Images resized to max 800px before upload
@@ -205,7 +205,7 @@ The application is a **two-sided platform** with distinct user modes:
 - Async/await for API calls
 - Event delegation for dynamic content
 - Responsive design principles
-- Accessibility considerations for modals and forms
+- Accessibility considerations for dialogs and forms
 
 ### Security Considerations
 - CORS properly configured for production domains
@@ -245,13 +245,9 @@ The application is a **two-sided platform** with distinct user modes:
 - **API Rate Limits**: Monitor `/health` endpoint for usage tracking
 - **Location Search Problems**: Verify Google Places API key and billing setup
 - **Virtual Try-On Not Working**: 
-  - Check browser console (F12 → Network tab) for endpoint errors
-  - Verify `/virtual-tryon` endpoint returns 503 with setup instructions if not configured
-  - **Setup Required**: See `HAIRFAST_SETUP.md` for deploying HairFastGAN
-  - **Option 1 (Recommended)**: Deploy to Modal Labs ($30/month FREE credit)
-    - Run `modal deploy modal_hairfast.py`
-    - Set `MODAL_HAIRFAST_ENDPOINT` environment variable
-  - **Option 2**: Use Hugging Face Inference API
-    - Get API key from https://huggingface.co/settings/tokens
-    - Set `HF_API_KEY` environment variable
-  - Without either endpoint configured, virtual try-on will show setup instructions
+  - Virtual try-on works immediately with preview mode (no setup required!)
+  - Check browser console (F12 → Network tab) for any errors
+  - **Optional AI Enhancement**: See `HAIR_TRYON_SETUP.md`
+    - Get FREE Replicate API token: https://replicate.com/account/api-tokens
+    - Add `REPLICATE_API_TOKEN` to environment variables
+    - Takes 5 minutes, costs ~$3/month for 100 users

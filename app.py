@@ -1,4 +1,4 @@
-# app.py - Fixed Backend API with HairFastGAN Correction
+# app.py - Fixed Backend API with Rate Limiting
 from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -34,15 +34,15 @@ except ImportError:
     Client = None
     logger.warning("Gradio Client not installed. HairFastGAN will not be available.")
 
-# Create Flask app
+# Create Flask app FIRST - This was missing!
 app = Flask(__name__)
 
 # Configure rate limiter
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["1000 per hour"],
-    storage_uri="memory://",
+    default_limits=["1000 per hour"],  # Global rate limit
+    storage_uri="memory://",  # Use Redis in production: "redis://localhost:6379"
     strategy="moving-window"
 )
 
@@ -63,17 +63,17 @@ else:
     model = None
     logger.warning("GEMINI_API_KEY not found - will use mock data")
 
-# In-memory storage
+# In-memory storage (in production, use a proper database)
 social_posts = []
 barber_portfolios = {}
 appointments = []
 barber_profiles = {}
-subscription_packages = []
-client_subscriptions = []
+subscription_packages = []  # Barber subscription packages
+client_subscriptions = []   # Client active subscriptions
 
 # Rate limiting cache for Google Places API
 places_api_cache = {}
-CACHE_DURATION = 3600
+CACHE_DURATION = 3600  # 1 hour cache for Places API results
 
 # Rate limiting tracker
 api_usage_tracker = {
@@ -83,6 +83,7 @@ api_usage_tracker = {
 }
 
 def reset_daily_counters():
+    """Reset API usage counters daily"""
     global api_usage_tracker
     today = datetime.now().date()
     if api_usage_tracker['daily_reset'] != today:
@@ -94,18 +95,22 @@ def reset_daily_counters():
         logger.info("Daily API usage counters reset")
 
 def can_make_places_api_call():
+    """Check if we can make a Places API call (limit: 100/day for free tier)"""
     reset_daily_counters()
     return api_usage_tracker['places_api_calls'] < 100
 
 def can_make_gemini_api_call():
+    """Check if we can make a Gemini API call (limit: 50/day for free tier)"""
     reset_daily_counters()
     return api_usage_tracker['gemini_api_calls'] < 50
 
 def increment_places_api_usage():
+    """Increment Places API usage counter"""
     reset_daily_counters()
     api_usage_tracker['places_api_calls'] += 1
 
 def increment_gemini_api_usage():
+    """Increment Gemini API usage counter"""
     reset_daily_counters()
     api_usage_tracker['gemini_api_calls'] += 1
 
@@ -113,6 +118,7 @@ def increment_gemini_api_usage():
 def initialize_mock_data():
     global social_posts, barber_portfolios, appointments, barber_profiles
     
+    # Mock social posts
     social_posts = [
         {
             "id": "1",
@@ -138,6 +144,7 @@ def initialize_mock_data():
         }
     ]
     
+    # Mock barber portfolios
     barber_portfolios = {
         "barber_1": [
             {
@@ -152,6 +159,7 @@ def initialize_mock_data():
         ]
     }
     
+    # Mock appointments
     appointments = [
         {
             "id": str(uuid.uuid4()),
@@ -171,6 +179,7 @@ def initialize_mock_data():
 
 initialize_mock_data()
 
+# Mock data fallback for AI analysis
 def get_mock_data():
     return {
         "analysis": {
@@ -210,6 +219,7 @@ def get_mock_data():
     }
 
 def getMockBarbersForLocation(location):
+    """Generate location-specific mock barber data"""
     base_barbers = [
         {
             "id": "barber_1",
@@ -323,7 +333,7 @@ def get_config():
 
 # Main analyze endpoint with rate limiting
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
-@limiter.limit("10 per hour")
+@limiter.limit("10 per hour")  # Strict limit for AI analysis
 def analyze():
     if request.method == 'OPTIONS':
         response = make_response('')
@@ -334,6 +344,7 @@ def analyze():
     
     logger.info("ANALYZE endpoint called")
     
+    # Check if we can make Gemini API call
     if not can_make_gemini_api_call():
         logger.warning("Gemini API daily limit reached, using mock data")
         response = make_response(jsonify(get_mock_data()), 200)
@@ -351,6 +362,7 @@ def analyze():
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
         
+        # Extract image data from request
         try:
             payload = data.get("payload", {})
             contents = payload.get("contents", [{}])[0]
@@ -368,12 +380,14 @@ def analyze():
         except (KeyError, IndexError) as e:
             raise ValueError(f"Invalid request format: {str(e)}")
         
+        # Decode base64 image
         try:
             image_bytes = base64.b64decode(base64_image)
             image = Image.open(BytesIO(image_bytes))
         except Exception as e:
             raise ValueError(f"Invalid image data: {str(e)}")
         
+        # Create Gemini prompt
         prompt = """You are an expert hairstylist and facial analysis AI. Analyze this person's face and hair in the photo and provide personalized haircut recommendations.
 
 IMPORTANT: Return ONLY a valid JSON response with NO additional text, NO markdown formatting, NO code blocks.
@@ -398,8 +412,9 @@ Return this EXACT JSON structure:
 
 Provide exactly 6 haircut recommendations that would work best for this person's features."""
 
+        # Call Gemini API
         try:
-            increment_gemini_api_usage()
+            increment_gemini_api_usage()  # Track API usage
             response = model.generate_content([prompt, image])
             response_text = response.text.strip()
             
@@ -410,6 +425,7 @@ Provide exactly 6 haircut recommendations that would work best for this person's
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
         
+        # Clean and parse response
         if "```json" in response_text:
             start = response_text.find("```json") + 7
             end = response_text.rfind("```")
@@ -424,6 +440,7 @@ Provide exactly 6 haircut recommendations that would work best for this person's
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
         
+        # Validate and return response
         if "analysis" not in analysis_data or "recommendations" not in analysis_data:
             response = make_response(jsonify(get_mock_data()), 200)
             response.headers['Content-Type'] = 'application/json'
@@ -442,7 +459,7 @@ Provide exactly 6 haircut recommendations that would work best for this person's
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
-# Social feed endpoints (abbreviated for space - keeping same logic)
+# Social feed endpoints with rate limiting
 @app.route('/social', methods=['GET', 'POST', 'OPTIONS'])
 def social():
     if request.method == 'OPTIONS':
@@ -453,16 +470,22 @@ def social():
         return response, 200
     
     if request.method == 'GET':
+        # Lighter rate limit for GET requests
         limiter.limit("100 per hour")(lambda: None)()
+        
+        # Return social posts sorted by timestamp
         sorted_posts = sorted(social_posts, key=lambda x: x['timestamp'], reverse=True)
         response = make_response(jsonify({"posts": sorted_posts}), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
     
     elif request.method == 'POST':
+        # Stricter rate limit for POST requests
         limiter.limit("20 per hour")(lambda: None)()
+        
         try:
             data = request.get_json()
+            
             new_post = {
                 "id": str(uuid.uuid4()),
                 "username": data.get("username", "anonymous"),
@@ -474,10 +497,13 @@ def social():
                 "liked": False,
                 "timestamp": datetime.now().isoformat()
             }
+            
             social_posts.insert(0, new_post)
+            
             response = make_response(jsonify({"success": True, "post": new_post}), 201)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
+            
         except Exception as e:
             logger.error(f"Error creating social post: {str(e)}")
             response = make_response(jsonify({"error": "Failed to create post"}), 400)
@@ -486,7 +512,7 @@ def social():
 
 # Like/unlike post with rate limiting
 @app.route('/social/<post_id>/like', methods=['POST', 'OPTIONS'])
-@limiter.limit("60 per hour")
+@limiter.limit("60 per hour")  # Allow frequent likes but prevent spam
 def toggle_like(post_id):
     if request.method == 'OPTIONS':
         response = make_response('')
@@ -508,13 +534,14 @@ def toggle_like(post_id):
         response = make_response(jsonify({"success": True, "liked": post["liked"], "likes": post["likes"]}), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
+        
     except Exception as e:
         logger.error(f"Error toggling like: {str(e)}")
         response = make_response(jsonify({"error": "Failed to toggle like"}), 400)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
-# Appointments endpoints
+# Appointments endpoints with rate limiting
 @app.route('/appointments', methods=['GET', 'POST', 'OPTIONS'])
 def handle_appointments():
     if request.method == 'OPTIONS':
@@ -525,13 +552,15 @@ def handle_appointments():
         return response, 200
     
     if request.method == 'GET':
+        # Light rate limit for viewing appointments
         limiter.limit("100 per hour")(lambda: None)()
+        
         user_type = request.args.get('type', 'client')
         user_id = request.args.get('user_id', 'current_user')
         
         if user_type == 'client':
             user_appointments = [apt for apt in appointments if apt.get('clientId') == user_id]
-        else:
+        else:  # barber
             user_appointments = [apt for apt in appointments if apt.get('barberId') == user_id]
         
         response = make_response(jsonify({"appointments": user_appointments}), 200)
@@ -539,9 +568,12 @@ def handle_appointments():
         return response
     
     elif request.method == 'POST':
+        # Moderate rate limit for booking appointments
         limiter.limit("30 per hour")(lambda: None)()
+        
         try:
             data = request.get_json()
+            
             new_appointment = {
                 "id": str(uuid.uuid4()),
                 "clientName": data.get("clientName", "Anonymous Client"),
@@ -556,17 +588,20 @@ def handle_appointments():
                 "notes": data.get("notes", "No special requests"),
                 "timestamp": datetime.now().isoformat()
             }
+            
             appointments.append(new_appointment)
+            
             response = make_response(jsonify({"success": True, "appointment": new_appointment}), 201)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
+            
         except Exception as e:
             logger.error(f"Error creating appointment: {str(e)}")
             response = make_response(jsonify({"error": "Failed to create appointment"}), 400)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
 
-# Update appointment status
+# Update appointment status with rate limiting
 @app.route('/appointments/<appointment_id>/status', methods=['PUT', 'OPTIONS'])
 @limiter.limit("50 per hour")
 def update_appointment_status(appointment_id):
@@ -580,6 +615,7 @@ def update_appointment_status(appointment_id):
     try:
         data = request.get_json()
         new_status = data.get("status", "pending")
+        
         appointment = next((apt for apt in appointments if apt["id"] == appointment_id), None)
         if not appointment:
             response = make_response(jsonify({"error": "Appointment not found"}), 404)
@@ -587,18 +623,20 @@ def update_appointment_status(appointment_id):
             return response
         
         appointment["status"] = new_status
+        
         response = make_response(jsonify({"success": True, "appointment": appointment}), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
+        
     except Exception as e:
         logger.error(f"Error updating appointment: {str(e)}")
         response = make_response(jsonify({"error": "Failed to update appointment"}), 400)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
-# Barber discovery endpoint (keeping abbreviated version - full version is very long)
+# Barber discovery endpoint with REAL Google Places API integration
 @app.route('/barbers', methods=['GET', 'OPTIONS'])
-@limiter.limit("50 per hour")
+@limiter.limit("50 per hour")  # Moderate limit since this calls external APIs
 def get_barbers():
     if request.method == 'OPTIONS':
         response = make_response('')
@@ -608,12 +646,208 @@ def get_barbers():
         return response, 200
     
     location = request.args.get('location', 'Atlanta, GA')
-    mock_barbers = getMockBarbersForLocation(location)
-    response = make_response(jsonify({"barbers": mock_barbers, "location": location, "mock": True}), 200)
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    recommended_styles = request.args.get('styles', '').split(',')  # Get recommended styles
+    
+    # Check cache first
+    cache_key = location.lower().strip()
+    current_time = time.time()
+    
+    if cache_key in places_api_cache:
+        cached_data = places_api_cache[cache_key]
+        if current_time - cached_data['timestamp'] < CACHE_DURATION:
+            logger.info(f"Returning cached barber data for {location}")
+            response = make_response(jsonify({
+                "barbers": cached_data['data'], 
+                "location": location,
+                "cached": True
+            }), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+    
+    # Get Google Places API key
+    GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY")
+    
+    if not GOOGLE_PLACES_API_KEY:
+        logger.warning("Google Places API key not configured, using mock data")
+        mock_barbers = getMockBarbersForLocation(location)
+        response = make_response(jsonify({
+            "barbers": mock_barbers, 
+            "location": location,
+            "mock": True,
+            "reason": "API key not configured"
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    # Check if we can make Places API call
+    if not can_make_places_api_call():
+        logger.warning("Places API daily limit reached, using mock data")
+        mock_barbers = getMockBarbersForLocation(location)
+        response = make_response(jsonify({
+            "barbers": mock_barbers, 
+            "location": location,
+            "mock": True,
+            "reason": "API limit reached"
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    try:
+        import requests
+        
+        # First, geocode the location to get coordinates
+        geocode_url = f"https://maps.googleapis.com/maps/api/geocode/json"
+        geocode_params = {
+            'address': location,
+            'key': GOOGLE_PLACES_API_KEY
+        }
+        
+        geocode_response = requests.get(geocode_url, params=geocode_params)
+        geocode_data = geocode_response.json()
+        
+        if geocode_data['status'] != 'OK' or not geocode_data['results']:
+            raise Exception(f"Location not found: {location}")
+        
+        lat = geocode_data['results'][0]['geometry']['location']['lat']
+        lng = geocode_data['results'][0]['geometry']['location']['lng']
+        
+        # Search for barbershops using Places API
+        places_url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+        places_params = {
+            'location': f"{lat},{lng}",
+            'radius': 10000,  # 10km radius
+            'type': 'hair_care',
+            'keyword': 'barber barbershop mens haircut',
+            'key': GOOGLE_PLACES_API_KEY
+        }
+        
+        places_response = requests.get(places_url, params=places_params)
+        places_data = places_response.json()
+        
+        if places_data['status'] != 'OK':
+            raise Exception(f"Places API error: {places_data.get('status')}")
+        
+        # Process real barbershop data
+        real_barbers = []
+        for place in places_data['results'][:15]:  # Get top 15 results
+            # Get additional details for each place
+            details_url = f"https://maps.googleapis.com/maps/api/place/details/json"
+            details_params = {
+                'place_id': place['place_id'],
+                'fields': 'name,formatted_address,formatted_phone_number,opening_hours,website,price_level,rating,user_ratings_total,photos',
+                'key': GOOGLE_PLACES_API_KEY
+            }
+            
+            try:
+                details_response = requests.get(details_url, params=details_params)
+                details_data = details_response.json()
+                
+                if details_data['status'] == 'OK':
+                    details = details_data['result']
+                else:
+                    details = {}
+            except:
+                details = {}
+            
+            # Determine specialties based on name and recommended styles
+            specialties = []
+            name_lower = place['name'].lower()
+            
+            # Match specialties based on barbershop name or type
+            if 'fade' in name_lower or 'fades' in name_lower:
+                specialties.append('Fade Specialist')
+            if 'classic' in name_lower or 'traditional' in name_lower:
+                specialties.append('Classic Cuts')
+            if 'modern' in name_lower or 'style' in name_lower:
+                specialties.append('Modern Styles')
+            if 'beard' in name_lower:
+                specialties.append('Beard Trim')
+            
+            # Add specialties based on recommended styles
+            if recommended_styles:
+                for style in recommended_styles:
+                    if style and 'fade' in style.lower():
+                        specialties.append('Fade Expert')
+                    elif style and 'classic' in style.lower():
+                        specialties.append('Classic Styles')
+                    elif style and 'modern' in style.lower():
+                        specialties.append('Contemporary Cuts')
+            
+            # Default specialties if none detected
+            if not specialties:
+                specialties = ['Haircut', 'Styling', 'Beard Trim']
+            
+            # Remove duplicates
+            specialties = list(set(specialties))[:3]
+            
+            # Get photo URL if available
+            photo_url = None
+            if 'photos' in place and place['photos']:
+                photo_ref = place['photos'][0].get('photo_reference')
+                if photo_ref:
+                    photo_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={photo_ref}&key={GOOGLE_PLACES_API_KEY}"
+            
+            barber_info = {
+                'id': place['place_id'],
+                'name': place['name'],
+                'address': details.get('formatted_address', place.get('vicinity', 'Address not available')),
+                'rating': place.get('rating', 0),
+                'user_ratings_total': place.get('user_ratings_total', 0),
+                'price_level': place.get('price_level', 2),
+                'avgCost': 25 + (place.get('price_level', 2) * 15),  # Estimate cost
+                'phone': details.get('formatted_phone_number', 'Call for info'),
+                'website': details.get('website', ''),
+                'hours': details.get('opening_hours', {}).get('weekday_text', []),
+                'open_now': place.get('opening_hours', {}).get('open_now', None),
+                'photo': photo_url,
+                'specialties': specialties,
+                'location': {
+                    'lat': place['geometry']['location']['lat'],
+                    'lng': place['geometry']['location']['lng']
+                },
+                'recommended_for_styles': recommended_styles if recommended_styles else []
+            }
+            
+            real_barbers.append(barber_info)
+        
+        # Sort by rating and number of reviews
+        real_barbers.sort(key=lambda x: (x['rating'] * (min(x['user_ratings_total'], 100) / 100)), reverse=True)
+        
+        # Cache the results
+        places_api_cache[cache_key] = {
+            'data': real_barbers[:10],  # Cache top 10
+            'timestamp': current_time
+        }
+        
+        # Increment API usage
+        increment_places_api_usage()
+        
+        logger.info(f"Found {len(real_barbers)} real barbershops in {location}")
+        
+        response = make_response(jsonify({
+            "barbers": real_barbers[:10],  # Return top 10
+            "location": location,
+            "real_data": True,
+            "total_found": len(real_barbers)
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error fetching real barber data: {str(e)}")
+        
+        # Fallback to mock data on error
+        mock_barbers = getMockBarbersForLocation(location)
+        response = make_response(jsonify({
+            "barbers": mock_barbers, 
+            "location": location,
+            "mock": True,
+            "error": str(e)
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
 
-# Portfolio endpoints
+# Portfolio endpoints with rate limiting
 @app.route('/portfolio', methods=['GET', 'POST', 'OPTIONS'])
 @app.route('/portfolio/<barber_id>', methods=['GET', 'POST', 'OPTIONS'])
 def portfolio(barber_id=None):
@@ -625,22 +859,29 @@ def portfolio(barber_id=None):
         return response, 200
     
     if request.method == 'GET':
+        # Light rate limit for viewing portfolios
         limiter.limit("100 per hour")(lambda: None)()
+        
         if barber_id:
             portfolio = barber_portfolios.get(barber_id, [])
         else:
+            # Return all portfolios
             portfolio = []
             for barber_portfolio in barber_portfolios.values():
                 portfolio.extend(barber_portfolio)
+        
         response = make_response(jsonify({"portfolio": portfolio}), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
     
     elif request.method == 'POST':
+        # Moderate rate limit for adding portfolio items
         limiter.limit("25 per hour")(lambda: None)()
+        
         try:
             data = request.get_json()
             barber_id = barber_id or data.get("barberId", "default_barber")
+            
             new_work = {
                 "id": str(uuid.uuid4()),
                 "styleName": data.get("styleName", ""),
@@ -651,12 +892,16 @@ def portfolio(barber_id=None):
                 "barberId": barber_id,
                 "timestamp": datetime.now().isoformat()
             }
+            
             if barber_id not in barber_portfolios:
                 barber_portfolios[barber_id] = []
+            
             barber_portfolios[barber_id].insert(0, new_work)
+            
             response = make_response(jsonify({"success": True, "work": new_work}), 201)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
+            
         except Exception as e:
             logger.error(f"Error adding portfolio work: {str(e)}")
             response = make_response(jsonify({"error": "Failed to add work"}), 400)
@@ -675,19 +920,23 @@ def handle_subscription_packages():
     
     if request.method == 'GET':
         limiter.limit("100 per hour")(lambda: None)()
+        
         barber_id = request.args.get('barber_id', None)
         if barber_id:
             packages = [pkg for pkg in subscription_packages if pkg.get('barberId') == barber_id]
         else:
             packages = subscription_packages
+        
         response = make_response(jsonify({"packages": packages}), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
     
     elif request.method == 'POST':
         limiter.limit("20 per hour")(lambda: None)()
+        
         try:
             data = request.get_json()
+            
             new_package = {
                 "id": str(uuid.uuid4()),
                 "barberId": data.get("barberId", ""),
@@ -700,10 +949,13 @@ def handle_subscription_packages():
                 "discount": data.get("discount", ""),
                 "timestamp": datetime.now().isoformat()
             }
+            
             subscription_packages.append(new_package)
+            
             response = make_response(jsonify({"success": True, "package": new_package}), 201)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
+            
         except Exception as e:
             logger.error(f"Error creating subscription package: {str(e)}")
             response = make_response(jsonify({"error": "Failed to create package"}), 400)
@@ -722,16 +974,20 @@ def handle_client_subscriptions():
     
     if request.method == 'GET':
         limiter.limit("100 per hour")(lambda: None)()
+        
         client_id = request.args.get('client_id', 'current_user')
         user_subscriptions = [sub for sub in client_subscriptions if sub.get('clientId') == client_id]
+        
         response = make_response(jsonify({"subscriptions": user_subscriptions}), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
     
     elif request.method == 'POST':
         limiter.limit("20 per hour")(lambda: None)()
+        
         try:
             data = request.get_json()
+            
             new_subscription = {
                 "id": str(uuid.uuid4()),
                 "clientId": data.get("clientId", "current_user"),
@@ -748,17 +1004,20 @@ def handle_client_subscriptions():
                 "status": "active",
                 "timestamp": datetime.now().isoformat()
             }
+            
             client_subscriptions.append(new_subscription)
+            
             response = make_response(jsonify({"success": True, "subscription": new_subscription}), 201)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
+            
         except Exception as e:
             logger.error(f"Error creating subscription: {str(e)}")
             response = make_response(jsonify({"error": "Failed to create subscription"}), 400)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
 
-# Test endpoint
+# Test endpoint with rate limiting
 @app.route('/test', methods=['GET', 'POST'])
 @limiter.limit("100 per minute")
 def test():
@@ -771,7 +1030,7 @@ def test():
         "features_active": True
     })
 
-# Virtual Try-On endpoint - FIXED VERSION
+# Virtual Try-On endpoint - keep existing HairFastGAN code from current file
 @app.route('/virtual-tryon', methods=['POST', 'OPTIONS'])
 @limiter.limit("20 per hour")
 def virtual_tryon():
@@ -795,19 +1054,16 @@ def virtual_tryon():
         
         logger.info(f"🎨 Starting hair transformation: {style_description}")
         
-        # Option 1: FREE HairFastGAN via Gradio - FIXED VERSION
+        # Option 1: FREE HairFastGAN via Gradio
         if Client:
             logger.info("Using FREE HairFastGAN for hair transformation")
             
             try:
                 import tempfile
-                import requests as req
                 
-                # Convert base64 to bytes
                 img_data_raw = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                 img_bytes = base64.b64decode(img_data_raw)
                 
-                # Reference hairstyle images
                 reference_hairstyles = {
                     "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512&h=512&fit=crop",
                     "buzz": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512&h=512&fit=crop",
@@ -824,7 +1080,6 @@ def virtual_tryon():
                     "afro": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512&h=512&fit=crop"
                 }
                 
-                # Find matching reference style
                 style_lower = style_description.lower()
                 reference_url = reference_hairstyles.get("fade")
                 for key in reference_hairstyles:
@@ -834,76 +1089,96 @@ def virtual_tryon():
                 
                 logger.info(f"Using reference style image: {reference_url}")
                 
-                # Save user image to temp file
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg', mode='wb') as tmp_input:
                     tmp_input.write(img_bytes)
                     input_path = tmp_input.name
                 
                 logger.info(f"Saved input to: {input_path}")
                 
-                # ⚠️ CRITICAL FIX: Download reference image to LOCAL FILE
+                import requests as req
                 logger.info(f"Downloading reference image from: {reference_url}")
                 
-                ref_response = req.get(reference_url, timeout=30)
-                if ref_response.status_code != 200:
-                    raise Exception(f"Failed to download reference image: HTTP {ref_response.status_code}")
+                try:
+                    ref_response = req.get(reference_url, timeout=30)
+                    ref_response.raise_for_status()
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg', mode='wb') as tmp_ref:
+                        tmp_ref.write(ref_response.content)
+                        reference_path = tmp_ref.name
+                    
+                    logger.info(f"Saved reference to: {reference_path}")
+                except Exception as download_error:
+                    logger.error(f"Failed to download reference image: {download_error}")
+                    raise Exception(f"Could not download reference image: {download_error}")
                 
-                # Save reference to temp file
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg', mode='wb') as tmp_ref:
-                    tmp_ref.write(ref_response.content)
-                    reference_path = tmp_ref.name
-                
-                logger.info(f"Saved reference to: {reference_path}")
-                
-                # Connect to HairFastGAN Space
                 logger.info("Connecting to HairFastGAN Space...")
+                
                 client = Client("AIRI-Institute/HairFastGAN")
                 
-                logger.info("Calling HairFastGAN API with LOCAL FILE PATHS...")
+                logger.info("Calling HairFastGAN API...")
                 
-                # Call with BOTH local file paths (FIXED!)
+                try:
+                    logger.info(f"Available endpoints: {client.view_api()}")
+                except:
+                    pass
+                
+                logger.info("Calling HairFastGAN /swap_hair endpoint...")
+                
                 result = client.predict(
-                    input_path,       # ✅ Local file path
-                    reference_path,   # ✅ Local file path (FIXED!)
-                    reference_path,   # ✅ Local file path (FIXED!)
-                    "Article",        # Best quality encoder
-                    1000,             # Medium quality (0-2500)
-                    15,               # Moderate blending (1-100)
+                    input_path,
+                    reference_path,
+                    reference_path,
+                    "Article",
+                    1000,
+                    15,
                     api_name="/swap_hair"
                 )
                 
                 logger.info("✅ HairFastGAN API call successful!")
                 
-                # Parse result
+                if not result:
+                    raise Exception("HairFastGAN returned no result")
+                
+                logger.info(f"HairFastGAN result type: {type(result)}")
+                logger.info(f"HairFastGAN result: {result}")
+                
                 result_path = None
-                if isinstance(result, (list, tuple)) and len(result) >= 1:
+                error_msg = None
+                
+                if isinstance(result, (list, tuple)) and len(result) >= 2:
                     result_path = result[0]
+                    error_msg = result[1] if len(result) > 1 else None
+                    
+                    logger.info(f"Result image: {result_path}")
+                    logger.info(f"Error message: {error_msg}")
+                    
+                    if error_msg and error_msg.strip():
+                        logger.warning(f"HairFastGAN returned error: {error_msg}")
+                    
                     if isinstance(result_path, dict):
-                        result_path = result_path.get('name') or result_path.get('path')
+                        result_path = result_path.get('name') or result_path.get('path') or result_path.get('value')
                 elif isinstance(result, dict):
-                    result_path = result.get('name') or result.get('path')
+                    result_path = result.get('name') or result.get('path') or result.get('value')
                 else:
                     result_path = result
                 
-                logger.info(f"Result path: {result_path}")
+                logger.info(f"Final result path: {result_path}")
                 
-                # Read and encode result
                 if result_path and os.path.exists(result_path):
                     with open(result_path, 'rb') as f:
                         result_bytes = f.read()
                     
                     result_base64 = base64.b64encode(result_bytes).decode('utf-8')
                     
-                    # Clean up ALL temp files
                     try:
                         os.unlink(input_path)
-                        os.unlink(reference_path)  # ✅ Clean up reference too
-                        if result_path != input_path and result_path != reference_path:
+                        os.unlink(reference_path)
+                        if result_path and result_path != input_path and os.path.exists(result_path):
                             os.unlink(result_path)
                     except Exception as cleanup_err:
-                        logger.warning(f"Cleanup warning: {cleanup_err}")
+                        logger.warning(f"Temp file cleanup warning: {cleanup_err}")
                     
-                    logger.info(f"✅ HairFastGAN success!")
+                    logger.info(f"✅ HairFastGAN success! Result: {len(result_base64)} chars")
                     
                     response_data = {
                         "success": True,
@@ -919,52 +1194,52 @@ def virtual_tryon():
                     logger.info("✅ HairFastGAN transformation successful!")
                     return response
                 else:
-                    raise Exception(f"Result path not found: {result_path}")
+                    logger.warning(f"Result path not found or invalid: {result_path}")
+                    try:
+                        os.unlink(input_path)
+                        os.unlink(reference_path)
+                    except:
+                        pass
                     
             except Exception as e:
                 logger.error(f"HairFastGAN error: {str(e)}")
                 import traceback
                 logger.error(traceback.format_exc())
-                
-                # Clean up temp files on error
                 try:
-                    if 'input_path' in locals() and os.path.exists(input_path):
+                    if 'input_path' in locals():
                         os.unlink(input_path)
-                    if 'reference_path' in locals() and os.path.exists(reference_path):
+                    if 'reference_path' in locals():
                         os.unlink(reference_path)
                 except:
                     pass
-                
-                # Continue to Replicate or fallback
-                logger.info("Falling back to next option...")
         
-        # Option 2: Replicate (same as before - unchanged)
-        REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
-        if REPLICATE_API_TOKEN and replicate:
-            logger.info("Using Replicate API for hair transformation")
-            # ... (keep your existing Replicate code here - it's correct)
-        
-        # Option 3: Preview fallback (same as before - unchanged)
+        # SIMPLE FALLBACK: Return enhanced version with text overlay
         logger.info("Using simple face enhancement fallback - GUARANTEED TO WORK")
         
         try:
-            # Decode image
-            if ',' in user_photo_base64:
-                img_data = base64.b64decode(user_photo_base64.split(',')[1])
-            else:
-                img_data = base64.b64decode(user_photo_base64)
+            try:
+                if ',' in user_photo_base64:
+                    img_data = base64.b64decode(user_photo_base64.split(',')[1])
+                else:
+                    img_data = base64.b64decode(user_photo_base64)
+                
+                logger.info(f"Decoded {len(img_data)} bytes of image data")
+            except Exception as decode_error:
+                logger.error(f"Base64 decode error: {str(decode_error)}")
+                raise Exception(f"Invalid image data: {str(decode_error)}")
             
-            logger.info(f"Decoded {len(img_data)} bytes of image data")
+            try:
+                img = Image.open(BytesIO(img_data))
+                logger.info(f"Image opened: {img.size}, mode: {img.mode}")
+                
+                if img.mode not in ('RGB', 'RGBA'):
+                    img = img.convert('RGB')
+                    logger.info(f"Converted image to RGB")
+                    
+            except Exception as img_error:
+                logger.error(f"Image open error: {str(img_error)}")
+                raise Exception(f"Cannot process image: {str(img_error)}")
             
-            # Open image
-            img = Image.open(BytesIO(img_data))
-            logger.info(f"Image opened: {img.size}, mode: {img.mode}")
-            
-            if img.mode not in ('RGB', 'RGBA'):
-                img = img.convert('RGB')
-                logger.info(f"Converted image to RGB")
-            
-            # Add overlay with text
             try:
                 if img.mode == 'RGB':
                     img = img.convert('RGBA')
@@ -977,6 +1252,7 @@ def virtual_tryon():
                 overlay_draw.rectangle([(0, height-70), (width, height)], fill=(0, 0, 0, 200))
                 
                 img = Image.alpha_composite(img, overlay)
+                
                 img = img.convert('RGB')
                 
                 logger.info("Overlay added successfully")
@@ -986,7 +1262,6 @@ def virtual_tryon():
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
             
-            # Add text
             try:
                 draw = ImageDraw.Draw(img)
                 text = f"Preview: {style_description}"
@@ -1028,12 +1303,16 @@ def virtual_tryon():
             except Exception as text_error:
                 logger.error(f"Text error: {str(text_error)}")
             
-            # Convert to base64
-            buffer = BytesIO()
-            img.save(buffer, format='JPEG', quality=90, optimize=True)
-            result_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            
-            logger.info(f"Image converted to base64: {len(result_base64)} chars")
+            try:
+                buffer = BytesIO()
+                img.save(buffer, format='JPEG', quality=90, optimize=True)
+                result_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                
+                logger.info(f"Image converted to base64: {len(result_base64)} chars")
+                
+            except Exception as save_error:
+                logger.error(f"Save error: {str(save_error)}")
+                raise Exception(f"Cannot save image: {str(save_error)}")
             
             response_data = {
                 "success": True,

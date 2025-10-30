@@ -1112,16 +1112,44 @@ def virtual_tryon():
                 
                 logger.info("Calling HairFastGAN API...")
                 
-                # Call HairFastGAN
-                # Parameters: input_image, shape_image, color_image, align_face, use_hair_mask
-                result = client.predict(
-                    input_path,       # User's face image
-                    reference_url,    # Reference hairstyle (shape)
-                    reference_url,    # Reference hair color (same as shape)
-                    True,             # Auto-align face
-                    True,             # Use hair mask for better blending
-                    api_name="/predict"
-                )
+                # Try to get API info for debugging
+                try:
+                    logger.info(f"Available endpoints: {client.view_api()}")
+                except:
+                    pass
+                
+                # Call HairFastGAN - try different parameter combinations
+                result = None
+                
+                # Try 1: Full parameters (5 args)
+                try:
+                    logger.info("Trying HairFastGAN with 5 parameters...")
+                    result = client.predict(
+                        input_path,       # User's face image
+                        reference_url,    # Reference hairstyle (shape)
+                        reference_url,    # Reference hair color (same as shape)
+                        True,             # Auto-align face
+                        True              # Use hair mask for better blending
+                    )
+                    logger.info("✅ Success with 5 parameters")
+                except Exception as e:
+                    logger.warning(f"5 params failed: {e}")
+                    
+                    # Try 2: Without boolean flags (3 args)
+                    try:
+                        logger.info("Trying HairFastGAN with 3 parameters...")
+                        result = client.predict(
+                            input_path,
+                            reference_url,
+                            reference_url
+                        )
+                        logger.info("✅ Success with 3 parameters")
+                    except Exception as e2:
+                        logger.error(f"3 params also failed: {e2}")
+                        raise Exception(f"All HairFastGAN parameter combinations failed: {e}")
+                
+                if not result:
+                    raise Exception("HairFastGAN returned no result")
                 
                 logger.info(f"HairFastGAN result type: {type(result)}")
                 logger.info(f"HairFastGAN result: {result}")

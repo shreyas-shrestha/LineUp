@@ -26,6 +26,14 @@ except ImportError:
     replicate = None
     logger.warning("Replicate not installed. Hair try-on will use preview mode only.")
 
+# Optional: Gradio Client for HairFastGAN
+try:
+    from gradio_client import Client
+    logger.info("Gradio Client loaded successfully")
+except ImportError:
+    Client = None
+    logger.warning("Gradio Client not installed. HairFastGAN will not be available.")
+
 # Create Flask app FIRST - This was missing!
 app = Flask(__name__)
 
@@ -1053,112 +1061,130 @@ def virtual_tryon():
         HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
         REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
         
-        # Option 1: FREE Hugging Face inference (SIMPLER, MORE RELIABLE)
-        if HF_TOKEN:
-            logger.info("Using FREE Hugging Face inference for hair transformation")
+        # Option 1: FREE HairFastGAN via Gradio (PURPOSE-BUILT for hair try-on!)
+        if Client:
+            logger.info("Using FREE HairFastGAN for hair transformation")
             
             try:
-                import requests as req
+                import tempfile
                 
                 # Convert base64 to bytes  
                 img_data_raw = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                 img_bytes = base64.b64decode(img_data_raw)
                 
-                # Use SDXL-Turbo for FAST, FREE img2img (PROVEN to work)
-                API_URL_HF = "https://api-inference.huggingface.co/models/stabilityai/sdxl-turbo"
-                
-                headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-                
-                # Create descriptive prompt
-                style_prompts = {
-                    "fade": "professional fade haircut with clean sides and textured top",
-                    "buzz": "very short buzz cut military style",
-                    "quiff": "voluminous quiff hairstyle swept upward",
-                    "pompadour": "classic pompadour with high volume",
-                    "undercut": "modern undercut with long top short sides",
-                    "side part": "classic side part professional hairstyle",
-                    "slick back": "slicked back hair with shine",
-                    "long": "long flowing hair past shoulders",
-                    "curly": "natural curly hair with defined curls",
-                    "textured": "textured messy hairstyle with movement",
+                # Reference hairstyle images (high quality photos from Unsplash)
+                reference_hairstyles = {
+                    "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512&h=512&fit=crop",
+                    "buzz": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512&h=512&fit=crop",
+                    "quiff": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=512&h=512&fit=crop",
+                    "pompadour": "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?w=512&h=512&fit=crop",
+                    "undercut": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512&h=512&fit=crop",
+                    "side part": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512&h=512&fit=crop",
+                    "slick back": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=512&h=512&fit=crop",
+                    "long": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=512&h=512&fit=crop",
+                    "curly": "https://images.unsplash.com/photo-1524660988542-c440de9c0fde?w=512&h=512&fit=crop",
+                    "textured": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512&h=512&fit=crop",
+                    "mohawk": "https://images.unsplash.com/photo-1560264280-88b68371db39?w=512&h=512&fit=crop",
+                    "crew cut": "https://images.unsplash.com/photo-1556137744-c88c25c44e09?w=512&h=512&fit=crop",
+                    "afro": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512&h=512&fit=crop"
                 }
                 
+                # Find matching reference style
                 style_lower = style_description.lower()
-                prompt = f"portrait of person with {style_description} hairstyle"
-                for key, style_prompt in style_prompts.items():
+                reference_url = reference_hairstyles.get("fade")  # Default
+                for key in reference_hairstyles:
                     if key in style_lower:
-                        prompt = f"professional portrait photo of person with {style_prompt}, high quality, realistic"
+                        reference_url = reference_hairstyles[key]
                         break
                 
-                logger.info(f"HF prompt: {prompt}")
+                logger.info(f"Using reference style image: {reference_url}")
                 
-                # CORRECT format for Hugging Face img2img inference
-                # Send image as binary data with prompt as parameter
-                payload = {
-                    "inputs": prompt,
-                    "parameters": {
-                        "num_inference_steps": 2,  # SDXL-Turbo needs only 1-4 steps
-                        "guidance_scale": 0.0,  # Turbo doesn't use guidance
-                    }
-                }
+                # Save user image to temp file (HairFastGAN needs file path)
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg', mode='wb') as tmp_input:
+                    tmp_input.write(img_bytes)
+                    input_path = tmp_input.name
                 
-                logger.info("Calling Hugging Face SDXL-Turbo API...")
+                logger.info(f"Saved input to: {input_path}")
+                logger.info("Connecting to HairFastGAN Space...")
                 
-                # For image-to-image, send as multipart
-                files = {"inputs": img_bytes}
-                data = {
-                    "parameters": json.dumps({
-                        "prompt": prompt,
-                        "num_inference_steps": 2,
-                        "guidance_scale": 0.0
-                    })
-                }
+                # Connect to HairFastGAN Space
+                client = Client("AIRI-Institute/HairFastGAN")
                 
-                hf_response = req.post(
-                    API_URL_HF,
-                    headers=headers,
-                    files=files,
-                    data=data,
-                    timeout=60
+                logger.info("Calling HairFastGAN API...")
+                
+                # Call HairFastGAN
+                # Parameters: input_image, shape_image, color_image, align_face, use_hair_mask
+                result = client.predict(
+                    input_path,       # User's face image
+                    reference_url,    # Reference hairstyle (shape)
+                    reference_url,    # Reference hair color (same as shape)
+                    True,             # Auto-align face
+                    True,             # Use hair mask for better blending
+                    api_name="/predict"
                 )
                 
-                logger.info(f"HF response status: {hf_response.status_code}")
-                logger.info(f"HF response headers: {hf_response.headers}")
+                logger.info(f"HairFastGAN result type: {type(result)}")
+                logger.info(f"HairFastGAN result: {result}")
                 
-                if hf_response.status_code == 200:
-                    # Check if response is actually an image
-                    content_type = hf_response.headers.get('content-type', '')
+                # Result is a file path or dict with file path
+                result_path = result
+                if isinstance(result, dict):
+                    result_path = result.get('name') or result.get('path') or result.get('value')
+                elif isinstance(result, (list, tuple)) and len(result) > 0:
+                    result_path = result[0]
+                    if isinstance(result_path, dict):
+                        result_path = result_path.get('name') or result_path.get('path') or result_path.get('value')
+                
+                logger.info(f"Result path: {result_path}")
+                
+                # Read result image
+                if result_path and os.path.exists(result_path):
+                    with open(result_path, 'rb') as f:
+                        result_bytes = f.read()
                     
-                    if 'image' in content_type or len(hf_response.content) > 5000:
-                        # Response is image bytes
-                        result_base64 = base64.b64encode(hf_response.content).decode('utf-8')
-                        
-                        logger.info(f"Got image result: {len(result_base64)} chars")
-                        
-                        response_data = {
-                            "success": True,
-                            "message": f"✨ FREE AI transformation: {style_description}",
-                            "resultImage": result_base64,
-                            "styleApplied": style_description,
-                            "poweredBy": "Hugging Face FREE (SDXL-Turbo)",
-                            "note": "FREE AI transformation using open-source SDXL-Turbo!"
-                        }
-                        
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
-                        logger.info("✅ FREE Hugging Face transformation successful!")
-                        return response
-                    else:
-                        logger.warning(f"HF returned non-image: {hf_response.text[:500]}")
-                        # Continue to fallback
+                    result_base64 = base64.b64encode(result_bytes).decode('utf-8')
+                    
+                    # Clean up temp files
+                    try:
+                        os.unlink(input_path)
+                        if result_path != input_path:
+                            os.unlink(result_path)
+                    except:
+                        pass
+                    
+                    logger.info(f"✅ HairFastGAN success! Result: {len(result_base64)} chars")
+                    
+                    response_data = {
+                        "success": True,
+                        "message": f"✨ FREE AI hair transformation: {style_description}",
+                        "resultImage": result_base64,
+                        "styleApplied": style_description,
+                        "poweredBy": "HairFastGAN (FREE)",
+                        "note": "Real hair transformation using HairFastGAN!"
+                    }
+                    
+                    response = make_response(jsonify(response_data), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
+                    logger.info("✅ HairFastGAN transformation successful!")
+                    return response
                 else:
-                    logger.warning(f"HF API returned {hf_response.status_code}: {hf_response.text[:500]}")
-                    # Continue to Replicate or fallback
+                    logger.warning(f"Result path not found or invalid: {result_path}")
+                    # Clean up input file
+                    try:
+                        os.unlink(input_path)
+                    except:
+                        pass
                     
             except Exception as e:
-                logger.error(f"Hugging Face error: {str(e)}")
+                logger.error(f"HairFastGAN error: {str(e)}")
                 import traceback
                 logger.error(traceback.format_exc())
+                # Clean up any temp files
+                try:
+                    if 'input_path' in locals():
+                        os.unlink(input_path)
+                except:
+                    pass
                 # Continue to Replicate or fallback
         
         # Option 2: Replicate (Paid but better quality)

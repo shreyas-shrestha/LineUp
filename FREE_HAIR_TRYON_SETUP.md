@@ -1,8 +1,8 @@
-# 🆓 FREE Hair Try-On Setup (Hugging Face)
+# 🆓 FREE Hair Try-On (HairFastGAN)
 
-## ✨ COMPLETELY FREE - No Credit Card Ever!
+## ✨ COMPLETELY FREE - NO Setup Required!
 
-This guide shows you how to enable **FREE AI hair transformations** using Hugging Face's open-source models.
+This guide explains how **FREE AI hair transformations** work using HairFastGAN via Hugging Face Spaces.
 
 ---
 
@@ -10,51 +10,32 @@ This guide shows you how to enable **FREE AI hair transformations** using Huggin
 
 - ✅ **Real AI transformations** (not just overlays!)
 - ✅ **Completely FREE forever**
-- ✅ **No credit card required**
-- ✅ **Unlimited transformations** (with rate limits)
-- ✅ **Open-source models**
-- ⚠️ Takes 30-60 seconds per transformation (slower than paid)
-- ⚠️ Quality is good but not as perfect as Replicate
+- ✅ **NO API token required**
+- ✅ **NO credit card required**
+- ✅ **NO account needed**
+- ✅ **Purpose-built** for hair style transfer
+- ✅ **Face-preserving** technology
+- ⚠️ First request: 30-60 seconds (Space wakes up)
+- ⚠️ Subsequent requests: 10-20 seconds
+- ⚠️ May fail if Space is overloaded (falls back to preview)
 
 ---
 
-## 🚀 Quick Setup (5 Minutes):
+## 🎉 NO SETUP NEEDED!
 
-### Step 1: Create FREE Hugging Face Account
+**Good news:** HairFastGAN works **immediately** without any setup!
 
-```
-1. Go to: https://huggingface.co/join
-2. Sign up (FREE forever, no credit card)
-3. Verify your email
-```
+The backend automatically:
+1. Connects to HairFastGAN Space (public, free)
+2. Sends your photo + reference hairstyle
+3. Returns transformed image
+4. Falls back to preview if Space is busy
 
-### Step 2: Get Your FREE Token
+**Just deploy and it works!**
 
-```
-1. Go to: https://huggingface.co/settings/tokens
-2. Click "New token"
-3. Name: "LineUp Hair Transformation"
-4. Type: "Read"
-5. Click "Generate"
-6. Copy the token (starts with hf_...)
-```
+---
 
-### Step 3: Add to Render Backend
-
-```
-1. Go to: https://dashboard.render.com
-2. Click your BACKEND service (Web Service)
-3. Go to "Environment" tab
-4. Click "Add Environment Variable"
-   
-   Key: HF_TOKEN
-   Value: hf_your_token_here
-   
-5. Click "Save Changes"
-6. Wait 2-3 minutes for auto-redeploy
-```
-
-### Step 4: Test It!
+## 🚀 How To Use:
 
 ```
 1. Go to your LineUp app
@@ -68,13 +49,14 @@ This guide shows you how to enable **FREE AI hair transformations** using Huggin
 
 ## 🆚 Comparison:
 
-| Feature | Preview Mode | **Hugging Face FREE** | Replicate Paid |
+| Feature | Preview Mode | **HairFastGAN FREE** | Replicate Paid |
 |---------|--------------|----------------------|----------------|
 | **Cost** | FREE | **FREE** | ~$0.02/image |
-| **Setup** | None | 5 mins | 5 mins |
-| **Speed** | Instant | 30-60 sec | 10-30 sec |
-| **Quality** | Text overlay only | Good AI transformation | Excellent |
+| **Setup** | None | **None!** | 5 mins |
+| **Speed** | Instant | 10-60 sec | 10-30 sec |
+| **Quality** | Text overlay only | Real AI transformation | Best quality |
 | **Credit Card** | No | **No** | Yes (after free credits) |
+| **Account Needed** | No | **No** | Yes |
 | **Transformations** | Unlimited | **Unlimited** | Pay per use |
 
 ---
@@ -82,26 +64,29 @@ This guide shows you how to enable **FREE AI hair transformations** using Huggin
 ## 🔧 How It Works:
 
 ### Technology:
-- **Model:** SDXL-Turbo (Stable Diffusion XL Turbo)
-- **Method:** Ultra-fast image-to-image transformation
-- **Provider:** Hugging Face Inference API (FREE)
+- **Model:** HairFastGAN (Purpose-built for hair style transfer)
+- **Method:** Face-preserving hair transformation with reference images
+- **Provider:** Hugging Face Spaces via Gradio Client (FREE)
 - **License:** Open-source (free to use forever)
 
 ### Process:
 ```
-1. Your photo → Hugging Face API (multipart upload)
-2. AI performs img2img transformation with style prompt
-3. Generates new image with desired hairstyle
-4. Ultra-fast inference (1-2 steps only!)
-5. Returns transformed image in seconds
+1. Your photo → Saved to temp file
+2. Backend connects to HairFastGAN Space via Gradio
+3. Sends your photo + reference hairstyle image
+4. HairFastGAN preserves your face, transforms hair
+5. Returns result image (10-20 seconds)
+6. Temp files cleaned up automatically
 ```
 
 ### Priority System:
 ```
-1. Try Hugging Face (if HF_TOKEN present) → FREE ✅
+1. Try HairFastGAN (always FREE, no token needed!) → FREE ✅
 2. Try Replicate (if REPLICATE_API_TOKEN present) → Paid
 3. Fallback to Preview Mode → FREE ✅
 ```
+
+**Note:** HairFastGAN works WITHOUT any API token! It's completely FREE!
 
 ---
 

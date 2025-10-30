@@ -7,3 +7,4 @@ Pillow==10.1.0
 python-dotenv==1.0.0
 requests==2.31.0
 replicate==0.22.0
+gradio_client==0.7.3

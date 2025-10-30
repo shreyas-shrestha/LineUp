@@ -1,0 +1,9 @@
+{
+  "name": "lineup-frontend",
+  "version": "1.0.0",
+  "description": "LineUp Frontend Static Site",
+  "scripts": {
+    "build": "echo 'Static site - no build needed'"
+  }
+}
+

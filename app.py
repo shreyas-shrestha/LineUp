@@ -1487,14 +1487,113 @@ def virtual_tryon():
                 
                 logger.info(f"Downloaded {len(ref_response.content)} bytes")
                 
-                # Convert to base64
-                result_base64 = base64.b64encode(ref_response.content).decode('utf-8')
-                
-                logger.info(f"Image converted to base64: {len(result_base64)} chars")
-                
             except Exception as download_error:
                 logger.error(f"Failed to download reference image: {download_error}")
                 raise Exception(f"Could not download sample image: {download_error}")
+            
+            # Process image and add text overlay
+            try:
+                # Open downloaded image
+                img = Image.open(BytesIO(ref_response.content))
+                logger.info(f"Image opened: {img.size}, mode: {img.mode}")
+                
+                # Convert to RGB if needed
+                if img.mode not in ('RGB', 'RGBA'):
+                    img = img.convert('RGB')
+                    logger.info(f"Converted image to RGB")
+                    
+            except Exception as img_error:
+                logger.error(f"Image open error: {str(img_error)}")
+                raise Exception(f"Cannot process image: {str(img_error)}")
+            
+            # Add overlay with text
+            try:
+                # Convert to RGBA for overlay
+                if img.mode == 'RGB':
+                    img = img.convert('RGBA')
+                
+                # Create overlay
+                overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+                overlay_draw = ImageDraw.Draw(overlay)
+                
+                # Draw semi-transparent rectangle at bottom
+                height = img.size[1]
+                width = img.size[0]
+                overlay_draw.rectangle([(0, height-70), (width, height)], fill=(0, 0, 0, 200))
+                
+                # Composite overlay onto image
+                img = Image.alpha_composite(img, overlay)
+                
+                # Convert back to RGB for JPEG
+                img = img.convert('RGB')
+                
+                logger.info("Overlay added successfully")
+                
+            except Exception as overlay_error:
+                logger.error(f"Overlay error: {str(overlay_error)}")
+                # Continue without overlay
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+            
+            # Add text
+            try:
+                draw = ImageDraw.Draw(img)
+                text = f"Sample: {style_description}"
+                
+                # Try multiple font paths
+                font = None
+                font_paths = [
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+                    "/System/Library/Fonts/Helvetica.ttc",
+                    "arial.ttf"
+                ]
+                
+                for font_path in font_paths:
+                    try:
+                        font = ImageFont.truetype(font_path, 28)
+                        logger.info(f"Loaded font: {font_path}")
+                        break
+                    except:
+                        continue
+                
+                if not font:
+                    # Use default font as last resort
+                    font = ImageFont.load_default()
+                    logger.info("Using default font")
+                
+                # Calculate text position (centered)
+                try:
+                    bbox = draw.textbbox((0, 0), text, font=font)
+                    text_width = bbox[2] - bbox[0]
+                except:
+                    # Fallback if textbbox not available
+                    text_width = len(text) * 15
+                
+                text_x = max(10, (img.size[0] - text_width) // 2)
+                text_y = max(10, height - 50)
+                
+                # Add text with shadow for better visibility
+                draw.text((text_x+2, text_y+2), text, fill=(0, 0, 0), font=font)  # Shadow
+                draw.text((text_x, text_y), text, fill=(255, 255, 255), font=font)  # Text
+                
+                logger.info(f"Text added at position ({text_x}, {text_y})")
+                
+            except Exception as text_error:
+                logger.error(f"Text error: {str(text_error)}")
+                # Continue without text - image is still valid
+            
+            # Convert to base64
+            try:
+                buffer = BytesIO()
+                img.save(buffer, format='JPEG', quality=90, optimize=True)
+                result_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                
+                logger.info(f"Image converted to base64: {len(result_base64)} chars")
+                
+            except Exception as save_error:
+                logger.error(f"Save error: {str(save_error)}")
+                raise Exception(f"Cannot save image: {str(save_error)}")
             
             # Return success response
             response_data = {

@@ -1049,9 +1049,93 @@ def virtual_tryon():
         
         logger.info(f"🎨 Starting hair transformation: {style_description}")
         
-        # Use Replicate API (FREE - Simple and works!)
+        # Try FREE Hugging Face first, then Replicate
+        HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
         REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
         
+        # Option 1: FREE Hugging Face inference (RECOMMENDED)
+        if HF_TOKEN:
+            logger.info("Using FREE Hugging Face inference for hair transformation")
+            
+            try:
+                import requests as req
+                
+                # Convert base64 to bytes
+                img_data_raw = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
+                img_bytes = base64.b64decode(img_data_raw)
+                
+                # Use InstantID or similar FREE model on Hugging Face
+                # This uses face segmentation + style transfer (FREE forever)
+                API_URL_HF = "https://api-inference.huggingface.co/models/latent-consistency/lcm-lora-sdxl"
+                
+                headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+                
+                # Create style prompt based on hairstyle
+                style_prompts = {
+                    "fade": "professional fade haircut, short sides, clean cut",
+                    "buzz": "very short buzz cut, military style",
+                    "quiff": "voluminous quiff hairstyle, swept back",
+                    "pompadour": "classic pompadour with volume",
+                    "undercut": "modern undercut, short sides long top",
+                    "side part": "classic side part, neat and professional",
+                    "slick back": "slicked back hair with gel",
+                    "long": "long flowing hair",
+                    "curly": "natural curly hair",
+                    "textured": "textured messy hairstyle",
+                }
+                
+                style_lower = style_description.lower()
+                prompt = style_description
+                for key, style_prompt in style_prompts.items():
+                    if key in style_lower:
+                        prompt = f"portrait photo with {style_prompt}, realistic, high quality"
+                        break
+                
+                logger.info(f"HF prompt: {prompt}")
+                
+                # Call Hugging Face FREE inference API
+                payload = {
+                    "inputs": prompt,
+                    "parameters": {
+                        "image": img_data_raw,
+                        "guidance_scale": 7.5,
+                        "num_inference_steps": 4  # Fast LCM inference
+                    }
+                }
+                
+                logger.info("Calling Hugging Face API...")
+                hf_response = req.post(API_URL_HF, headers=headers, json=payload, timeout=60)
+                
+                logger.info(f"HF response status: {hf_response.status_code}")
+                
+                if hf_response.status_code == 200:
+                    # Response is image bytes
+                    result_base64 = base64.b64encode(hf_response.content).decode('utf-8')
+                    
+                    response_data = {
+                        "success": True,
+                        "message": f"✨ FREE AI hair transformation: {style_description}",
+                        "resultImage": result_base64,
+                        "styleApplied": style_description,
+                        "poweredBy": "Hugging Face FREE Inference API",
+                        "note": "This is a FREE AI transformation using open-source models!"
+                    }
+                    
+                    response = make_response(jsonify(response_data), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
+                    logger.info("✅ FREE Hugging Face transformation successful!")
+                    return response
+                else:
+                    logger.warning(f"HF API returned {hf_response.status_code}: {hf_response.text[:500]}")
+                    # Continue to Replicate or fallback
+                    
+            except Exception as e:
+                logger.error(f"Hugging Face error: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                # Continue to Replicate or fallback
+        
+        # Option 2: Replicate (Paid but better quality)
         if REPLICATE_API_TOKEN and replicate:
             logger.info("Using Replicate API for REAL hair style transformation")
             

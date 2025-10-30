@@ -1118,35 +1118,21 @@ def virtual_tryon():
                 except:
                     pass
                 
-                # Call HairFastGAN - try different parameter combinations
-                result = None
+                # Call HairFastGAN /swap_hair endpoint (correct API from logs!)
+                # Based on Space API: /swap_hair requires 6 parameters
+                logger.info("Calling HairFastGAN /swap_hair endpoint...")
                 
-                # Try 1: Full parameters (5 args)
-                try:
-                    logger.info("Trying HairFastGAN with 5 parameters...")
-                    result = client.predict(
-                        input_path,       # User's face image
-                        reference_url,    # Reference hairstyle (shape)
-                        reference_url,    # Reference hair color (same as shape)
-                        True,             # Auto-align face
-                        True              # Use hair mask for better blending
-                    )
-                    logger.info("✅ Success with 5 parameters")
-                except Exception as e:
-                    logger.warning(f"5 params failed: {e}")
-                    
-                    # Try 2: Without boolean flags (3 args)
-                    try:
-                        logger.info("Trying HairFastGAN with 3 parameters...")
-                        result = client.predict(
-                            input_path,
-                            reference_url,
-                            reference_url
-                        )
-                        logger.info("✅ Success with 3 parameters")
-                    except Exception as e2:
-                        logger.error(f"3 params also failed: {e2}")
-                        raise Exception(f"All HairFastGAN parameter combinations failed: {e}")
+                result = client.predict(
+                    input_path,           # source_photo_to_try_on_the_hairstyle
+                    reference_url,        # shape_photo_with_desired_hairstyle_optional  
+                    reference_url,        # color_photo_with_desired_hair_color_optional
+                    "Article",            # color_encoder_version (best quality)
+                    1000,                 # poisson_iters (medium quality/speed)
+                    15,                   # poisson_erosion (moderate blending)
+                    api_name="/swap_hair"
+                )
+                
+                logger.info("✅ HairFastGAN API call successful!")
                 
                 if not result:
                     raise Exception("HairFastGAN returned no result")
@@ -1154,16 +1140,31 @@ def virtual_tryon():
                 logger.info(f"HairFastGAN result type: {type(result)}")
                 logger.info(f"HairFastGAN result: {result}")
                 
-                # Result is a file path or dict with file path
-                result_path = result
-                if isinstance(result, dict):
-                    result_path = result.get('name') or result.get('path') or result.get('value')
-                elif isinstance(result, (list, tuple)) and len(result) > 0:
+                # HairFastGAN returns tuple: (your_result_image, error_message)
+                result_path = None
+                error_msg = None
+                
+                if isinstance(result, (list, tuple)) and len(result) >= 2:
+                    # First element is the result image, second is error message
                     result_path = result[0]
+                    error_msg = result[1] if len(result) > 1 else None
+                    
+                    logger.info(f"Result image: {result_path}")
+                    logger.info(f"Error message: {error_msg}")
+                    
+                    # If there's an error message, log it
+                    if error_msg and error_msg.strip():
+                        logger.warning(f"HairFastGAN returned error: {error_msg}")
+                    
+                    # Extract file path if result is a dict
                     if isinstance(result_path, dict):
                         result_path = result_path.get('name') or result_path.get('path') or result_path.get('value')
+                elif isinstance(result, dict):
+                    result_path = result.get('name') or result.get('path') or result.get('value')
+                else:
+                    result_path = result
                 
-                logger.info(f"Result path: {result_path}")
+                logger.info(f"Final result path: {result_path}")
                 
                 # Read result image
                 if result_path and os.path.exists(result_path):

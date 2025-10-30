@@ -1,11 +1,7 @@
 // scripts-updated.js - Frontend JavaScript for LineUp Two-Sided Platform
 
 // --- Configuration ---
-const API_URL = 'https://lineup-fjpn.onrender.com'; // Keep for Gemini AI analysis
-let GOOGLE_PLACES_API_KEY = null;
-
-// Firebase Service (will be loaded from firebase-simple.js)
-let firebaseService = null;
+const API_URL = 'https://lineup-fjpn.onrender.com';
 
 // --- DOM Elements ---
 const fileInput = document.getElementById('file-input');
@@ -36,7 +32,6 @@ const clientModeBtn = document.getElementById('client-mode');
 const barberModeBtn = document.getElementById('barber-mode');
 const clientContent = document.getElementById('client-content');
 const barberContent = document.getElementById('barber-content');
-// Bottom nav is rendered dynamically into #bottom-nav
 
 // Social / Community elements
 const socialFeedContainer = document.getElementById('social-feed-container');
@@ -75,149 +70,145 @@ let socialPosts = [];
 let barberPortfolio = [];
 let appointments = [];
 let currentBarberForBooking = null;
-let subscriptionPackages = [];
-let clientSubscriptions = [];
 
-// --- Mock Data ---
-const mockSocialPosts = [
-  {
-    id: 1,
-    username: 'mike_style',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
-    image: 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
-    caption: 'Fresh fade from @atlanta_cuts 🔥',
-    likes: 23,
-    timeAgo: '2h',
-    liked: false
-  },
-  {
-    id: 2,
-    username: 'sarah_hair',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face',
-    image: 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=400&fit=crop',
-    caption: 'New bob cut! Love how it frames my face ✨',
-    likes: 45,
-    timeAgo: '4h',
-    liked: true
-  },
-  {
-    id: 3,
-    username: 'jason_cuts',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
-    image: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&h=400&fit=crop',
-    caption: 'Classic taper fade. Clean and professional 💼',
-    likes: 67,
-    timeAgo: '1d',
-    liked: false
-  }
-];
-
-const mockBarberPortfolio = [
-  {
-    id: 1,
-    styleName: 'Modern Fade',
-    image: 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
-    description: 'Clean fade with textured top. Perfect for professionals.',
-    likes: 12,
-    date: '2024-01-15'
-  },
-  {
-    id: 2,
-    styleName: 'Classic Pompadour',
-    image: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&h=400&fit=crop',
-    description: 'Vintage-inspired pompadour with modern styling.',
-    likes: 18,
-    date: '2024-01-14'
-  }
-];
-
-const mockAppointments = [
-  {
-    id: 1,
-    clientName: 'Alex Johnson',
-    barberName: 'Mike\'s Cuts',
-    date: '2024-01-20',
-    time: '14:00',
-    service: 'Haircut + Beard',
-    price: '$65',
-    status: 'confirmed',
-    notes: 'Looking for a modern fade'
-  },
-  {
-    id: 2,
-    clientName: 'Current User',
-    barberName: 'Style Studio',
-    date: '2024-01-22',
-    time: '10:00',
-    service: 'Haircut',
-    price: '$45',
-    status: 'pending',
-    notes: 'First time visit'
-  }
-];
-
-// --- Style Example Images ---
-// Maps normalized style names to representative example photos
-const STYLE_IMAGE_MAP = {
-  'classic fade': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=1200&auto=format&fit=crop&q=80',
-  'textured quiff': 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=1200&auto=format&fit=crop&q=80',
-  'side part': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=80',
-  'messy crop': 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1200&auto=format&fit=crop&q=80',
-  'buzz cut': 'https://images.unsplash.com/photo-1514790193030-c89d266d5a9d?w=1200&auto=format&fit=crop&q=80',
-  // Generic fallbacks
-  'pompadour': 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=1200&auto=format&fit=crop&q=80',
-  'fade': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=1200&auto=format&fit=crop&q=80',
-  'taper': 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=1200&auto=format&fit=crop&q=80'
-};
-
-function normalizeStyleName(name) {
-  return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
-}
-
-function getStyleImage(name) {
-  const key = normalizeStyleName(name);
-  return STYLE_IMAGE_MAP[key] || null;
+// --- Initialize Mock Data ---
+function initializeMockData() {
+  // Social posts with variety
+  socialPosts = [
+    {
+      id: 1,
+      username: 'mike_style',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
+      image: 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
+      caption: 'Fresh fade from @atlanta_cuts 🔥 Loving this clean look!',
+      likes: 23,
+      timeAgo: '2h',
+      liked: false
+    },
+    {
+      id: 2,
+      username: 'sarah_hair',
+      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face',
+      image: 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=400&fit=crop',
+      caption: 'New bob cut! Love how it frames my face ✨',
+      likes: 45,
+      timeAgo: '4h',
+      liked: true
+    },
+    {
+      id: 3,
+      username: 'jason_cuts',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
+      image: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&h=400&fit=crop',
+      caption: 'Classic taper fade. Clean and professional 💼',
+      likes: 67,
+      timeAgo: '1d',
+      liked: false
+    },
+    {
+      id: 4,
+      username: 'alex_barber',
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face',
+      image: 'https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?w=400&h=400&fit=crop',
+      caption: 'Textured pompadour on my client today. What do you think? 💇‍♂️',
+      likes: 89,
+      timeAgo: '2d',
+      liked: false
+    }
+  ];
+  
+  // Barber portfolio
+  barberPortfolio = [
+    {
+      id: 1,
+      styleName: 'Modern Fade',
+      image: 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
+      description: 'Clean fade with textured top. Perfect for professionals.',
+      likes: 12,
+      date: '2024-01-15'
+    },
+    {
+      id: 2,
+      styleName: 'Classic Pompadour',
+      image: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&h=400&fit=crop',
+      description: 'Vintage-inspired pompadour with modern styling.',
+      likes: 18,
+      date: '2024-01-14'
+    },
+    {
+      id: 3,
+      styleName: 'Textured Quiff',
+      image: 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=400&fit=crop',
+      description: 'Voluminous quiff with natural texture and movement.',
+      likes: 25,
+      date: '2024-01-13'
+    }
+  ];
+  
+  // Appointments
+  appointments = [
+    {
+      id: 1,
+      clientName: 'Alex Johnson',
+      clientId: 'client_1',
+      barberName: 'Mike\'s Cuts',
+      barberId: 'barber_1',
+      date: '2024-12-20',
+      time: '14:00',
+      service: 'Haircut + Beard',
+      price: '$65',
+      status: 'confirmed',
+      notes: 'Looking for a modern fade'
+    },
+    {
+      id: 2,
+      clientName: 'Current User',
+      clientId: 'current-user',
+      barberName: 'Style Studio',
+      barberId: 'barber_2',
+      date: '2024-12-22',
+      time: '10:00',
+      service: 'Haircut',
+      price: '$45',
+      status: 'pending',
+      notes: 'First time visit'
+    },
+    {
+      id: 3,
+      clientName: 'Sarah Miller',
+      clientId: 'client_2',
+      barberName: 'Mike\'s Cuts',
+      barberId: 'barber_1',
+      date: '2024-12-21',
+      time: '15:30',
+      service: 'Haircut',
+      price: '$45',
+      status: 'confirmed',
+      notes: 'Regular trim'
+    }
+  ];
 }
 
 // --- Initialize ---
-window.addEventListener('DOMContentLoaded', async () => {
-  console.log('LineUp Two-Sided Platform with Firebase initialized');
+window.addEventListener('DOMContentLoaded', () => {
+  console.log('LineUp Two-Sided Platform initialized');
   
-  // Wait for Firebase to be available
-  setTimeout(async () => {
-    firebaseService = window.firebaseService;
-    
-    if (firebaseService) {
-      console.log('🔥 Firebase service connected');
-      
-      // Load real data from Firebase
-      await loadSocialFeed();
-      await loadBarberPortfolio();
-      await loadAppointments();
-      
-      // Set up real-time listeners
-      setupRealtimeListeners();
-    } else {
-      console.log('⚠️ Firebase not available, using mock data');
-      // Fallback to mock data
-      socialPosts = [...mockSocialPosts];
-      barberPortfolio = [...mockBarberPortfolio];
-      appointments = [...mockAppointments];
-      
-      renderSocialFeed();
-      renderBarberPortfolio();
-      renderClientAppointments();
-      renderBarberAppointments();
-    }
-    
-    loadNearbyBarbers('Atlanta, GA');
-    testBackendConnection();
-    setupEventListeners();
-    renderBottomNav();
-    updateDashboardStats();
-    // Default to client Home
-    switchMode('client');
-  }, 1000); // Give Firebase time to load
+  initializeMockData();
+  testBackendConnection();
+  setupEventListeners();
+  renderBottomNav();
+  
+  // Render initial data
+  renderSocialFeed();
+  renderBarberPortfolio();
+  renderClientAppointments();
+  renderBarberAppointments();
+  updateDashboardStats();
+  
+  loadNearbyBarbers('Atlanta, GA');
+  
+  // Default to client Home
+  switchMode('client');
 });
 
 // --- Setup Event Listeners ---
@@ -226,8 +217,6 @@ function setupEventListeners() {
   clientModeBtn.addEventListener('click', () => switchMode('client'));
   barberModeBtn.addEventListener('click', () => switchMode('barber'));
   
-  // Tabs are attached after rendering bottom nav dynamically
-
   // Image upload
   imageUploadArea.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', handleImageUpload);
@@ -244,7 +233,6 @@ function setupEventListeners() {
     loadNearbyBarbers(location, lastRecommendedStyles);
   });
   
-  // Setup location search
   setupLocationSearch();
   
   // Social modals
@@ -267,24 +255,8 @@ function setupEventListeners() {
   document.getElementById('cancel-booking').addEventListener('click', closeBookingModal);
   document.getElementById('confirm-booking').addEventListener('click', confirmBooking);
   
-  // Subscription packages
-  const createPackageBtn = document.getElementById('create-package-btn');
-  const createPackageModal = document.getElementById('create-package-modal');
-  const cancelPackage = document.getElementById('cancel-package');
-  const submitPackage = document.getElementById('submit-package');
-  
-  if (createPackageBtn) {
-    createPackageBtn.addEventListener('click', () => createPackageModal.classList.remove('hidden'));
-  }
-  if (cancelPackage) {
-    cancelPackage.addEventListener('click', closeCreatePackageModal);
-  }
-  if (submitPackage) {
-    submitPackage.addEventListener('click', handleCreatePackage);
-  }
-  
   // Close modals on outside click
-  [addPostModal, uploadWorkModal, bookAppointmentModal, createPackageModal].forEach(modal => {
+  [addPostModal, uploadWorkModal, bookAppointmentModal].forEach(modal => {
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.classList.add('hidden');
@@ -328,22 +300,14 @@ function switchTab(targetTab) {
   
   // Update tab button active state
   document.querySelectorAll(`#bottom-nav .tab-button`).forEach(t => {
-    t.classList.remove('tab-active');
-    t.classList.remove('text-white');
+    t.classList.remove('tab-active', 'text-white', 'font-semibold');
     t.classList.add('text-gray-500');
-    // Keep center pill transform
-    if (!t.classList.contains('center-pill')) {
-      t.classList.remove('font-semibold');
-    }
   });
   
   const activeTab = document.querySelector(`#bottom-nav [data-tab="${targetTab}"]`);
-  if (activeTab) {
-    activeTab.classList.add('tab-active');
-    if (!activeTab.classList.contains('center-pill')) {
-      activeTab.classList.add('text-white', 'font-semibold');
-      activeTab.classList.remove('text-gray-500');
-    }
+  if (activeTab && !activeTab.classList.contains('center-pill')) {
+    activeTab.classList.add('tab-active', 'text-white', 'font-semibold');
+    activeTab.classList.remove('text-gray-500');
   }
   
   // Hide all tab content
@@ -355,14 +319,17 @@ function switchTab(targetTab) {
     targetContent.classList.remove('hidden');
   }
 
-  // If we navigated to profile in client mode, render it
+  // Refresh data when switching to certain tabs
   if (targetTab === 'profile') {
     renderClientProfile();
   }
   
-  // If we navigated to barber profile, load subscription packages
-  if (targetTab === 'barber-profile') {
-    loadSubscriptionPackages();
+  if (targetTab === 'community') {
+    renderSocialFeed();
+  }
+  
+  if (targetTab === 'barber-dashboard') {
+    updateDashboardStats();
   }
 }
 
@@ -373,7 +340,7 @@ async function testBackendConnection() {
     const data = await response.json();
     console.log('✅ Backend connected:', data);
   } catch (err) {
-    console.log('⚠️ Backend may be sleeping. Will wake up on first request.');
+    console.log('⚠️ Backend may be sleeping. Using mock data.');
   }
 }
 
@@ -449,7 +416,7 @@ async function analyzeImage() {
         contents: [
           { 
             parts: [
-              { text: "Analyze this person and provide face, hair info and 5 haircut recommendations." },
+              { text: "Analyze this person and provide face, hair info and 6 haircut recommendations." },
               { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }
             ]
           }
@@ -475,10 +442,10 @@ async function analyzeImage() {
 
   } catch (err) {
     console.error('Analysis error:', err);
-    showError("Using demo results while our servers wake up...");
+    showError("Using demo results...");
     setTimeout(() => {
       displayResults(getMockData());
-    }, 2000);
+    }, 1000);
   } finally {
     loader.classList.add('hidden');
     statusMessage.textContent = '';
@@ -570,12 +537,11 @@ function displayResults(data) {
     analysisGrid.appendChild(div);
   });
 
-  // Recommendations with colorful TOP borders only
+  // Recommendations
   recommendationsContainer.innerHTML = '';
   const recommendations = data.recommendations || [];
   lastRecommendedStyles = recommendations.slice(0, 6).map(r => r.styleName);
   
-  // Vibrant color scheme for top borders
   const colors = [
     { topBorder: 'border-t-4 border-t-sky-400', text: 'text-sky-400' },
     { topBorder: 'border-t-4 border-t-purple-400', text: 'text-purple-400' },
@@ -619,26 +585,21 @@ function displayResults(data) {
   });
 }
 
-// --- Barber Functions with Real Google Places ---
+// --- Barber Search ---
 async function loadNearbyBarbers(location = 'Atlanta, GA', recommendedStyles = []) {
-  console.log('Loading REAL barbershops for:', location);
-  console.log('Recommended styles:', recommendedStyles);
+  console.log('Loading barbershops for:', location);
   
-  // Show loading state
   if (barberListContainer) {
-    barberListContainer.innerHTML = '<div class="text-center py-8"><div class="loader mx-auto"></div><p class="mt-4 text-gray-400">Finding real barbershops near you...</p></div>';
+    barberListContainer.innerHTML = '<div class="text-center py-8"><div class="loader mx-auto"></div><p class="mt-4 text-gray-400">Finding barbershops near you...</p></div>';
   }
   
   try {
-    // Include recommended styles in the request
     const stylesParam = recommendedStyles.length > 0 ? `&styles=${encodeURIComponent(recommendedStyles.join(','))}` : '';
     const response = await fetch(`${API_URL}/barbers?location=${encodeURIComponent(location)}${stylesParam}`);
     const data = await response.json();
     
-    console.log('Barber API response:', data);
-    
     if (data.barbers && data.barbers.length > 0) {
-      renderRealBarberList(data.barbers, data.real_data);
+      renderBarberList(data.barbers, data.real_data);
     } else {
       throw new Error('No barbershops found');
     }
@@ -646,18 +607,17 @@ async function loadNearbyBarbers(location = 'Atlanta, GA', recommendedStyles = [
     console.error('Error loading barbershops:', error);
     if (barberListContainer) {
       barberListContainer.innerHTML = `
-        <div class="bg-red-900/20 border border-red-500/50 rounded-lg p-4 text-center">
-          <p class="text-red-400">Unable to load barbershops. Please check your location and try again.</p>
+        <div class="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-4 text-center">
+          <p class="text-yellow-400">Using sample data. Connect to backend for real barbershops.</p>
         </div>
       `;
     }
   }
 }
 
-function renderRealBarberList(barbers, isRealData = false) {
+function renderBarberList(barbers, isRealData = false) {
   if (!barberListContainer) return;
   
-  // Add header showing if this is real or mock data
   const dataSourceBadge = isRealData ? 
     '<span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs">✓ Real Barbershops</span>' :
     '<span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs">Sample Data</span>';
@@ -676,23 +636,6 @@ function renderRealBarberList(barbers, isRealData = false) {
     const card = document.createElement('div');
     card.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden mb-4 hover:border-sky-500/50 transition-all';
     
-    // Format hours if available
-    let hoursHtml = '';
-    if (barber.hours && barber.hours.length > 0) {
-      const today = new Date().getDay();
-      const todayHours = barber.hours[today === 0 ? 6 : today - 1]; // Adjust for Sunday
-      hoursHtml = `<p class="text-xs text-gray-500 mt-1">${todayHours || 'Hours not available'}</p>`;
-    }
-    
-    // Format open now status
-    let openStatus = '';
-    if (barber.open_now !== null && barber.open_now !== undefined) {
-      openStatus = barber.open_now ? 
-        '<span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs">Open Now</span>' :
-        '<span class="bg-red-500/20 text-red-400 px-2 py-1 rounded text-xs">Closed</span>';
-    }
-    
-    // Show real rating count if available
     const ratingText = barber.user_ratings_total ? 
       `${barber.rating} ★ (${barber.user_ratings_total} reviews)` :
       `${barber.rating} ★`;
@@ -712,18 +655,13 @@ function renderRealBarberList(barbers, isRealData = false) {
             <div class="flex-1">
               <h4 class="text-xl font-bold text-white mb-1">${barber.name}</h4>
               <p class="text-sm text-gray-400">${barber.address}</p>
-              ${hoursHtml}
             </div>
-            ${openStatus}
           </div>
           
           <div class="flex items-center gap-4 mb-3">
             <span class="text-yellow-400 flex items-center gap-1">${ratingText}</span>
-            <span class="text-green-400 font-semibold">~${barber.avgCost}</span>
-            ${barber.phone !== 'Call for info' ? 
-              `<a href="tel:${barber.phone}" class="text-sky-400 hover:text-sky-300 text-sm">${barber.phone}</a>` : 
-              '<span class="text-gray-500 text-sm">No phone listed</span>'
-            }
+            <span class="text-green-400 font-semibold">~$${barber.avgCost}</span>
+            <span class="text-gray-400 text-sm">${barber.phone}</span>
           </div>
           
           <div class="flex flex-wrap gap-2 mb-4">
@@ -732,48 +670,20 @@ function renderRealBarberList(barbers, isRealData = false) {
             ).join('')}
           </div>
           
-          <div class="flex gap-2">
-            <button onclick="openBookingModal('${barber.id}', '${barber.name.replace(/'/g, "\\'")}')" 
-                    class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
-              Book Appointment
-            </button>
-            ${barber.website ? 
-              `<a href="${barber.website}" target="_blank" class="bg-gray-700 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors">
-                Website
-              </a>` : ''
-            }
-            ${barber.location ? 
-              `<a href="https://www.google.com/maps/dir/?api=1&destination=${barber.location.lat},${barber.location.lng}" 
-                 target="_blank" 
-                 class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-                Directions
-              </a>` : ''
-            }
-          </div>
+          <button onclick="openBookingModal('${barber.id}', '${barber.name.replace(/'/g, "\\'")}')" 
+                  class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+            Book Appointment
+          </button>
         </div>
       </div>
     `;
     barberListContainer.appendChild(card);
   });
-  
-  // Add search tips
-  const tipsDiv = document.createElement('div');
-  tipsDiv.className = 'mt-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700';
-  tipsDiv.innerHTML = `
-    <p class="text-sm text-gray-400 mb-2">💡 Search Tips:</p>
-    <ul class="text-xs text-gray-500 space-y-1">
-      <li>• Enter your ZIP code for more precise results (e.g., "30308")</li>
-      <li>• Use neighborhood names (e.g., "Buckhead, Atlanta")</li>
-      <li>• Include city and state (e.g., "Atlanta, GA")</li>
-    </ul>
-  `;
-  barberListContainer.appendChild(tipsDiv);
 }
 
 function findMatchingBarbers() {
   const location = locationSearch.value || 'Atlanta, GA';
   
-  // Update the intro text
   if (barberIntro) {
     barberIntro.innerHTML = `
       <span class="text-gray-300">Finding real barbershops in</span> 
@@ -782,12 +692,31 @@ function findMatchingBarbers() {
     `;
   }
   
-  // Pass recommended styles to the barber search
   loadNearbyBarbers(location, lastRecommendedStyles);
   switchTab('barbers');
 }
 
-// Add location search with debouncing
+function findBarbersForStyle(styleName) {
+  const location = locationSearch.value || 'Atlanta, GA';
+  
+  if (barberIntro) {
+    barberIntro.innerHTML = `
+      <div class="text-center mb-4">
+        <span class="inline-block bg-sky-500/20 border border-sky-500/50 text-sky-300 text-sm px-4 py-2 rounded-full mb-2">
+          Searching for: ${styleName}
+        </span>
+        <br>
+        <span class="text-gray-300">Finding real barbershops in</span> 
+        <span class="text-sky-400 font-semibold">${location}</span>
+        <span class="text-gray-300">that specialize in this style...</span>
+      </div>
+    `;
+  }
+  
+  loadNearbyBarbers(location, [styleName]);
+  switchTab('barbers');
+}
+
 let searchTimeout;
 function setupLocationSearch() {
   if (locationSearch) {
@@ -798,11 +727,10 @@ function setupLocationSearch() {
       if (value.length > 2) {
         searchTimeout = setTimeout(() => {
           loadNearbyBarbers(value, lastRecommendedStyles);
-        }, 500); // Wait 500ms after user stops typing
+        }, 500);
       }
     });
     
-    // Handle enter key
     locationSearch.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         clearTimeout(searchTimeout);
@@ -875,70 +803,37 @@ function closeAddPostModal() {
   postCaption.value = '';
 }
 
-async function submitSocialPost() {
+function submitSocialPost() {
   const caption = postCaption.value.trim();
   if (!postImagePreview.src || !caption) {
     alert('Please add both an image and caption');
     return;
   }
   
-  const postData = {
+  const newPost = {
+    id: Date.now(),
     username: 'you',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
     image: postImagePreview.src,
-    caption: caption
+    caption: caption,
+    likes: 0,
+    timeAgo: 'now',
+    liked: false
   };
   
-  if (firebaseService) {
-    // Save to Firebase
-    const result = await firebaseService.createSocialPost(postData);
-    if (result.success) {
-      console.log('✨ Post saved to Firebase');
-      // Real-time listener will update the UI
-    } else {
-      alert('Failed to save post. Please try again.');
-      return;
-    }
-  } else {
-    // Fallback to local storage
-    const newPost = {
-      id: Date.now(),
-      ...postData,
-      likes: 0,
-      timeAgo: 'now',
-      liked: false
-    };
-    socialPosts.unshift(newPost);
-    renderSocialFeed();
-  }
-  
+  socialPosts.unshift(newPost);
+  renderSocialFeed();
   closeAddPostModal();
+  
+  alert('Post shared successfully! 🎉');
 }
 
-async function toggleLike(postId) {
-  if (firebaseService) {
-    // Update in Firebase
-    const result = await firebaseService.toggleLike(postId);
-    if (result.success) {
-      console.log('❤️ Like updated in Firebase');
-      // Real-time listener will update the UI
-    }
-  } else {
-    // Fallback to local update
-    const post = socialPosts.find(p => p.id === postId);
-    if (post) {
-      post.liked = !post.liked;
-      post.likes += post.liked ? 1 : -1;
-      renderSocialFeed();
-    }
-  }
-  
-  // Add heart animation
-  if (event && event.target) {
-    event.target.closest('button').classList.add('heart-animation');
-    setTimeout(() => {
-      event.target.closest('button').classList.remove('heart-animation');
-    }, 600);
+function toggleLike(postId) {
+  const post = socialPosts.find(p => p.id === postId);
+  if (post) {
+    post.liked = !post.liked;
+    post.likes += post.liked ? 1 : -1;
+    renderSocialFeed();
   }
 }
 
@@ -949,7 +844,6 @@ function renderBottomNav() {
   const baseBtn = 'tab-button flex flex-col items-center justify-center h-14 flex-1 text-xs transition-all duration-200';
   const centerBtn = 'tab-button center-pill flex items-center justify-center h-12 w-12 transition-all duration-200 rounded-full bg-white -translate-y-2';
 
-  // Clean SVG icons
   const icons = {
     home: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>',
     explore: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>',
@@ -978,10 +872,9 @@ function renderBottomNav() {
 
   const tabs = currentUserMode === 'client' ? clientTabs : barberTabs;
 
-  // Layout: space for center pill - dark theme with white accents
   bottomNav.innerHTML = `
     <div class="flex items-center justify-between px-4 py-1">
-      ${tabs.map((t, idx) => {
+      ${tabs.map((t) => {
         if (t.center) {
           return `
             <div class="flex-1 flex items-center justify-center">
@@ -1001,12 +894,10 @@ function renderBottomNav() {
     </div>
   `;
 
-  // Attach events
   bottomNav.querySelectorAll('.tab-button').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  // Set initial active state
   const defaultTab = currentUserMode === 'client' ? 'ai' : 'barber-dashboard';
   switchTab(defaultTab);
 }
@@ -1062,7 +953,7 @@ function closeUploadWorkModal() {
   workDescription.value = '';
 }
 
-async function submitPortfolioWork() {
+function submitPortfolioWork() {
   const styleName = workStyleName.value.trim();
   const description = workDescription.value.trim();
   
@@ -1071,44 +962,28 @@ async function submitPortfolioWork() {
     return;
   }
   
-  const portfolioData = {
-    barberId: 'current-barber',
+  const newWork = {
+    id: Date.now(),
     styleName: styleName,
     image: workImagePreview.src,
-    description: description
+    description: description,
+    likes: 0,
+    date: new Date().toISOString().split('T')[0]
   };
   
-  if (firebaseService) {
-    // Save to Firebase
-    const result = await firebaseService.addPortfolioItem(portfolioData);
-    if (result.success) {
-      console.log('🎨 Portfolio work saved to Firebase');
-      await loadBarberPortfolio(); // Reload portfolio
-    } else {
-      alert('Failed to save portfolio work. Please try again.');
-      return;
-    }
-  } else {
-    // Fallback to local storage
-    const newWork = {
-      id: Date.now(),
-      ...portfolioData,
-      likes: 0,
-      date: new Date().toISOString().split('T')[0]
-    };
-    barberPortfolio.unshift(newWork);
-    renderBarberPortfolio();
-  }
-  
+  barberPortfolio.unshift(newWork);
+  renderBarberPortfolio();
   updateDashboardStats();
   closeUploadWorkModal();
+  
+  alert('Portfolio work added successfully! 🎨');
 }
 
 // --- Client Profile Rendering ---
 function renderClientProfile() {
   const historyEl = document.getElementById('client-profile-history');
   if (historyEl) {
-    const history = appointments.filter(apt => apt.clientName === 'Current User');
+    const history = appointments.filter(apt => apt.clientId === 'current-user');
     if (history.length === 0) {
       historyEl.innerHTML = '<p class="text-gray-500">No past bookings yet.</p>';
     } else {
@@ -1142,7 +1017,6 @@ function openBookingModal(barberId, barberName) {
     <p class="text-sm text-gray-400">Select your preferred date and time</p>
   `;
   
-  // Set minimum date to today
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('appointment-date').min = today;
   
@@ -1157,7 +1031,7 @@ function closeBookingModal() {
   document.getElementById('appointment-notes').value = '';
 }
 
-async function confirmBooking() {
+function confirmBooking() {
   const date = document.getElementById('appointment-date').value;
   const time = document.getElementById('appointment-time').value;
   const service = document.getElementById('appointment-service').value;
@@ -1180,7 +1054,8 @@ async function confirmBooking() {
     'beard-only': '$25'
   };
   
-  const appointmentData = {
+  const newAppointment = {
+    id: Date.now(),
     clientName: 'Current User',
     clientId: 'current-user',
     barberName: currentBarberForBooking.name,
@@ -1189,38 +1064,21 @@ async function confirmBooking() {
     time: time,
     service: serviceMap[service],
     price: priceMap[service],
-    notes: notes || 'No special requests'
+    notes: notes || 'No special requests',
+    status: 'pending'
   };
   
-  if (firebaseService) {
-    // Save to Firebase
-    const result = await firebaseService.createAppointment(appointmentData);
-    if (result.success) {
-      console.log('📅 Appointment saved to Firebase');
-      await loadAppointments(); // Reload appointments
-    } else {
-      alert('Failed to book appointment. Please try again.');
-      return;
-    }
-  } else {
-    // Fallback to local storage
-    const newAppointment = {
-      id: Date.now(),
-      ...appointmentData,
-      status: 'pending'
-    };
-    appointments.push(newAppointment);
-    renderClientAppointments();
-    renderBarberAppointments();
-  }
-  
+  appointments.push(newAppointment);
+  renderClientAppointments();
+  renderBarberAppointments();
   updateDashboardStats();
   closeBookingModal();
-  alert('Appointment booked successfully!');
+  
+  alert('Appointment booked successfully! 📅');
 }
 
 function renderClientAppointments() {
-  const clientAppointments = appointments.filter(apt => apt.clientName === 'Current User');
+  const clientAppointments = appointments.filter(apt => apt.clientId === 'current-user');
   
   if (!clientAppointmentsContainer) return;
   
@@ -1294,7 +1152,7 @@ function renderBarberAppointments() {
         <p class="text-gray-300"><span class="text-gray-400">Date:</span> ${new Date(appointment.date).toLocaleDateString()}</p>
         <p class="text-gray-300"><span class="text-gray-400">Time:</span> ${appointment.time}</p>
         <p class="text-gray-300"><span class="text-gray-400">Price:</span> ${appointment.price}</p>
-        <p class="text-gray-300"><span class="text-gray-400">Contact:</span> Available in app</p>
+        <p class="text-gray-300"><span class="text-gray-400">Contact:</span> ${appointment.clientName}</p>
       </div>
       ${appointment.notes !== 'No special requests' ? `<p class="text-gray-400 text-sm mt-3">Notes: ${appointment.notes}</p>` : ''}
     `;
@@ -1309,6 +1167,8 @@ function confirmAppointment(appointmentId) {
     renderBarberAppointments();
     renderClientAppointments();
     updateDashboardStats();
+    
+    alert(`Appointment with ${appointment.clientName} confirmed! ✅`);
   }
 }
 
@@ -1332,509 +1192,9 @@ function updateDashboardStats() {
   if (portfolioCountElement) portfolioCountElement.textContent = barberPortfolio.length;
 }
 
-// --- New function for individual style barber search ---
-function findBarbersForStyle(styleName) {
-  const location = locationSearch.value || 'Atlanta, GA';
-  
-  console.log(`Finding barbers for specific style: ${styleName} in ${location}`);
-  
-  // Update the intro text to show we're searching for this specific style
-  if (barberIntro) {
-    barberIntro.innerHTML = `
-      <div class="text-center mb-4">
-        <span class="inline-block bg-sky-500/20 border border-sky-500/50 text-sky-300 text-sm px-4 py-2 rounded-full mb-2">
-          Searching for: ${styleName}
-        </span>
-        <br>
-        <span class="text-gray-300">Finding real barbershops in</span> 
-        <span class="text-sky-400 font-semibold">${location}</span>
-        <span class="text-gray-300">that specialize in this style...</span>
-      </div>
-    `;
-  }
-  
-  // Search for barbers with this specific style
-  loadNearbyBarbers(location, [styleName]);
-  switchTab('barbers');
-}
-
-// --- Virtual Try-On Integration ---
-let virtualTryOnInstance = null;
-
-// Function to open virtual try-on for specific style
-async function tryOnStyle(styleName) {
-  console.log(`Opening virtual try-on for: ${styleName}`);
-  
-  // Check if user has uploaded a photo
-  const imagePreview = document.getElementById('image-preview');
-  if (!imagePreview || !imagePreview.src || imagePreview.src === '') {
-    alert('Please upload a photo first to use virtual try-on');
-    return;
-  }
-  
-  // Show modal
-  const modal = document.getElementById('virtual-tryon-modal');
-  if (modal) {
-    modal.classList.remove('hidden');
-    document.getElementById('current-tryon-style').innerHTML = `
-      <span class="text-sky-400 font-semibold">Trying on: ${styleName}</span>
-    `;
-    
-    // Copy the uploaded image to the try-on viewer
-    const tryOnPhoto = document.getElementById('virtual-tryon-photo');
-    const tryOnVideo = document.getElementById('virtual-tryon-video');
-    
-    if (tryOnPhoto && imagePreview.src) {
-      tryOnPhoto.src = imagePreview.src;
-      tryOnPhoto.style.display = 'block';
-      
-      // Hide video element
-      if (tryOnVideo) {
-        tryOnVideo.style.display = 'none';
-      }
-    }
-  }
-  
-  // Initialize virtual try-on if needed
-  if (!virtualTryOnInstance) {
-    virtualTryOnInstance = new LineUpVirtualTryOn();
-  }
-  
-  // Load the specific style
-  await virtualTryOnInstance.initialize();
-  await virtualTryOnInstance.selectHairstyle(styleName);
-}
-
-// Virtual Try-On Integration Class - HairCLIP via Replicate
-class LineUpVirtualTryOn {
-  constructor() {
-    this.isInitialized = false;
-    this.currentStyle = null;
-    this.resultImage = null;
-  }
-
-  async initialize() {
-    if (this.isInitialized) return;
-
-    try {
-      const loading = document.getElementById('tryon-loading');
-      if (loading) loading.classList.remove('hidden');
-      
-      // Simple initialization - no external dependencies needed
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      this.isInitialized = true;
-      this.setupEventListeners();
-      
-      console.log('✅ HairCLIP Virtual Try-On ready!');
-    } catch (error) {
-      console.error('❌ Virtual Try-On failed:', error);
-      alert('Virtual Try-On initialization failed: ' + error.message);
-    } finally {
-      const loading = document.getElementById('tryon-loading');
-      if (loading) loading.classList.add('hidden');
-    }
-  }
-
-  setupEventListeners() {
-    const startBtn = document.getElementById('start-tryon');
-    const stopBtn = document.getElementById('stop-tryon');
-    const screenshotBtn = document.getElementById('take-screenshot');
-    const closeBtn = document.getElementById('close-tryon-modal');
-
-    if (startBtn) startBtn.addEventListener('click', () => this.startTryOn());
-    if (stopBtn) stopBtn.addEventListener('click', () => this.stopTryOn());
-    if (screenshotBtn) screenshotBtn.addEventListener('click', () => this.takeScreenshot());
-    if (closeBtn) closeBtn.addEventListener('click', () => this.closeTryOnModal());
-  }
-
-  async startTryOn() {
-    const photoElement = document.getElementById('virtual-tryon-photo');
-    const imagePreview = document.getElementById('image-preview');
-    
-    console.log('🎬 Starting virtual try-on...');
-    
-    if (!photoElement) {
-      alert('Virtual try-on photo element not found');
-      return;
-    }
-    
-    if (!imagePreview || !imagePreview.src) {
-      alert('Please upload a photo first to use virtual try-on');
-      return;
-    }
-    
-    if (!this.currentStyle) {
-      alert('No hairstyle selected');
-      return;
-    }
-    
-    try {
-      const loading = document.getElementById('tryon-loading');
-      if (loading) {
-        loading.classList.remove('hidden');
-        loading.querySelector('p').textContent = '✨ Transforming your hairstyle...';
-      }
-      
-      console.log('Converting image to base64...');
-      const base64Data = await this.imageToBase64(imagePreview.src);
-      
-      // Validate base64 data
-      if (!base64Data || base64Data.length < 100) {
-        throw new Error('Invalid image data - image may be corrupted');
-      }
-      
-      console.log(`Sending to HairFastGAN API... (image size: ${(base64Data.length / 1024).toFixed(2)}KB)`);
-      
-      // Create abort controller for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
-      
-      try {
-        // Call backend with HairFastGAN
-        const response = await fetch(`${API_URL}/virtual-tryon`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userPhoto: base64Data,
-            styleDescription: this.currentStyle
-          }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          let errorData;
-          try {
-            errorData = await response.json();
-          } catch (e) {
-            errorData = { error: `Server error: ${response.status} ${response.statusText}` };
-          }
-          
-          // Check if it's a setup error
-          if (response.status === 503 && errorData.setup_instructions) {
-            const instructions = errorData.setup_instructions;
-            alert(`⚠️ HairFastGAN Not Set Up Yet!\n\nTo enable ACTUAL visual hair transformations:\n\n1. Modal Labs (FREE $30/month): ${instructions.modal}\n2. Hugging Face (FREE tier): ${instructions.huggingface}\n\nSee HAIRFAST_SETUP.md for detailed instructions.`);
-            throw new Error('HairFastGAN not configured');
-          }
-          
-          console.error('Server error details:', errorData);
-          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-        }
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
-          throw new Error('Request timed out after 60 seconds. The GPU might be cold-starting. Please try again.');
-        }
-        throw fetchError;
-      }
-      
-      const result = await response.json();
-      console.log('✅ HairFastGAN transformation complete:', result);
-      
-      if (result.success && result.resultImage) {
-        // Display the ACTUAL transformed hairstyle image!
-        this.resultImage = `data:image/jpeg;base64,${result.resultImage}`;
-        
-        photoElement.style.display = 'block';
-        photoElement.style.zIndex = '10';
-        photoElement.src = this.resultImage;
-        
-        console.log('✅ Hair transformation complete! Showing result.');
-        
-        // Show success message
-        setTimeout(() => {
-          alert(`✨ Hair transformation complete!\n\n💇 Style: ${this.currentStyle}\n🤖 Powered by: ${result.poweredBy || 'HairFastGAN'}\n\n📸 Tip: Take a screenshot and show your barber!`);
-        }, 500);
-      } else {
-        throw new Error(result.message || 'No result image returned');
-      }
-      
-      document.getElementById('start-tryon').classList.add('hidden');
-      document.getElementById('stop-tryon').classList.remove('hidden');
-      document.getElementById('take-screenshot').classList.remove('hidden');
-      
-    } catch (error) {
-      console.error('❌ Virtual Try-On Error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        style: this.currentStyle
-      });
-      
-      if (!error.message.includes('not configured')) {
-        let errorMessage = 'Failed to transform hairstyle.\n\n';
-        
-        if (error.message.includes('timeout') || error.message.includes('cold-starting')) {
-          errorMessage += '⏱️ The GPU is warming up (this takes ~30 seconds on first use).\nPlease try again in a moment!';
-        } else if (error.message.includes('Invalid image')) {
-          errorMessage += '📸 Image issue detected. Please try uploading a different photo.';
-        } else if (error.message.includes('HTTP 500')) {
-          errorMessage += '🔧 Server error. The Modal GPU might have crashed.\nCheck HAIRFAST_SETUP.md or try again in a minute.';
-        } else {
-          errorMessage += `Error: ${error.message}\n\nℹ️ Check browser console (F12) for details.`;
-        }
-        
-        alert(errorMessage);
-      }
-    } finally {
-      const loading = document.getElementById('tryon-loading');
-      if (loading) loading.classList.add('hidden');
-    }
-  }
-
-  stopTryOn() {
-    document.getElementById('start-tryon').classList.remove('hidden');
-    document.getElementById('stop-tryon').classList.add('hidden');
-    document.getElementById('take-screenshot').classList.add('hidden');
-    this.resultImage = null;
-  }
-
-  async selectHairstyle(styleName) {
-    this.currentStyle = styleName;
-    this.resultImage = null; // Reset result when changing style
-    console.log('Selected style:', styleName);
-  }
-  
-  async imageToBase64(src) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      
-      // Don't set crossOrigin for data URLs or same-origin images
-      if (src.startsWith('http://') || src.startsWith('https://')) {
-        img.crossOrigin = 'anonymous';
-      }
-      
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-          const dataUrl = canvas.toDataURL('image/jpeg');
-          // Extract base64 part after comma
-          const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
-          resolve(base64);
-        } catch (error) {
-          reject(new Error('Failed to convert image to base64: ' + error.message));
-        }
-      };
-      
-      img.onerror = (error) => {
-        reject(new Error('Failed to load image: ' + error));
-      };
-      
-      img.src = src;
-    });
-  }
-
-  async takeScreenshot() {
-    if (!this.resultImage) {
-      alert('No result to capture. Please apply a hairstyle first.');
-      return;
-    }
-    
-    const screenshot = this.resultImage;
-    
-    if (firebaseService) {
-      try {
-        const postData = {
-          username: 'you',
-          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
-          image: screenshot,
-          caption: `Trying on ${this.currentStyle} with LineUp AI! 🔥✨`
-        };
-        
-        await firebaseService.createSocialPost(postData);
-        alert('Screenshot saved and shared to social feed! 🎉');
-      } catch (error) {
-        console.error('Failed to save screenshot:', error);
-        alert('Failed to save screenshot. Please try again.');
-      }
-    } else {
-      const newPost = {
-        id: Date.now(),
-        username: 'you',
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
-        image: screenshot,
-        caption: `Trying on ${this.currentStyle} with LineUp AI! 🔥`,
-        likes: 0,
-        timeAgo: 'now',
-        liked: false
-      };
-      
-      socialPosts.unshift(newPost);
-      renderSocialFeed();
-      alert('Screenshot saved to social feed!');
-    }
-  }
-
-  closeTryOnModal() {
-    this.stopTryOn();
-    const modal = document.getElementById('virtual-tryon-modal');
-    if (modal) modal.classList.add('hidden');
-  }
-}
-
-// --- Firebase Data Loading Functions ---
-async function loadSocialFeed() {
-  if (!firebaseService) return;
-  
-  try {
-    const result = await firebaseService.getSocialPosts();
-    if (result.success) {
-      socialPosts = result.posts;
-      renderSocialFeed();
-      console.log('📱 Social feed loaded from Firebase');
-    }
-  } catch (error) {
-    console.error('❌ Failed to load social feed:', error);
-  }
-}
-
-async function loadBarberPortfolio() {
-  if (!firebaseService) return;
-  
-  try {
-    const result = await firebaseService.getPortfolio();
-    if (result.success) {
-      barberPortfolio = result.portfolio;
-      renderBarberPortfolio();
-      console.log('💼 Portfolio loaded from Firebase');
-    }
-  } catch (error) {
-    console.error('❌ Failed to load portfolio:', error);
-  }
-}
-
-async function loadAppointments() {
-  if (!firebaseService) return;
-  
-  try {
-    const result = await firebaseService.getAppointments();
-    if (result.success) {
-      appointments = result.appointments;
-      renderClientAppointments();
-      renderBarberAppointments();
-      console.log('📅 Appointments loaded from Firebase');
-    }
-  } catch (error) {
-    console.error('❌ Failed to load appointments:', error);
-  }
-}
-
-// Set up real-time listeners
-function setupRealtimeListeners() {
-  if (!firebaseService) return;
-  
-  // Real-time social feed updates
-  firebaseService.subscribeSocialPosts((posts) => {
-    socialPosts = posts;
-    renderSocialFeed();
-    console.log('🔄 Social feed updated in real-time');
-  });
-  
-  console.log('🔊 Real-time listeners set up');
-}
-
-// --- Subscription Package Functions ---
-function closeCreatePackageModal() {
-  const modal = document.getElementById('create-package-modal');
-  if (modal) modal.classList.add('hidden');
-  
-  // Reset form
-  document.getElementById('package-title').value = '';
-  document.getElementById('package-description').value = '';
-  document.getElementById('package-num-cuts').value = '';
-  document.getElementById('package-duration').value = '';
-  document.getElementById('package-price').value = '';
-  document.getElementById('package-discount').value = '';
-}
-
-async function handleCreatePackage() {
-  const title = document.getElementById('package-title').value.trim();
-  const description = document.getElementById('package-description').value.trim();
-  const numCuts = parseInt(document.getElementById('package-num-cuts').value);
-  const duration = parseInt(document.getElementById('package-duration').value);
-  const price = document.getElementById('package-price').value.trim();
-  const discount = document.getElementById('package-discount').value.trim();
-  
-  if (!title || !description || !numCuts || !duration || !price) {
-    alert('Please fill in all required fields');
-    return;
-  }
-  
-  const packageData = {
-    barberId: 'current-barber',
-    barberName: 'Your Barber Shop',
-    title: title,
-    description: description,
-    numCuts: numCuts,
-    durationMonths: duration,
-    price: price,
-    discount: discount
-  };
-  
-  try {
-    const response = await fetch(`${API_URL}/subscription-packages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(packageData)
-    });
-    
-    if (!response.ok) throw new Error('Failed to create package');
-    
-    const result = await response.json();
-    subscriptionPackages.push(result.package);
-    renderSubscriptionPackages();
-    closeCreatePackageModal();
-    alert('Package created successfully!');
-  } catch (error) {
-    console.error('Error creating package:', error);
-    alert('Failed to create package. Please try again.');
-  }
-}
-
-async function loadSubscriptionPackages() {
-  try {
-    const response = await fetch(`${API_URL}/subscription-packages?barber_id=current-barber`);
-    const data = await response.json();
-    if (data.packages) {
-      subscriptionPackages = data.packages;
-      renderSubscriptionPackages();
-    }
-  } catch (error) {
-    console.error('Error loading packages:', error);
-  }
-}
-
-function renderSubscriptionPackages() {
-  const container = document.getElementById('subscription-packages-list');
-  if (!container) return;
-  
-  if (subscriptionPackages.length === 0) {
-    container.innerHTML = '<p class="text-gray-500 text-sm">No packages created yet.</p>';
-    return;
-  }
-  
-  container.innerHTML = subscriptionPackages.map(pkg => `
-    <div class="bg-gray-800/60 border border-gray-700 rounded-xl p-4">
-      <div class="flex justify-between items-start mb-2">
-        <div>
-          <h4 class="font-bold text-white">${pkg.title}</h4>
-          <p class="text-sm text-gray-400">${pkg.description}</p>
-        </div>
-        <span class="text-green-400 font-bold">${pkg.price}</span>
-      </div>
-      <div class="grid grid-cols-3 gap-2 text-xs text-gray-400 mt-3">
-        <span>${pkg.numCuts} cuts</span>
-        <span>${pkg.durationMonths} months</span>
-        ${pkg.discount ? `<span class="text-green-400">${pkg.discount}</span>` : ''}
-      </div>
-    </div>
-  `).join('');
+// --- Virtual Try-On Stub ---
+function tryOnStyle(styleName) {
+  alert(`🎨 Virtual Try-On for "${styleName}"\n\nThis feature requires HairFastGAN setup.\nSee HAIRFAST_SETUP.md for instructions.`);
 }
 
 // --- Make functions globally available ---
@@ -1843,7 +1203,3 @@ window.openBookingModal = openBookingModal;
 window.confirmAppointment = confirmAppointment;
 window.findBarbersForStyle = findBarbersForStyle;
 window.tryOnStyle = tryOnStyle;
-window.loadSocialFeed = loadSocialFeed;
-window.loadBarberPortfolio = loadBarberPortfolio;
-window.loadAppointments = loadAppointments;
-window.loadSubscriptionPackages = loadSubscriptionPackages;

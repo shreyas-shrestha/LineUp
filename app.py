@@ -14,9 +14,17 @@ from datetime import datetime, timedelta
 import uuid
 import time
 
-# Set up logging
+# Set up logging FIRST
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Optional: Replicate for AI hair transformation
+try:
+    import replicate
+    logger.info("Replicate library loaded successfully")
+except ImportError:
+    replicate = None
+    logger.warning("Replicate not installed. Hair try-on will use preview mode only.")
 
 # Create Flask app FIRST - This was missing!
 app = Flask(__name__)
@@ -1046,6 +1054,9 @@ def virtual_tryon():
         
         if REPLICATE_API_TOKEN and replicate:
             logger.info("Using Replicate API for hair transformation")
+            
+            # Set the API token for replicate
+            os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
             
             try:
                 # Save uploaded image temporarily

@@ -1105,6 +1105,24 @@ def virtual_tryon():
                     input_path = tmp_input.name
                 
                 logger.info(f"Saved input to: {input_path}")
+                
+                # Download reference image to temp file (HairFastGAN needs local file, not URL!)
+                import requests as req
+                logger.info(f"Downloading reference image from: {reference_url}")
+                
+                try:
+                    ref_response = req.get(reference_url, timeout=30)
+                    ref_response.raise_for_status()
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg', mode='wb') as tmp_ref:
+                        tmp_ref.write(ref_response.content)
+                        reference_path = tmp_ref.name
+                    
+                    logger.info(f"Saved reference to: {reference_path}")
+                except Exception as download_error:
+                    logger.error(f"Failed to download reference image: {download_error}")
+                    raise Exception(f"Could not download reference image: {download_error}")
+                
                 logger.info("Connecting to HairFastGAN Space...")
                 
                 # Connect to HairFastGAN Space
@@ -1119,16 +1137,16 @@ def virtual_tryon():
                     pass
                 
                 # Call HairFastGAN /swap_hair endpoint (correct API from logs!)
-                # Based on Space API: /swap_hair requires 6 parameters
+                # Based on Space API: /swap_hair requires 6 parameters (all filepaths, not URLs!)
                 logger.info("Calling HairFastGAN /swap_hair endpoint...")
                 
                 result = client.predict(
-                    input_path,           # source_photo_to_try_on_the_hairstyle
-                    reference_url,        # shape_photo_with_desired_hairstyle_optional  
-                    reference_url,        # color_photo_with_desired_hair_color_optional
-                    "Article",            # color_encoder_version (best quality)
-                    1000,                 # poisson_iters (medium quality/speed)
-                    15,                   # poisson_erosion (moderate blending)
+                    input_path,           # face: user's photo (filepath)
+                    reference_path,       # shape: reference hairstyle (filepath, not URL!)
+                    reference_path,       # color: reference hair color (filepath, not URL!)
+                    "Article",            # blending: best quality encoder
+                    1000,                 # poisson_iters: medium quality/speed (0-2500)
+                    15,                   # poisson_erosion: moderate blending (1-100)
                     api_name="/swap_hair"
                 )
                 
@@ -1176,10 +1194,11 @@ def virtual_tryon():
                     # Clean up temp files
                     try:
                         os.unlink(input_path)
-                        if result_path != input_path:
+                        os.unlink(reference_path)
+                        if result_path and result_path != input_path and os.path.exists(result_path):
                             os.unlink(result_path)
-                    except:
-                        pass
+                    except Exception as cleanup_err:
+                        logger.warning(f"Temp file cleanup warning: {cleanup_err}")
                     
                     logger.info(f"✅ HairFastGAN success! Result: {len(result_base64)} chars")
                     
@@ -1198,9 +1217,10 @@ def virtual_tryon():
                     return response
                 else:
                     logger.warning(f"Result path not found or invalid: {result_path}")
-                    # Clean up input file
+                    # Clean up temp files
                     try:
                         os.unlink(input_path)
+                        os.unlink(reference_path)
                     except:
                         pass
                     
@@ -1212,6 +1232,8 @@ def virtual_tryon():
                 try:
                     if 'input_path' in locals():
                         os.unlink(input_path)
+                    if 'reference_path' in locals():
+                        os.unlink(reference_path)
                 except:
                     pass
                 # Continue to Replicate or fallback

@@ -1,22 +1,39 @@
-.venv/
-venv/
-env/
-ENV/
-__pycache__/
+# Ignore all Python-related files for static site deployment
+*.py
 *.pyc
 *.pyo
 *.pyd
+__pycache__/
 .Python
 *.so
 *.egg
 *.egg-info/
-dist/
-build/
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.local
+.env.*.local
+
+# Ignore Python dependency files
+requirements.txt
+Procfile
+modal-requirements.txt
+modal_hairfast.py
+
+# Ignore development files  
 .git/
+.gitignore
 .DS_Store
 *.log
-.env
 .coverage
 htmlcov/
 .pytest_cache/
 node_modules/
+dist/
+build/
+*.md
+HAIRFAST_SETUP.md
+IMPLEMENTATION_SUMMARY.md
+README.md

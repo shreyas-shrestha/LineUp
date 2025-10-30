@@ -1,10 +1,23 @@
 services:
   - type: web
-    name: lineup
+    name: lineup-backend
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+
+  - type: static
+    name: lineup-frontend
+    buildCommand: echo "No build needed for static site"
+    staticPublishPath: ./public
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=3600
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
 

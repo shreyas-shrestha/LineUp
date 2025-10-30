@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LineUp - AI Haircut Analysis & Barber Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; overscroll-behavior-y: contain; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #1a1a1a; }
+    ::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #6a6a6a; }
+    .loader { border: 3px solid #333; border-top: 3px solid #fff; border-radius: 50%; width: 36px; height: 36px; animation: spin 0.8s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .tab-active { color: #fff; font-weight: 600; }
+    .modal { backdrop-filter: blur(12px); }
+    .card-hover { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .card-hover:hover { transform: translateY(-2px); }
+    .btn-primary { background: #fff; color: #000; transition: all 0.2s; font-weight: 500; }
+    .btn-primary:hover { background: #f0f0f0; }
+    .btn-secondary { background: #1f1f1f; color: #fff; border: 1px solid #333; transition: all 0.2s; }
+    .btn-secondary:hover { background: #2a2a2a; }
+  </style>
+</head>
+<body class="bg-black text-white min-h-screen">
+  <div id="app" class="container mx-auto max-w-4xl pb-24">
+    <!-- Sticky Header -->
+    <header class="sticky top-0 z-50 bg-black p-4 md:p-6 border-b border-gray-800 backdrop-blur-sm bg-opacity-95">
+      <div class="flex items-center justify-between">
+        <!-- Logo Area - Your custom logo -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center">
+            <img src="images/logo.png" alt="LineUp Logo" class="w-full h-full object-contain">
+          </div>
+          <h1 class="text-2xl font-bold text-white">LineUp</h1>
+        </div>
+        
+        <!-- Role Switcher -->
+        <div class="bg-gray-900 rounded-full p-0.5 flex">
+          <button id="client-mode" class="role-button px-5 py-1.5 rounded-full transition-all text-sm font-medium bg-white text-black shadow-sm">Client</button>
+          <button id="barber-mode" class="role-button px-5 py-1.5 rounded-full transition-all text-sm font-medium text-gray-400 hover:text-white">Barber</button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <!-- CLIENT SIDE -->
+      <div id="client-content">
+        <!-- AI Tab (Home) -->
+        <div id="ai-tab-content" class="tab-content px-4 py-8">
+          <section id="upload-section">
+            <div class="text-center mb-6">
+              <h2 class="text-2xl font-bold mb-2 text-white">Find your perfect haircut</h2>
+              <p class="text-gray-400">Upload a photo and let AI recommend the best styles for you</p>
+            </div>
+            
+            <div id="image-upload-area" class="border-2 border-dashed border-gray-700 rounded-xl p-12 cursor-pointer hover:border-gray-500 hover:bg-gray-900 transition-all text-center">
+              <input type="file" id="file-input" class="hidden" accept="image/*">
+              <div class="flex flex-col items-center">
+                <svg class="w-12 h-12 text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <p class="font-medium text-white mb-1">Upload your photo</p>
+                <p class="text-sm text-gray-500">Best results with clear, front-facing photos</p>
+              </div>
+            </div>
+            
+            <div id="image-preview-container" class="hidden mt-6 text-center">
+              <img id="image-preview" src="" alt="Uploaded photo" class="max-w-xs mx-auto rounded-xl shadow-md border border-gray-800"/>
+              <button id="analyze-button" class="mt-6 btn-primary px-8 py-3 rounded-lg font-medium">Analyze my look</button>
+            </div>
+          </section>
+
+          <section id="status-section" class="text-center my-12 hidden">
+            <div id="loader" class="mx-auto loader hidden"></div>
+            <p id="status-message" class="mt-4 text-gray-400"></p>
+            <div id="error-container" class="mt-4 bg-red-900/20 border border-red-800 text-red-300 px-4 py-3 rounded-lg hidden max-w-md mx-auto">
+              <p id="error-message" class="text-sm"></p>
+              <button id="try-again-button" class="mt-3 btn-secondary px-6 py-2 rounded-lg font-medium text-sm">Try again</button>
+            </div>
+          </section>
+
+          <section id="results-section" class="hidden mt-8">
+            <!-- Face Analysis -->
+            <div class="mb-8 bg-gray-900 border border-gray-800 rounded-lg p-6">
+              <h2 class="text-xl font-bold mb-4 text-white">Your Analysis</h2>
+              <div id="analysis-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"></div>
+            </div>
+            
+            <!-- Recommendations -->
+            <div class="mb-6">
+              <h2 class="text-2xl font-bold mb-2 text-white">Recommended for you</h2>
+              <p class="text-gray-400 text-sm">AI-powered haircut suggestions based on your face shape and features</p>
+            </div>
+            <div id="recommendations-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+            <div class="text-center mt-8 border-t border-gray-700 pt-8">
+              <p class="text-lg mb-4">Ready for the perfect cut?</p>
+              <button id="find-barber-button" class="bg-green-500 text-white font-bold py-3 px-8 rounded-full hover:bg-green-600 transition-all">Find Real Barbershops Near You</button>
+            </div>
+            <div class="text-center mt-12">
+              <button id="start-over-button" class="bg-gray-700 text-white font-semibold py-3 px-8 rounded-full hover:bg-gray-600">Start Over</button>
+            </div>
+          </section>
+        </div>
+
+        <!-- Barbers Tab -->
+        <div id="barbers-tab-content" class="tab-content hidden px-4 py-8">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold">Find Real Barbershops</h2>
+            <button id="refresh-barbers" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors">Refresh</button>
+          </div>
+          <div id="barber-search" class="mb-6">
+            <input type="text" id="location-search" placeholder="Enter ZIP code or city (e.g., 30308 or Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+          </div>
+          <p id="barber-intro" class="text-center text-gray-400 mb-8">Enter your location to find real barbershops near you.</p>
+          <div id="barber-list-container" class="space-y-4"></div>
+        </div>
+
+        <!-- Appointments Tab (Bookings) -->
+        <div id="appointments-tab-content" class="tab-content hidden px-4 py-8">
+          <h2 class="text-3xl font-bold text-center mb-6">My Bookings</h2>
+          <div id="client-appointments-container" class="space-y-4"></div>
+          <div id="no-appointments" class="text-center py-12 text-gray-400">
+            <p>No appointments scheduled.</p>
+            <p class="text-sm mt-2">Book with a barber to get started!</p>
+          </div>
+        </div>
+
+        <!-- Profile Tab (Client) -->
+        <div id="profile-tab-content" class="tab-content hidden px-4 py-8">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-3xl font-bold">Profile</h2>
+            <span class="text-sm text-gray-400">Client</span>
+          </div>
+
+          <!-- Personal Info -->
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
+            <div class="flex items-center gap-4">
+              <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face" alt="You" class="w-16 h-16 rounded-full object-cover">
+              <div>
+                <p class="text-xl font-semibold">Current User</p>
+                <p class="text-gray-400 text-sm">Member since 2024</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- History -->
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-xl font-bold">Personal History</h3>
+              <button id="refresh-history" class="text-sky-400 text-sm hover:underline">Refresh</button>
+            </div>
+            <div id="client-profile-history" class="space-y-3">
+              <!-- Filled by JS from appointments -->
+            </div>
+          </div>
+
+          <!-- Payments -->
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
+            <h3 class="text-xl font-bold mb-3">Payment Methods</h3>
+            <div id="client-payment-methods" class="space-y-2">
+              <div class="flex items-center justify-between bg-gray-800/60 border border-gray-700 rounded-xl p-3">
+                <div class="flex items-center gap-3">
+                  <span>💳</span>
+                  <div>
+                    <p class="font-semibold">Visa •••• 4242</p>
+                    <p class="text-xs text-gray-400">Default</p>
+                  </div>
+                </div>
+                <button class="text-gray-400 text-sm hover:text-white">Remove</button>
+              </div>
+            </div>
+            <button id="add-payment" class="mt-3 w-full bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 rounded-lg">+ Add Card</button>
+          </div>
+
+          <!-- Settings -->
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5">
+            <h3 class="text-xl font-bold mb-4">Settings</h3>
+            <div class="space-y-3">
+              <label class="flex items-center justify-between">
+                <span class="text-gray-300">Notifications</span>
+                <input type="checkbox" class="w-5 h-5" checked>
+              </label>
+              <label class="flex items-center justify-between">
+                <span class="text-gray-300">Remind upcoming bookings</span>
+                <input type="checkbox" class="w-5 h-5" checked>
+              </label>
+              <label class="flex items-center justify-between">
+                <span class="text-gray-300">Dark Mode</span>
+                <input type="checkbox" class="w-5 h-5" checked disabled>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BARBER SIDE -->
+      <div id="barber-content" class="hidden">
+        <!-- Dashboard Tab (Home) -->
+        <div id="barber-dashboard-tab-content" class="tab-content px-4 py-8">
+          <h2 class="text-3xl font-bold text-center mb-6">Barber Dashboard</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-6 text-white">
+              <h3 class="text-lg font-semibold">Today's Appointments</h3>
+              <p class="text-3xl font-bold mt-2" id="today-appointments">3</p>
+            </div>
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 text-white">
+              <h3 class="text-lg font-semibold">This Week</h3>
+              <p class="text-3xl font-bold mt-2" id="week-appointments">12</p>
+            </div>
+            <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl p-6 text-white">
+              <h3 class="text-lg font-semibold">Portfolio Photos</h3>
+              <p class="text-3xl font-bold mt-2" id="portfolio-count">8</p>
+            </div>
+          </div>
+
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6">
+            <h3 class="text-xl font-bold mb-4">Quick Actions</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button id="add-portfolio-btn" class="bg-sky-500 text-white py-3 px-6 rounded-lg hover:bg-sky-600 transition-colors">Add Portfolio Photo</button>
+              <button id="view-schedule-btn" class="bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 transition-colors">View Schedule</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Portfolio Tab -->
+        <div id="barber-portfolio-tab-content" class="tab-content hidden px-4 py-8">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold">My Portfolio</h2>
+            <button id="upload-work-button" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors">+ Upload Work</button>
+          </div>
+          <div id="barber-portfolio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+
+        <!-- Schedule Tab (Clients / Bookings) -->
+        <div id="barber-schedule-tab-content" class="tab-content hidden px-4 py-8">
+          <h2 class="text-3xl font-bold text-center mb-6">Clients & Bookings</h2>
+          <div id="barber-appointments-container" class="space-y-4"></div>
+        </div>
+
+        <!-- Barber Profile / Shop Settings -->
+        <div id="barber-profile-tab-content" class="tab-content hidden px-4 py-8">
+          <h2 class="text-2xl font-bold mb-6 text-white">Shop settings</h2>
+          
+          <!-- Business Info -->
+          <div class="bg-gray-900 border border-gray-800 rounded-lg p-5 mb-4">
+            <h3 class="text-lg font-semibold mb-3 text-white">Business information</h3>
+            <div class="space-y-3">
+              <input placeholder="Shop name" class="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-white text-white" value="Your Barber Shop">
+              <input placeholder="Phone number" class="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-white text-white" value="(555) 123-4567">
+              <input placeholder="Address" class="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-white text-white" value="123 Main St, Atlanta, GA">
+            </div>
+          </div>
+          
+          <!-- Payments -->
+          <div class="bg-gray-900 border border-gray-800 rounded-lg p-5 mb-4">
+            <h3 class="text-lg font-semibold mb-2 text-white">Payment processing</h3>
+            <p class="text-gray-400 text-sm mb-3">Connect Stripe to accept online payments</p>
+            <button class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Connect Stripe</button>
+          </div>
+          
+          <!-- Subscription Packages -->
+          <div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <div class="flex justify-between items-center mb-3">
+              <div>
+                <h3 class="text-lg font-semibold text-white">Subscription packages</h3>
+                <p class="text-gray-400 text-sm mt-0.5">Offer monthly deals to boost customer retention</p>
+              </div>
+              <button id="create-package-btn" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Create</button>
+            </div>
+            <div id="subscription-packages-list" class="space-y-3 mt-4">
+              <!-- Packages will be loaded here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Shared Community Tab Content -->
+    <div id="community-tab-content" class="tab-content hidden px-4 py-8">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold">Community</h2>
+        <button id="add-post-button" class="bg-sky-500 text-white px-4 py-2 rounded-full hover:bg-sky-600 transition-colors">+ Post</button>
+      </div>
+      <div id="social-feed-container" class="space-y-6"></div>
+    </div>
+
+    <!-- Dynamic Bottom Tab Nav (Rendered by JS) -->
+    <nav id="bottom-nav" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-gray-900 border border-gray-800 rounded-full shadow-lg">
+      <!-- Buttons will be injected by scripts-updated.js -->
+    </nav>
+  </div>
+
+  <!-- Modals -->
+  
+  <!-- Add Post Modal -->
+  <div id="add-post-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+      <h3 class="text-2xl font-bold mb-4">Share Your Look</h3>
+      <input type="file" id="post-image-input" accept="image/*" class="hidden">
+      <div id="post-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
+        <p class="text-gray-400">Click to add photo</p>
+      </div>
+      <img id="post-image-preview" class="hidden w-full h-48 object-cover rounded-lg mb-4">
+      <textarea id="post-caption" placeholder="Tell us about your new look..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-24 focus:border-sky-400 focus:outline-none"></textarea>
+      <div class="flex gap-3 mt-4">
+        <button id="cancel-post" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
+        <button id="submit-post" class="flex-1 bg-sky-500 text-white py-2 rounded-lg hover:bg-sky-600 transition-colors">Post</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Work Modal -->
+  <div id="upload-work-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+      <h3 class="text-2xl font-bold mb-4">Upload Client Work</h3>
+      <input type="file" id="work-image-input" accept="image/*" class="hidden">
+      <div id="work-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
+        <p class="text-gray-400">Click to add photo</p>
+      </div>
+      <img id="work-image-preview" class="hidden w-full h-48 object-cover rounded-lg mb-4">
+      <input type="text" id="work-style-name" placeholder="Style name (e.g., Modern Fade)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 mb-3 focus:border-sky-400 focus:outline-none">
+      <textarea id="work-description" placeholder="Describe the cut and technique..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-24 focus:border-sky-400 focus:outline-none"></textarea>
+      <div class="flex gap-3 mt-4">
+        <button id="cancel-work" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
+        <button id="submit-work" class="flex-1 bg-sky-500 text-white py-2 rounded-lg hover:bg-sky-600 transition-colors">Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Book Appointment Modal -->
+  <div id="book-appointment-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+      <h3 class="text-2xl font-bold mb-4">Book Appointment</h3>
+      <div id="booking-barber-info" class="mb-4"></div>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <input type="date" id="appointment-date" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:border-sky-400 focus:outline-none">
+        <select id="appointment-time" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:border-sky-400 focus:outline-none">
+          <option value="">Select time</option>
+          <option value="09:00">9:00 AM</option>
+          <option value="10:00">10:00 AM</option>
+          <option value="11:00">11:00 AM</option>
+          <option value="14:00">2:00 PM</option>
+          <option value="15:00">3:00 PM</option>
+          <option value="16:00">4:00 PM</option>
+        </select>
+      </div>
+      <select id="appointment-service" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white mb-4 focus:border-sky-400 focus:outline-none">
+        <option value="">Select service</option>
+        <option value="haircut">Haircut ($45)</option>
+        <option value="haircut-beard">Haircut + Beard ($65)</option>
+        <option value="beard-only">Beard Trim ($25)</option>
+      </select>
+      <textarea id="appointment-notes" placeholder="Special requests or notes..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 focus:border-sky-400 focus:outline-none"></textarea>
+      <div class="flex gap-3 mt-4">
+        <button id="cancel-booking" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
+        <button id="confirm-booking" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors">Book Now</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Subscription Package Modal -->
+  <div id="create-package-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+      <h3 class="text-2xl font-bold mb-4">Create Subscription Package</h3>
+      <input type="text" id="package-title" placeholder="Package Title (e.g., Monthly Haircuts)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 mb-3 focus:border-sky-400 focus:outline-none">
+      <textarea id="package-description" placeholder="Description (e.g., 2 haircuts per month at discounted rate)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 mb-3 focus:border-sky-400 focus:outline-none"></textarea>
+      <div class="grid grid-cols-2 gap-4 mb-3">
+        <input type="number" id="package-num-cuts" placeholder="Number of cuts" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+        <input type="number" id="package-duration" placeholder="Duration (months)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+      </div>
+      <div class="grid grid-cols-2 gap-4 mb-3">
+        <input type="text" id="package-price" placeholder="Price (e.g., $80)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+        <input type="text" id="package-discount" placeholder="Discount (e.g., 25% off)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button id="cancel-package" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
+        <button id="submit-package" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors">Create Package</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Virtual Try-On Modal -->
+  <div id="virtual-tryon-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-2xl font-bold">Virtual Try-On</h3>
+        <button id="close-tryon-modal" class="text-gray-400 hover:text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Virtual Try-On Interface -->
+      <div class="virtual-tryon-container mx-auto mb-6" style="width: 640px; height: 480px; position: relative; border-radius: 1rem; overflow: hidden; background: #1a1a1a;">
+        <video id="virtual-tryon-video" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;" autoplay muted playsinline></video>
+        <img id="virtual-tryon-photo" alt="Try-on photo" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none;" />
+        <div id="virtual-tryon-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: auto;"></div>
+        
+        <!-- Loading overlay -->
+        <div id="tryon-loading" class="absolute inset-0 bg-black/80 flex items-center justify-center hidden">
+          <div class="text-center">
+            <div class="loader mx-auto mb-4"></div>
+            <p class="text-white">Initializing Virtual Try-On...</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Controls -->
+      <div class="flex justify-center gap-4 mb-6">
+        <button id="start-tryon" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
+          Start Try-On
+        </button>
+        <button id="stop-tryon" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition-colors hidden">
+          Stop Try-On
+        </button>
+        <button id="take-screenshot" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors hidden">
+          📸 Take Screenshot & Share
+        </button>
+      </div>
+      
+      <!-- Style info -->
+      <div id="current-tryon-style" class="text-center text-gray-400 mb-4"></div>
+    </div>
+  </div>
+
+  <!-- MediaPipe Face Detection for Virtual Try-On -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4/face_detection.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js" crossorigin="anonymous"></script>
+  
+  <!-- Firebase Integration -->
+  <script type="module" src="firebase-simple.js"></script>
+  
+  <!-- Main App Script -->
+  <script src="scripts-updated.js"></script>
+</body>
+</html>

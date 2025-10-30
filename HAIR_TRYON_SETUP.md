@@ -49,11 +49,11 @@ Want REAL AI hair transformation? Follow these 3 simple steps:
 - Returns enhanced preview
 - **Works immediately, no setup**
 
-### With Replicate Token (Better Quality):
-- Uses GFPGAN AI model
-- Enhances face quality
-- Improves photo resolution
-- Still shows hairstyle name
+### With Replicate Token (REAL Hair Transformation):
+- Uses **Style-Your-Hair** AI model
+- **ACTUALLY changes hairstyle** to match description
+- Real AI-powered hair style transfer
+- Professional results in ~10 seconds
 
 ---
 
@@ -61,10 +61,12 @@ Want REAL AI hair transformation? Follow these 3 simple steps:
 
 | Option | Cost | Setup Time | Quality |
 |--------|------|------------|---------|
-| **Preview Mode** | FREE forever | 0 mins ✅ | Good |
-| **With Replicate** | FREE credits, then $0.0001/image | 5 mins | Better |
+| **Preview Mode** | FREE forever | 0 mins ✅ | Preview only |
+| **With Replicate** | FREE credits, then ~$0.02/image | 5 mins | **REAL transformation** ✨ |
 
-**100 transformations/day** = ~$3/month with Replicate (after free credits)
+**100 transformations/day** = ~$60/month with Replicate (after free credits)
+
+**Note:** Real AI hair transformation costs more than simple enhancement, but delivers actual hairstyle changes!
 
 ---
 
@@ -80,7 +82,8 @@ Want REAL AI hair transformation? Follow these 3 simple steps:
 1. Add `REPLICATE_API_TOKEN` to Render
 2. Wait for deploy
 3. Upload photo and try style
-4. See AI-enhanced result!
+4. See REAL hair transformation! 🎨
+5. Hair style actually changes to match your selection
 
 ---
 

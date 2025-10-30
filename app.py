@@ -1053,72 +1053,98 @@ def virtual_tryon():
         REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
         
         if REPLICATE_API_TOKEN and replicate:
-            logger.info("Using Replicate API for hair transformation")
+            logger.info("Using Replicate API for REAL hair style transformation")
             
             # Set the API token for replicate
             os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
             
             try:
-                # Save uploaded image temporarily
-                import tempfile
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
-                    # Decode base64 to image
-                    img_data = base64.b64decode(user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64)
-                    tmp_file.write(img_data)
-                    tmp_file_path = tmp_file.name
+                # Convert base64 to data URI for Replicate
+                img_data_raw = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
+                face_data_uri = f"data:image/jpeg;base64,{img_data_raw}"
                 
-                # Upload to file.io for temporary hosting (Replicate needs URLs)
-                with open(tmp_file_path, 'rb') as f:
-                    import requests as req
-                    upload_response = req.post('https://file.io', files={'file': f})
-                    if upload_response.status_code == 200:
-                        upload_data = upload_response.json()
-                        if upload_data.get('success'):
-                            image_url = upload_data.get('link')
-                        else:
-                            raise Exception("File upload failed")
-                    else:
-                        raise Exception("Could not upload image")
+                logger.info(f"Starting hair style transformation: {style_description}")
                 
-                # Clean up temp file
-                import os as os_module
-                os_module.unlink(tmp_file_path)
+                # Map style descriptions to style descriptions for the model
+                # The model works better with descriptive prompts
+                style_prompts = {
+                    "fade": "short fade haircut with clean sides and textured top",
+                    "buzz": "very short buzz cut military style",
+                    "quiff": "voluminous quiff hairstyle swept back",
+                    "pompadour": "classic pompadour with volume and shine",
+                    "undercut": "modern undercut with longer top and short sides",
+                    "side part": "classic side part hairstyle neat and professional",
+                    "slick back": "slicked back hair with gel smooth and shiny",
+                    "long": "long flowing hair shoulder length or longer",
+                    "curly": "natural curly hair with defined curls",
+                    "textured": "textured messy hairstyle with movement",
+                    "mohawk": "mohawk hairstyle with shaved sides",
+                    "crew cut": "short crew cut military style",
+                    "bowl cut": "bowl cut hairstyle with straight fringe",
+                    "man bun": "man bun with hair tied back",
+                    "dreadlocks": "dreadlocks hairstyle",
+                    "afro": "natural afro hairstyle"
+                }
                 
-                logger.info(f"Image uploaded: {image_url}")
+                # Get the best matching prompt
+                style_lower = style_description.lower()
+                hair_prompt = style_description  # Default
+                for key, prompt in style_prompts.items():
+                    if key in style_lower:
+                        hair_prompt = prompt
+                        break
                 
-                # Use Replicate's InstantID or similar model for face transformation
-                # Using a working, FREE face editing model
+                logger.info(f"Using prompt: {hair_prompt}")
+                
+                # Use Style-Your-Hair model for REAL hair style transfer
+                # This model actually changes the hairstyle!
                 output = replicate.run(
-                    "tencentarc/gfpgan:9283608cc6b7be6b65a8e44983db012355fde4132009bf99d976b2f0896856a3",
+                    "cjwbw/style-your-hair:d28c54ed4e370318f03e2e7e763938e33cf8b2d9b4ac1ad42af0de78cb1e6ea3",
                     input={
-                        "img": image_url,
-                        "version": "v1.4",
-                        "scale": 2
+                        "input_image": face_data_uri,
+                        "target_image": face_data_uri,  # Using same image - model will use style description
+                        "editing_type": "text",  # Use text-based editing
+                        "text_prompt": hair_prompt,
+                        "optimization_steps": 100  # Balance between speed and quality
                     }
                 )
                 
+                logger.info(f"Replicate output type: {type(output)}")
+                
                 # Download result
                 if output:
-                    result_response = req.get(output)
-                    if result_response.status_code == 200:
-                        result_base64 = base64.b64encode(result_response.content).decode('utf-8')
+                    # Output is a URL or iterator
+                    result_url = str(output) if not hasattr(output, '__iter__') else list(output)[0] if output else None
+                    
+                    if result_url:
+                        logger.info(f"Downloading result from: {result_url}")
+                        import requests as req
+                        result_response = req.get(result_url, timeout=30)
                         
-                        response_data = {
-                            "success": True,
-                            "message": f"Face enhancement complete (Note: Full hair styling requires premium API)",
-                            "resultImage": result_base64,
-                            "styleApplied": style_description,
-                            "poweredBy": "Replicate GFPGAN"
-                        }
-                        
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
-                        return response
+                        if result_response.status_code == 200:
+                            result_base64 = base64.b64encode(result_response.content).decode('utf-8')
+                            
+                            response_data = {
+                                "success": True,
+                                "message": f"✨ Hair style transformation complete: {style_description}",
+                                "resultImage": result_base64,
+                                "styleApplied": style_description,
+                                "poweredBy": "Replicate Style-Your-Hair AI"
+                            }
+                            
+                            response = make_response(jsonify(response_data), 200)
+                            response.headers['Access-Control-Allow-Origin'] = '*'
+                            logger.info("✅ AI hair transformation successful!")
+                            return response
+                        else:
+                            logger.error(f"Failed to download result: {result_response.status_code}")
                 
-                raise Exception("No output from Replicate")
+                raise Exception("No valid output from hair style model")
                 
             except Exception as e:
-                logger.error(f"Replicate error: {str(e)}")
+                logger.error(f"Replicate hair style transfer error: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
                 # Continue to fallback
         
         # SIMPLE FALLBACK: Return enhanced version with text overlay

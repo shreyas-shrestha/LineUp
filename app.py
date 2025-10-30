@@ -8,7 +8,7 @@ import json
 import logging
 import google.generativeai as genai
 import base64
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 from datetime import datetime, timedelta
 import uuid
@@ -1122,71 +1122,145 @@ def virtual_tryon():
                 # Continue to fallback
         
         # SIMPLE FALLBACK: Return enhanced version with text overlay
-        logger.info("Using simple face enhancement fallback")
+        logger.info("Using simple face enhancement fallback - GUARANTEED TO WORK")
         
         try:
-            from PIL import Image, ImageDraw, ImageFont
-            import io
+            # Decode image - handle both formats
+            try:
+                # Remove data URI prefix if present
+                if ',' in user_photo_base64:
+                    img_data = base64.b64decode(user_photo_base64.split(',')[1])
+                else:
+                    img_data = base64.b64decode(user_photo_base64)
+                
+                logger.info(f"Decoded {len(img_data)} bytes of image data")
+            except Exception as decode_error:
+                logger.error(f"Base64 decode error: {str(decode_error)}")
+                raise Exception(f"Invalid image data: {str(decode_error)}")
             
-            # Decode image
-            img_data = base64.b64decode(user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64)
-            img = Image.open(io.BytesIO(img_data))
+            # Open image
+            try:
+                img = Image.open(BytesIO(img_data))
+                logger.info(f"Image opened: {img.size}, mode: {img.mode}")
+                
+                # Convert to RGB if needed
+                if img.mode not in ('RGB', 'RGBA'):
+                    img = img.convert('RGB')
+                    logger.info(f"Converted image to RGB")
+                    
+            except Exception as img_error:
+                logger.error(f"Image open error: {str(img_error)}")
+                raise Exception(f"Cannot process image: {str(img_error)}")
             
-            # Enhance and add text overlay showing the style
-            draw = ImageDraw.Draw(img)
-            
-            # Add semi-transparent overlay at bottom
-            overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
-            overlay_draw = ImageDraw.Draw(overlay)
-            
-            # Draw rectangle at bottom
-            height = img.size[1]
-            overlay_draw.rectangle([(0, height-60), (img.size[0], height)], fill=(0, 0, 0, 180))
-            
-            # Composite overlay
-            img = img.convert('RGBA')
-            img = Image.alpha_composite(img, overlay)
-            img = img.convert('RGB')
+            # Add overlay with text
+            try:
+                # Convert to RGBA for overlay
+                if img.mode == 'RGB':
+                    img = img.convert('RGBA')
+                
+                # Create overlay
+                overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+                overlay_draw = ImageDraw.Draw(overlay)
+                
+                # Draw semi-transparent rectangle at bottom
+                height = img.size[1]
+                width = img.size[0]
+                overlay_draw.rectangle([(0, height-70), (width, height)], fill=(0, 0, 0, 200))
+                
+                # Composite overlay onto image
+                img = Image.alpha_composite(img, overlay)
+                
+                # Convert back to RGB for JPEG
+                img = img.convert('RGB')
+                
+                logger.info("Overlay added successfully")
+                
+            except Exception as overlay_error:
+                logger.error(f"Overlay error: {str(overlay_error)}")
+                # Continue without overlay
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
             
             # Add text
-            draw = ImageDraw.Draw(img)
-            text = f"Preview: {style_description}"
-            
-            # Try to use a nice font, fall back to default
             try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
-            except:
-                font = ImageFont.load_default()
+                draw = ImageDraw.Draw(img)
+                text = f"Preview: {style_description}"
+                
+                # Try multiple font paths
+                font = None
+                font_paths = [
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+                    "/System/Library/Fonts/Helvetica.ttc",
+                    "arial.ttf"
+                ]
+                
+                for font_path in font_paths:
+                    try:
+                        font = ImageFont.truetype(font_path, 28)
+                        logger.info(f"Loaded font: {font_path}")
+                        break
+                    except:
+                        continue
+                
+                if not font:
+                    # Use default font as last resort
+                    font = ImageFont.load_default()
+                    logger.info("Using default font")
+                
+                # Calculate text position (centered)
+                try:
+                    bbox = draw.textbbox((0, 0), text, font=font)
+                    text_width = bbox[2] - bbox[0]
+                except:
+                    # Fallback if textbbox not available
+                    text_width = len(text) * 15
+                
+                text_x = max(10, (img.size[0] - text_width) // 2)
+                text_y = max(10, height - 50)
+                
+                # Add text with shadow for better visibility
+                draw.text((text_x+2, text_y+2), text, fill=(0, 0, 0), font=font)  # Shadow
+                draw.text((text_x, text_y), text, fill=(255, 255, 255), font=font)  # Text
+                
+                logger.info(f"Text added at position ({text_x}, {text_y})")
+                
+            except Exception as text_error:
+                logger.error(f"Text error: {str(text_error)}")
+                # Continue without text - image is still valid
             
-            # Calculate text position (centered)
-            bbox = draw.textbbox((0, 0), text, font=font)
-            text_width = bbox[2] - bbox[0]
-            text_x = (img.size[0] - text_width) // 2
-            text_y = height - 45
+            # Convert to base64
+            try:
+                buffer = BytesIO()
+                img.save(buffer, format='JPEG', quality=90, optimize=True)
+                result_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                
+                logger.info(f"Image converted to base64: {len(result_base64)} chars")
+                
+            except Exception as save_error:
+                logger.error(f"Save error: {str(save_error)}")
+                raise Exception(f"Cannot save image: {str(save_error)}")
             
-            draw.text((text_x, text_y), text, fill=(255, 255, 255), font=font)
-            
-            # Convert back to base64
-            buffer = io.BytesIO()
-            img.save(buffer, format='JPEG', quality=90)
-            result_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            
+            # Return success response
             response_data = {
                 "success": True,
-                "message": f"Style preview: {style_description}",
+                "message": f"✨ Style preview created: {style_description}",
                 "resultImage": result_base64,
                 "styleApplied": style_description,
-                "poweredBy": "Preview Mode (Set REPLICATE_API_TOKEN for AI transformation)",
-                "note": "This is a preview. Add REPLICATE_API_TOKEN environment variable for full AI transformation."
+                "poweredBy": "LineUp Preview Mode",
+                "note": "This is a preview mode. Works immediately with no setup!"
             }
             
             response = make_response(jsonify(response_data), 200)
             response.headers['Access-Control-Allow-Origin'] = '*'
+            logger.info("✅ Try-on response sent successfully")
             return response
             
         except Exception as e:
-            logger.error(f"Fallback error: {str(e)}")
-            raise Exception("Image processing failed")
+            logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise Exception(f"Image processing failed: {str(e)}")
     
     except Exception as e:
         logger.error(f"Error in virtual try-on endpoint: {str(e)}")

@@ -82,18 +82,18 @@ This guide shows you how to enable **FREE AI hair transformations** using Huggin
 ## 🔧 How It Works:
 
 ### Technology:
-- **Model:** Latent Consistency Models (LCM) + SDXL
-- **Method:** Fast diffusion-based image generation
-- **Provider:** Hugging Face Inference API
-- **License:** Open-source (free to use)
+- **Model:** SDXL-Turbo (Stable Diffusion XL Turbo)
+- **Method:** Ultra-fast image-to-image transformation
+- **Provider:** Hugging Face Inference API (FREE)
+- **License:** Open-source (free to use forever)
 
 ### Process:
 ```
-1. Your photo → Hugging Face API
-2. AI analyzes face and current hair
+1. Your photo → Hugging Face API (multipart upload)
+2. AI performs img2img transformation with style prompt
 3. Generates new image with desired hairstyle
-4. Fast inference (4 steps vs 50 in normal diffusion)
-5. Returns transformed image
+4. Ultra-fast inference (1-2 steps only!)
+5. Returns transformed image in seconds
 ```
 
 ### Priority System:

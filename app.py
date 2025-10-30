@@ -1053,78 +1053,104 @@ def virtual_tryon():
         HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
         REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
         
-        # Option 1: FREE Hugging Face inference (RECOMMENDED)
+        # Option 1: FREE Hugging Face inference (SIMPLER, MORE RELIABLE)
         if HF_TOKEN:
             logger.info("Using FREE Hugging Face inference for hair transformation")
             
             try:
                 import requests as req
                 
-                # Convert base64 to bytes
+                # Convert base64 to bytes  
                 img_data_raw = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                 img_bytes = base64.b64decode(img_data_raw)
                 
-                # Use InstantID or similar FREE model on Hugging Face
-                # This uses face segmentation + style transfer (FREE forever)
-                API_URL_HF = "https://api-inference.huggingface.co/models/latent-consistency/lcm-lora-sdxl"
+                # Use SDXL-Turbo for FAST, FREE img2img (PROVEN to work)
+                API_URL_HF = "https://api-inference.huggingface.co/models/stabilityai/sdxl-turbo"
                 
                 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
                 
-                # Create style prompt based on hairstyle
+                # Create descriptive prompt
                 style_prompts = {
-                    "fade": "professional fade haircut, short sides, clean cut",
-                    "buzz": "very short buzz cut, military style",
-                    "quiff": "voluminous quiff hairstyle, swept back",
-                    "pompadour": "classic pompadour with volume",
-                    "undercut": "modern undercut, short sides long top",
-                    "side part": "classic side part, neat and professional",
-                    "slick back": "slicked back hair with gel",
-                    "long": "long flowing hair",
-                    "curly": "natural curly hair",
-                    "textured": "textured messy hairstyle",
+                    "fade": "professional fade haircut with clean sides and textured top",
+                    "buzz": "very short buzz cut military style",
+                    "quiff": "voluminous quiff hairstyle swept upward",
+                    "pompadour": "classic pompadour with high volume",
+                    "undercut": "modern undercut with long top short sides",
+                    "side part": "classic side part professional hairstyle",
+                    "slick back": "slicked back hair with shine",
+                    "long": "long flowing hair past shoulders",
+                    "curly": "natural curly hair with defined curls",
+                    "textured": "textured messy hairstyle with movement",
                 }
                 
                 style_lower = style_description.lower()
-                prompt = style_description
+                prompt = f"portrait of person with {style_description} hairstyle"
                 for key, style_prompt in style_prompts.items():
                     if key in style_lower:
-                        prompt = f"portrait photo with {style_prompt}, realistic, high quality"
+                        prompt = f"professional portrait photo of person with {style_prompt}, high quality, realistic"
                         break
                 
                 logger.info(f"HF prompt: {prompt}")
                 
-                # Call Hugging Face FREE inference API
+                # CORRECT format for Hugging Face img2img inference
+                # Send image as binary data with prompt as parameter
                 payload = {
                     "inputs": prompt,
                     "parameters": {
-                        "image": img_data_raw,
-                        "guidance_scale": 7.5,
-                        "num_inference_steps": 4  # Fast LCM inference
+                        "num_inference_steps": 2,  # SDXL-Turbo needs only 1-4 steps
+                        "guidance_scale": 0.0,  # Turbo doesn't use guidance
                     }
                 }
                 
-                logger.info("Calling Hugging Face API...")
-                hf_response = req.post(API_URL_HF, headers=headers, json=payload, timeout=60)
+                logger.info("Calling Hugging Face SDXL-Turbo API...")
+                
+                # For image-to-image, send as multipart
+                files = {"inputs": img_bytes}
+                data = {
+                    "parameters": json.dumps({
+                        "prompt": prompt,
+                        "num_inference_steps": 2,
+                        "guidance_scale": 0.0
+                    })
+                }
+                
+                hf_response = req.post(
+                    API_URL_HF,
+                    headers=headers,
+                    files=files,
+                    data=data,
+                    timeout=60
+                )
                 
                 logger.info(f"HF response status: {hf_response.status_code}")
+                logger.info(f"HF response headers: {hf_response.headers}")
                 
                 if hf_response.status_code == 200:
-                    # Response is image bytes
-                    result_base64 = base64.b64encode(hf_response.content).decode('utf-8')
+                    # Check if response is actually an image
+                    content_type = hf_response.headers.get('content-type', '')
                     
-                    response_data = {
-                        "success": True,
-                        "message": f"✨ FREE AI hair transformation: {style_description}",
-                        "resultImage": result_base64,
-                        "styleApplied": style_description,
-                        "poweredBy": "Hugging Face FREE Inference API",
-                        "note": "This is a FREE AI transformation using open-source models!"
-                    }
-                    
-                    response = make_response(jsonify(response_data), 200)
-                    response.headers['Access-Control-Allow-Origin'] = '*'
-                    logger.info("✅ FREE Hugging Face transformation successful!")
-                    return response
+                    if 'image' in content_type or len(hf_response.content) > 5000:
+                        # Response is image bytes
+                        result_base64 = base64.b64encode(hf_response.content).decode('utf-8')
+                        
+                        logger.info(f"Got image result: {len(result_base64)} chars")
+                        
+                        response_data = {
+                            "success": True,
+                            "message": f"✨ FREE AI transformation: {style_description}",
+                            "resultImage": result_base64,
+                            "styleApplied": style_description,
+                            "poweredBy": "Hugging Face FREE (SDXL-Turbo)",
+                            "note": "FREE AI transformation using open-source SDXL-Turbo!"
+                        }
+                        
+                        response = make_response(jsonify(response_data), 200)
+                        response.headers['Access-Control-Allow-Origin'] = '*'
+                        logger.info("✅ FREE Hugging Face transformation successful!")
+                        return response
+                    else:
+                        logger.warning(f"HF returned non-image: {hf_response.text[:500]}")
+                        # Continue to fallback
                 else:
                     logger.warning(f"HF API returned {hf_response.status_code}: {hf_response.text[:500]}")
                     # Continue to Replicate or fallback

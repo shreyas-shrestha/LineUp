@@ -686,10 +686,19 @@ function renderBarberList(barbers, isRealData = false) {
             ).join('')}
           </div>
           
+          <div class="flex gap-3">
           <button onclick="openBookingModal('${barber.id}', '${barber.name.replace(/'/g, "\\'")}')" 
-                  class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                    class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium">
             Book Appointment
           </button>
+            <button onclick="showBarberReviews('${barber.id}')" 
+                    class="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors font-medium flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+              </svg>
+              Reviews
+          </button>
+          </div>
         </div>
       </div>
     `;
@@ -773,25 +782,55 @@ function renderSocialFeed() {
   socialPosts.forEach(post => {
     const postElement = document.createElement('div');
     postElement.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden';
+    
+    // Extract hashtags from caption
+    const caption = post.caption || '';
+    const hashtags = post.hashtags || [];
+    
     postElement.innerHTML = `
-      <div class="p-4 flex items-center gap-3">
+      <div class="p-4 flex items-center gap-3 justify-between">
+        <div class="flex items-center gap-3">
         <img src="${post.avatar}" alt="${post.username}" class="w-10 h-10 rounded-full object-cover">
         <div>
           <p class="font-semibold text-white">${post.username}</p>
           <p class="text-xs text-gray-400">${post.timeAgo}</p>
         </div>
+        </div>
+        <button onclick="toggleFollow('${post.username}')" class="text-sky-400 hover:text-sky-300 text-sm font-medium">
+          Follow
+        </button>
       </div>
       <img src="${post.image}" alt="Post image" class="w-full h-80 object-cover">
       <div class="p-4">
-        <div class="flex items-center gap-4 mb-2">
+        <div class="flex items-center gap-4 mb-3">
           <button onclick="toggleLike(${post.id})" class="flex items-center gap-2 transition-colors ${post.liked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}">
             <svg class="w-6 h-6 ${post.liked ? 'fill-current' : ''}" fill="${post.liked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
             </svg>
-            <span class="text-sm font-semibold">${post.likes}</span>
+            <span class="text-sm font-semibold">${post.likes || 0}</span>
+          </button>
+          <button onclick="toggleComments(${post.id})" class="flex items-center gap-2 text-gray-400 hover:text-gray-200">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+            </svg>
+            <span class="text-sm">${post.comments || 0}</span>
+          </button>
+          <button onclick="sharePost(${post.id})" class="flex items-center gap-2 text-gray-400 hover:text-gray-200">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+            </svg>
+            <span class="text-sm">${post.shares || 0}</span>
           </button>
         </div>
-        <p class="text-gray-300">${post.caption}</p>
+        <p class="text-gray-300 mb-2">${caption}</p>
+        <div class="flex flex-wrap gap-1 mb-3">
+          ${hashtags.map(tag => `<span class="text-sky-400 text-sm hover:underline cursor-pointer">#${tag}</span>`).join('')}
+        </div>
+        <div id="comments-${post.id}" class="hidden space-y-2 mb-3 max-h-48 overflow-y-auto border-t border-gray-700 pt-3"></div>
+        <div class="flex gap-2">
+          <input type="text" id="comment-input-${post.id}" placeholder="Add a comment..." class="flex-1 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+          <button onclick="submitComment(${post.id})" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 text-sm font-medium">Post</button>
+        </div>
       </div>
     `;
     socialFeedContainer.appendChild(postElement);
@@ -1441,6 +1480,282 @@ async function deletePackage(packageId) {
   alert('✅ Package deleted successfully!');
 }
 
+// ============================================================
+// NEW FEATURES: Comments, Shares, Follows, AI Insights
+// ============================================================
+
+let postCommentsState = {}; // Track which post comments are visible
+
+async function toggleComments(postId) {
+  const commentsDiv = document.getElementById(`comments-${postId}`);
+  if (!commentsDiv) return;
+  
+  const isHidden = commentsDiv.classList.contains('hidden');
+  
+  if (isHidden) {
+    // Load and show comments
+    try {
+      const response = await fetch(`${API_URL}/social/${postId}/comments`);
+      const data = await response.json();
+      
+      commentsDiv.innerHTML = '';
+      if (data.comments && data.comments.length > 0) {
+        data.comments.forEach(comment => {
+          const commentDiv = document.createElement('div');
+          commentDiv.className = 'flex gap-2';
+          commentDiv.innerHTML = `
+            <span class="font-semibold text-white text-sm">${comment.username}</span>
+            <span class="text-gray-300 text-sm">${comment.text}</span>
+          `;
+          commentsDiv.appendChild(commentDiv);
+        });
+      } else {
+        commentsDiv.innerHTML = '<p class="text-gray-500 text-sm">No comments yet</p>';
+      }
+      commentsDiv.classList.remove('hidden');
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      alert('Failed to load comments');
+    }
+  } else {
+    commentsDiv.classList.add('hidden');
+  }
+}
+
+async function submitComment(postId) {
+  const input = document.getElementById(`comment-input-${postId}`);
+  const text = input.value.trim();
+  
+  if (!text) {
+    alert('Please enter a comment');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/social/${postId}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        username: 'you',
+        text: text
+      })
+    });
+    
+    if (response.ok) {
+      input.value = '';
+      toggleComments(postId); // Reload comments
+    } else {
+      alert('Failed to post comment');
+    }
+  } catch (error) {
+    console.error('Error posting comment:', error);
+    alert('Failed to post comment');
+  }
+}
+
+async function sharePost(postId) {
+  try {
+    const response = await fetch(`${API_URL}/social/${postId}/share`, {
+      method: 'POST'
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const post = socialPosts.find(p => p.id == postId);
+      if (post) {
+        post.shares = data.shares;
+      }
+      renderSocialFeed();
+      alert('Post shared! 📤');
+    } else {
+      alert('Failed to share post');
+    }
+  } catch (error) {
+    console.error('Error sharing post:', error);
+    alert('Failed to share post');
+  }
+}
+
+async function toggleFollow(username) {
+  const isFollowing = (user_follows?.current_user || []).includes(username);
+  
+  const endpoint = isFollowing ? 'unfollow' : 'follow';
+  
+  try {
+    const response = await fetch(`${API_URL}/users/${username}/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        follower_id: 'current_user'
+      })
+    });
+    
+    if (response.ok) {
+      alert(isFollowing ? `Unfollowed ${username}` : `Now following ${username}!`);
+      renderSocialFeed(); // Re-render to update follow button
+    } else {
+      alert('Failed to update follow status');
+    }
+  } catch (error) {
+    console.error('Error toggling follow:', error);
+    alert('Failed to update follow status');
+  }
+}
+
+// Load AI insights and display trending styles
+async function loadAIInsights() {
+  try {
+    const styles = lastRecommendedStyles.map(s => s.styleName).join(',');
+    const response = await fetch(`${API_URL}/ai-insights?styles=${styles}`);
+    const data = await response.json();
+    
+    // Create insights display
+    const insightsDiv = document.createElement('div');
+    insightsDiv.id = 'ai-insights-display';
+    insightsDiv.className = 'bg-gradient-to-r from-sky-900 to-purple-900 border border-sky-700 rounded-2xl p-6 mb-6';
+    insightsDiv.innerHTML = `
+      <h3 class="text-xl font-bold mb-4 text-white">✨ AI Style Insights</h3>
+      
+      <div class="mb-4">
+        <p class="text-sm font-semibold text-sky-200 mb-2">🔥 Trending Styles</p>
+        <div class="flex flex-wrap gap-2">
+          ${data.trending_styles.map(style => `
+            <span class="bg-white/20 text-white px-3 py-1 rounded-full text-sm">${style}</span>
+          `).join('')}
+        </div>
+      </div>
+      
+      <div class="mb-4">
+        <p class="text-sm font-semibold text-sky-200 mb-2">💡 Seasonal Tips</p>
+        <p class="text-white text-sm">${data.seasonal_tips}</p>
+      </div>
+      
+      <div class="mb-4">
+        <p class="text-sm font-semibold text-sky-200 mb-2">🎨 Popular Colors</p>
+        <div class="flex flex-wrap gap-2">
+          ${data.popular_colors.map(color => `
+            <span class="bg-white/20 text-white px-3 py-1 rounded-full text-sm">${color}</span>
+          `).join('')}
+        </div>
+      </div>
+      
+      ${data.trending_hashtags.length > 0 ? `
+      <div>
+        <p class="text-sm font-semibold text-sky-200 mb-2">📱 Trending Hashtags</p>
+        <div class="flex flex-wrap gap-2">
+          ${data.trending_hashtags.map(tag => `
+            <span class="text-sky-300 text-sm">#${tag}</span>
+          `).join('')}
+        </div>
+      </div>
+      ` : ''}
+    `;
+    
+    // Insert after recommendations
+    const recommendationsContainer = document.getElementById('recommendations-container');
+    if (recommendationsContainer && !document.getElementById('ai-insights-display')) {
+      recommendationsContainer.insertAdjacentElement('afterend', insightsDiv);
+    }
+  } catch (error) {
+    console.error('Error loading AI insights:', error);
+  }
+}
+
+// Load barber reviews
+async function loadBarberReviews(barberId) {
+  try {
+    const response = await fetch(`${API_URL}/barbers/${barberId}/reviews`);
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error loading reviews:', error);
+    return null;
+  }
+}
+
+// Show barber reviews in a modal
+async function showBarberReviews(barberId) {
+  const reviewsData = await loadBarberReviews(barberId);
+  
+  if (!reviewsData) {
+    alert('Failed to load reviews');
+    return;
+  }
+  
+  const reviews = reviewsData.reviews || [];
+  const avgRating = reviewsData.average_rating || 0;
+  const totalReviews = reviewsData.total_reviews || 0;
+  
+  const modalHtml = `
+    <div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal">
+      <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-2xl font-bold text-white">Reviews & Ratings</h2>
+          <button onclick="this.closest('.modal').remove()" class="text-gray-400 hover:text-white">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="bg-gray-800/50 rounded-xl p-4 mb-4">
+          <div class="flex items-center gap-3">
+            <div class="text-4xl font-bold text-yellow-400">${avgRating.toFixed(1)}</div>
+            <div>
+              <div class="flex items-center gap-1 mb-1">
+                ${Array(5).fill(0).map((_, i) => `
+                  <span class="text-${i < Math.round(avgRating) ? 'yellow' : 'gray'}-400">⭐</span>
+                `).join('')}
+              </div>
+              <p class="text-gray-400 text-sm">Based on ${totalReviews} reviews</p>
+            </div>
+          </div>
+        </div>
+        
+        ${reviews.length > 0 ? `
+        <div class="space-y-4">
+          ${reviews.map(review => `
+            <div class="bg-gray-800/30 rounded-xl p-4 border border-gray-700">
+              <div class="flex items-start justify-between mb-2">
+                <div>
+                  <p class="font-semibold text-white">${review.username}</p>
+                  <p class="text-gray-400 text-sm">${review.date}</p>
+                </div>
+                <div class="flex gap-1">
+                  ${Array(5).fill(0).map((_, i) => `
+                    <span class="text-${i < review.rating ? 'yellow' : 'gray'}-400">⭐</span>
+                  `).join('')}
+                </div>
+              </div>
+              <p class="text-gray-300">${review.text}</p>
+            </div>
+          `).join('')}
+        </div>
+        ` : `
+        <div class="text-center py-10 text-gray-400">
+          <p>No reviews yet. Be the first to review!</p>
+        </div>
+        `}
+        
+        <div class="mt-6 pt-4 border-t border-gray-700">
+          <button onclick="this.closest('.modal').remove()" class="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+// Call loadAIInsights after analysis is done
+const originalAnalyzeComplete = () => {}; // We'll override this
+
 // --- Make functions globally available ---
 window.toggleLike = toggleLike;
 window.openBookingModal = openBookingModal;
@@ -1449,3 +1764,98 @@ window.findBarbersForStyle = findBarbersForStyle;
 window.tryOnStyle = tryOnStyle;
 window.deletePackage = deletePackage;
 window.downloadTryOnImage = downloadTryOnImage;
+window.toggleComments = toggleComments;
+window.submitComment = submitComment;
+window.sharePost = sharePost;
+window.toggleFollow = toggleFollow;
+window.loadAIInsights = loadAIInsights;
+window.showBarberReviews = showBarberReviews;
+
+// Filter functions for barber search
+async function applyFilters() {
+  const location = locationSearch.value || 'Atlanta, GA';
+  const minRating = parseFloat(document.getElementById('filter-rating')?.value || 0);
+  const maxPrice = parseFloat(document.getElementById('filter-price')?.value || 999);
+  const sortBy = document.getElementById('filter-sort')?.value || 'rating';
+  
+  try {
+    const queryParams = new URLSearchParams({
+      location: location,
+      min_rating: minRating,
+      max_price: maxPrice,
+      sort_by: sortBy
+    });
+    
+    const response = await fetch(`${API_URL}/barbers/search?${queryParams}`);
+    const data = await response.json();
+    
+    renderFilteredBarbers(data.barbers);
+    
+    alert(`Found ${data.total_results} barbershops matching your filters!`);
+  } catch (error) {
+    console.error('Error applying filters:', error);
+    alert('Failed to apply filters');
+  }
+}
+
+function clearFilters() {
+  document.getElementById('filter-rating').value = '0';
+  document.getElementById('filter-price').value = '999';
+  document.getElementById('filter-sort').value = 'rating';
+  
+  const location = locationSearch.value || 'Atlanta, GA';
+  loadNearbyBarbers(location, lastRecommendedStyles);
+}
+
+function renderFilteredBarbers(barbers) {
+  if (!barberListContainer) return;
+  
+  barberListContainer.innerHTML = '';
+  
+  if (barbers.length === 0) {
+    barberListContainer.innerHTML = '<p class="text-center text-gray-400 py-10">No barbers found matching your filters</p>';
+    return;
+  }
+  
+  barbers.forEach(barber => {
+    const barberCard = document.createElement('div');
+    barberCard.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden card-hover';
+    barberCard.innerHTML = `
+      <div class="flex flex-col md:flex-row">
+        <img src="${barber.photo}" alt="${barber.name}" class="w-full md:w-48 h-48 object-cover">
+        <div class="flex-1 p-5">
+          <div class="flex justify-between items-start mb-2">
+            <h3 class="text-xl font-bold text-white">${barber.name}</h3>
+            <div class="flex items-center gap-1">
+              <span class="text-yellow-400">⭐</span>
+              <span class="text-white font-semibold">${barber.rating}</span>
+            </div>
+          </div>
+          <p class="text-gray-400 text-sm mb-3">${barber.address}</p>
+          
+          <div class="flex flex-wrap gap-2 mb-3">
+            ${barber.specialties.map(spec => `
+              <span class="bg-sky-500/20 text-sky-300 px-3 py-1 rounded-full text-xs">${spec}</span>
+            `).join('')}
+          </div>
+          
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-green-400 font-semibold">${barber.avgCost}</p>
+              <p class="text-gray-500 text-xs">${barber.phone}</p>
+            </div>
+            <button onclick="openBookingModal('${barber.id}', '${barber.name}', '${barber.avgCost}')" 
+                    class="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg font-medium">
+              Book Now
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    barberListContainer.appendChild(barberCard);
+  });
+}
+
+window.applyFilters = applyFilters;
+window.clearFilters = clearFilters;
+window.renderFilteredBarbers = renderFilteredBarbers;

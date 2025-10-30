@@ -70,6 +70,10 @@ appointments = []
 barber_profiles = {}
 subscription_packages = []  # Barber subscription packages
 client_subscriptions = []   # Client active subscriptions
+barber_reviews = {}  # Reviews for barbers: {barber_id: [reviews]}
+post_comments = {}  # Comments on posts: {post_id: [comments]}
+user_follows = {}  # Follow relationships: {user_id: [followed_user_ids]}
+hair_trends = {}  # AI insights on trending styles
 
 # Rate limiting cache for Google Places API
 places_api_cache = {}
@@ -116,33 +120,76 @@ def increment_gemini_api_usage():
 
 # Initialize with mock data
 def initialize_mock_data():
-    global social_posts, barber_portfolios, appointments, barber_profiles
+    global social_posts, barber_portfolios, appointments, barber_profiles, barber_reviews, post_comments, user_follows, hair_trends
     
-    # Mock social posts
+    # Mock social posts with hashtags and engagement metrics
     social_posts = [
         {
             "id": "1",
             "username": "mike_style",
             "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
             "image": "https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop",
-            "caption": "Fresh fade from @atlanta_cuts 🔥",
+            "caption": "Fresh fade from @atlanta_cuts 🔥 #fade #haircut",
             "likes": 23,
+            "shares": 5,
+            "comments": 8,
             "timeAgo": "2h",
             "liked": False,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "hashtags": ["fade", "haircut", "barberlife"]
         },
         {
             "id": "2", 
             "username": "sarah_hair",
             "avatar": "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face",
             "image": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=400&fit=crop",
-            "caption": "New bob cut! Love how it frames my face ✨",
+            "caption": "New bob cut! Love how it frames my face ✨ #bob #hairstyle",
             "likes": 45,
+            "shares": 12,
+            "comments": 15,
             "timeAgo": "4h",
             "liked": True,
-            "timestamp": (datetime.now() - timedelta(hours=4)).isoformat()
+            "timestamp": (datetime.now() - timedelta(hours=4)).isoformat(),
+            "hashtags": ["bob", "hairstyle", "freshcut"]
         }
     ]
+    
+    # Mock reviews for barbers
+    barber_reviews = {
+        "barber_1": [
+            {"id": "r1", "username": "john_doe", "rating": 5, "text": "Best fade I've ever had! Mike is a true artist.", "date": "2024-01-18"},
+            {"id": "r2", "username": "jane_smith", "rating": 5, "text": "Professional service, clean cuts every time.", "date": "2024-01-15"},
+            {"id": "r3", "username": "alex_taylor", "rating": 4, "text": "Great barber, just sometimes a bit crowded on weekends.", "date": "2024-01-10"}
+        ],
+        "barber_2": [
+            {"id": "r4", "username": "sam_jones", "rating": 4, "text": "Good quality work, friendly staff.", "date": "2024-01-17"}
+        ]
+    }
+    
+    # Mock comments on posts
+    post_comments = {
+        "1": [
+            {"id": "c1", "username": "alex_taylor", "text": "Looking sharp! 🔥", "timeAgo": "1h"},
+            {"id": "c2", "username": "john_doe", "text": "What's the fade number?", "timeAgo": "30m"}
+        ],
+        "2": [
+            {"id": "c3", "username": "mike_style", "text": "Beautiful cut!", "timeAgo": "3h"}
+        ]
+    }
+    
+    # Mock follow relationships
+    user_follows = {
+        "current_user": ["mike_style", "sarah_hair"],
+        "mike_style": ["sarah_hair", "jason_cuts"]
+    }
+    
+    # Mock hair trends/insights
+    hair_trends = {
+        "trending_styles": ["textured crop", "modern fade", "curtain bangs", "buzz cut", "pompadour"],
+        "trending_hashtags": ["#fade", "#haircut", "#barberlife", "#freshcut", "#hairstyle"],
+        "popular_colors": ["natural", "blonde highlights", "dark brown", "black"],
+        "seasonal_tips": "This winter, textured crops and fades are trending. Consider volume on top with short sides for a modern look."
+    }
     
     # Mock barber portfolios
     barber_portfolios = {
@@ -1030,9 +1077,9 @@ def test():
         "features_active": True
     })
 
-# Virtual Try-On endpoint - keep existing HairFastGAN code from current file
+# Virtual Try-On endpoint using Replicate (FREE tier available!)
 @app.route('/virtual-tryon', methods=['POST', 'OPTIONS'])
-@limiter.limit("20 per hour")
+@limiter.limit("20 per hour")  # Reasonable limit for GPU processing
 def virtual_tryon():
     if request.method == 'OPTIONS':
         response = make_response('')
@@ -1043,7 +1090,10 @@ def virtual_tryon():
     
     try:
         data = request.get_json()
+        
+        # Get user photo (base64 encoded)
         user_photo_base64 = data.get('userPhoto', '')
+        # Text description of desired hairstyle
         style_description = data.get('styleDescription', '')
         
         if not user_photo_base64:
@@ -1054,16 +1104,22 @@ def virtual_tryon():
         
         logger.info(f"🎨 Starting hair transformation: {style_description}")
         
-        # Option 1: FREE HairFastGAN via Gradio
+        # Try FREE Hugging Face first, then Replicate
+        HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
+        REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
+        
+        # Option 1: FREE HairFastGAN via Gradio (PURPOSE-BUILT for hair try-on!)
         if Client:
             logger.info("Using FREE HairFastGAN for hair transformation")
             
             try:
                 import tempfile
                 
+                # Convert base64 to bytes  
                 img_data_raw = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                 img_bytes = base64.b64decode(img_data_raw)
                 
+                # Reference hairstyle images (high quality photos from Unsplash)
                 reference_hairstyles = {
                     "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512&h=512&fit=crop",
                     "buzz": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512&h=512&fit=crop",
@@ -1080,8 +1136,9 @@ def virtual_tryon():
                     "afro": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512&h=512&fit=crop"
                 }
                 
+                # Find matching reference style
                 style_lower = style_description.lower()
-                reference_url = reference_hairstyles.get("fade")
+                reference_url = reference_hairstyles.get("fade")  # Default
                 for key in reference_hairstyles:
                     if key in style_lower:
                         reference_url = reference_hairstyles[key]
@@ -1089,12 +1146,14 @@ def virtual_tryon():
                 
                 logger.info(f"Using reference style image: {reference_url}")
                 
+                # Save user image to temp file (HairFastGAN needs file path)
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg', mode='wb') as tmp_input:
                     tmp_input.write(img_bytes)
                     input_path = tmp_input.name
                 
                 logger.info(f"Saved input to: {input_path}")
                 
+                # Download reference image to temp file (HairFastGAN needs local file, not URL!)
                 import requests as req
                 logger.info(f"Downloading reference image from: {reference_url}")
                 
@@ -1113,24 +1172,28 @@ def virtual_tryon():
                 
                 logger.info("Connecting to HairFastGAN Space...")
                 
+                # Connect to HairFastGAN Space
                 client = Client("AIRI-Institute/HairFastGAN")
                 
                 logger.info("Calling HairFastGAN API...")
                 
+                # Try to get API info for debugging
                 try:
                     logger.info(f"Available endpoints: {client.view_api()}")
                 except:
                     pass
                 
+                # Call HairFastGAN /swap_hair endpoint (correct API from logs!)
+                # Based on Space API: /swap_hair requires 6 parameters (all filepaths, not URLs!)
                 logger.info("Calling HairFastGAN /swap_hair endpoint...")
                 
                 result = client.predict(
-                    input_path,
-                    reference_path,
-                    reference_path,
-                    "Article",
-                    1000,
-                    15,
+                    input_path,           # face: user's photo (filepath)
+                    reference_path,       # shape: reference hairstyle (filepath, not URL!)
+                    reference_path,       # color: reference hair color (filepath, not URL!)
+                    "Article",            # blending: best quality encoder
+                    1000,                 # poisson_iters: medium quality/speed (0-2500)
+                    15,                   # poisson_erosion: moderate blending (1-100)
                     api_name="/swap_hair"
                 )
                 
@@ -1142,19 +1205,23 @@ def virtual_tryon():
                 logger.info(f"HairFastGAN result type: {type(result)}")
                 logger.info(f"HairFastGAN result: {result}")
                 
+                # HairFastGAN returns tuple: (your_result_image, error_message)
                 result_path = None
                 error_msg = None
                 
                 if isinstance(result, (list, tuple)) and len(result) >= 2:
+                    # First element is the result image, second is error message
                     result_path = result[0]
                     error_msg = result[1] if len(result) > 1 else None
                     
                     logger.info(f"Result image: {result_path}")
                     logger.info(f"Error message: {error_msg}")
                     
+                    # If there's an error message, log it
                     if error_msg and error_msg.strip():
                         logger.warning(f"HairFastGAN returned error: {error_msg}")
                     
+                    # Extract file path if result is a dict
                     if isinstance(result_path, dict):
                         result_path = result_path.get('name') or result_path.get('path') or result_path.get('value')
                 elif isinstance(result, dict):
@@ -1164,12 +1231,14 @@ def virtual_tryon():
                 
                 logger.info(f"Final result path: {result_path}")
                 
+                # Read result image
                 if result_path and os.path.exists(result_path):
                     with open(result_path, 'rb') as f:
                         result_bytes = f.read()
                     
                     result_base64 = base64.b64encode(result_bytes).decode('utf-8')
                     
+                    # Clean up temp files
                     try:
                         os.unlink(input_path)
                         os.unlink(reference_path)
@@ -1195,6 +1264,7 @@ def virtual_tryon():
                     return response
                 else:
                     logger.warning(f"Result path not found or invalid: {result_path}")
+                    # Clean up temp files
                     try:
                         os.unlink(input_path)
                         os.unlink(reference_path)
@@ -1205,6 +1275,7 @@ def virtual_tryon():
                 logger.error(f"HairFastGAN error: {str(e)}")
                 import traceback
                 logger.error(traceback.format_exc())
+                # Clean up any temp files
                 try:
                     if 'input_path' in locals():
                         os.unlink(input_path)
@@ -1212,12 +1283,176 @@ def virtual_tryon():
                         os.unlink(reference_path)
                 except:
                     pass
+                # Continue to Replicate or fallback
+        
+        # Option 2: Replicate (Paid but better quality)
+        if REPLICATE_API_TOKEN and replicate:
+            logger.info("Using Replicate API for REAL hair style transformation")
+            
+            # Set the API token for replicate
+            os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
+            
+            try:
+                # Convert base64 to data URI for Replicate
+                img_data_raw = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
+                face_data_uri = f"data:image/jpeg;base64,{img_data_raw}"
+                
+                logger.info(f"Starting hair style transformation: {style_description}")
+                
+                # Map style descriptions to style descriptions for the model
+                # The model works better with descriptive prompts
+                style_prompts = {
+                    "fade": "short fade haircut with clean sides and textured top",
+                    "buzz": "very short buzz cut military style",
+                    "quiff": "voluminous quiff hairstyle swept back",
+                    "pompadour": "classic pompadour with volume and shine",
+                    "undercut": "modern undercut with longer top and short sides",
+                    "side part": "classic side part hairstyle neat and professional",
+                    "slick back": "slicked back hair with gel smooth and shiny",
+                    "long": "long flowing hair shoulder length or longer",
+                    "curly": "natural curly hair with defined curls",
+                    "textured": "textured messy hairstyle with movement",
+                    "mohawk": "mohawk hairstyle with shaved sides",
+                    "crew cut": "short crew cut military style",
+                    "bowl cut": "bowl cut hairstyle with straight fringe",
+                    "man bun": "man bun with hair tied back",
+                    "dreadlocks": "dreadlocks hairstyle",
+                    "afro": "natural afro hairstyle"
+                }
+                
+                # Get the best matching prompt
+                style_lower = style_description.lower()
+                hair_prompt = style_description  # Default
+                for key, prompt in style_prompts.items():
+                    if key in style_lower:
+                        hair_prompt = prompt
+                        break
+                
+                logger.info(f"Using prompt: {hair_prompt}")
+                
+                # Reference hairstyle images for Style-Your-Hair model
+                # Using high-quality stock images as reference styles
+                reference_hair_images = {
+                    "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512",
+                    "buzz": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512",
+                    "quiff": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=512",
+                    "pompadour": "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?w=512",
+                    "undercut": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512",
+                    "side part": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512",
+                    "slick back": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=512",
+                    "long": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=512",
+                    "curly": "https://images.unsplash.com/photo-1524660988542-c440de9c0fde?w=512",
+                    "textured": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512",
+                    "mohawk": "https://images.unsplash.com/photo-1560264280-88b68371db39?w=512",
+                    "crew cut": "https://images.unsplash.com/photo-1556137744-c88c25c44e09?w=512",
+                    "afro": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512"
+                }
+                
+                # Find matching reference image
+                reference_url = reference_hair_images.get("fade")  # Default
+                for key in reference_hair_images:
+                    if key in style_lower:
+                        reference_url = reference_hair_images[key]
+                        break
+                
+                logger.info(f"Using reference image: {reference_url}")
+                
+                # Use Style-Your-Hair model for REAL hair style transfer
+                # This model transfers hairstyle from reference image to face
+                output = replicate.run(
+                    "cjwbw/style-your-hair:d28c54ed4e370318f03e2e7e763938e33cf8b2d9b4ac1ad42af0de78cb1e6ea3",
+                    input={
+                        "face_image": face_data_uri,
+                        "style_image": reference_url,
+                        "color_transfer": "True"
+                    }
+                )
+                
+                logger.info(f"Replicate API called successfully")
+                logger.info(f"Output type: {type(output)}")
+                
+                # Handle different output types from Replicate
+                result_url = None
+                
+                if output:
+                    # Try multiple ways to extract the URL
+                    if isinstance(output, str):
+                        result_url = output
+                        logger.info(f"Output is string URL: {result_url}")
+                    elif hasattr(output, '__iter__'):
+                        try:
+                            output_list = list(output)
+                            if output_list and len(output_list) > 0:
+                                result_url = output_list[0]
+                                logger.info(f"Output is iterator, first item: {result_url}")
+                        except Exception as iter_error:
+                            logger.error(f"Error iterating output: {str(iter_error)}")
+                    else:
+                        result_url = str(output)
+                        logger.info(f"Output converted to string: {result_url}")
+                
+                if not result_url:
+                    logger.error("No result URL found in output")
+                    raise Exception("Model produced no output URL")
+                
+                # Download and verify the result
+                logger.info(f"Downloading result from: {result_url}")
+                import requests as req
+                
+                try:
+                    result_response = req.get(result_url, timeout=60)  # Longer timeout for large images
+                    logger.info(f"Download response status: {result_response.status_code}")
+                    
+                    if result_response.status_code == 200:
+                        # Verify it's an image
+                        content_type = result_response.headers.get('content-type', '')
+                        logger.info(f"Content type: {content_type}")
+                        
+                        if 'image' not in content_type.lower() and len(result_response.content) < 1000:
+                            logger.error(f"Downloaded content doesn't appear to be an image: {result_response.content[:200]}")
+                            raise Exception("Invalid image data from model")
+                        
+                        result_base64 = base64.b64encode(result_response.content).decode('utf-8')
+                        logger.info(f"Image converted to base64: {len(result_base64)} chars")
+                        
+                        response_data = {
+                            "success": True,
+                            "message": f"✨ Real AI hair transformation complete: {style_description}",
+                            "resultImage": result_base64,
+                            "styleApplied": style_description,
+                            "poweredBy": "Replicate Style-Your-Hair AI",
+                            "note": "This is a real AI transformation!"
+                        }
+                        
+                        response = make_response(jsonify(response_data), 200)
+                        response.headers['Access-Control-Allow-Origin'] = '*'
+                        logger.info("✅ AI hair transformation successful!")
+                        return response
+                    else:
+                        logger.error(f"Failed to download result: HTTP {result_response.status_code}")
+                        logger.error(f"Response: {result_response.text[:500]}")
+                        raise Exception(f"Failed to download result: {result_response.status_code}")
+                        
+                except req.exceptions.Timeout:
+                    logger.error("Download timeout after 60 seconds")
+                    raise Exception("Result download timed out")
+                except Exception as download_error:
+                    logger.error(f"Download error: {str(download_error)}")
+                    raise
+                
+            except Exception as e:
+                logger.error(f"Replicate hair style transfer error: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                # Continue to fallback
         
         # SIMPLE FALLBACK: Return enhanced version with text overlay
         logger.info("Using simple face enhancement fallback - GUARANTEED TO WORK")
         
         try:
+            # Decode image - handle both formats
             try:
+                # Remove data URI prefix if present
                 if ',' in user_photo_base64:
                     img_data = base64.b64decode(user_photo_base64.split(',')[1])
                 else:
@@ -1228,10 +1463,12 @@ def virtual_tryon():
                 logger.error(f"Base64 decode error: {str(decode_error)}")
                 raise Exception(f"Invalid image data: {str(decode_error)}")
             
+            # Open image
             try:
                 img = Image.open(BytesIO(img_data))
                 logger.info(f"Image opened: {img.size}, mode: {img.mode}")
                 
+                # Convert to RGB if needed
                 if img.mode not in ('RGB', 'RGBA'):
                     img = img.convert('RGB')
                     logger.info(f"Converted image to RGB")
@@ -1240,32 +1477,41 @@ def virtual_tryon():
                 logger.error(f"Image open error: {str(img_error)}")
                 raise Exception(f"Cannot process image: {str(img_error)}")
             
+            # Add overlay with text
             try:
+                # Convert to RGBA for overlay
                 if img.mode == 'RGB':
                     img = img.convert('RGBA')
                 
+                # Create overlay
                 overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
                 overlay_draw = ImageDraw.Draw(overlay)
                 
+                # Draw semi-transparent rectangle at bottom
                 height = img.size[1]
                 width = img.size[0]
                 overlay_draw.rectangle([(0, height-70), (width, height)], fill=(0, 0, 0, 200))
                 
+                # Composite overlay onto image
                 img = Image.alpha_composite(img, overlay)
                 
+                # Convert back to RGB for JPEG
                 img = img.convert('RGB')
                 
                 logger.info("Overlay added successfully")
                 
             except Exception as overlay_error:
                 logger.error(f"Overlay error: {str(overlay_error)}")
+                # Continue without overlay
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
             
+            # Add text
             try:
                 draw = ImageDraw.Draw(img)
                 text = f"Preview: {style_description}"
                 
+                # Try multiple font paths
                 font = None
                 font_paths = [
                     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -1283,26 +1529,32 @@ def virtual_tryon():
                         continue
                 
                 if not font:
+                    # Use default font as last resort
                     font = ImageFont.load_default()
                     logger.info("Using default font")
                 
+                # Calculate text position (centered)
                 try:
                     bbox = draw.textbbox((0, 0), text, font=font)
                     text_width = bbox[2] - bbox[0]
                 except:
+                    # Fallback if textbbox not available
                     text_width = len(text) * 15
                 
                 text_x = max(10, (img.size[0] - text_width) // 2)
                 text_y = max(10, height - 50)
                 
-                draw.text((text_x+2, text_y+2), text, fill=(0, 0, 0), font=font)
-                draw.text((text_x, text_y), text, fill=(255, 255, 255), font=font)
+                # Add text with shadow for better visibility
+                draw.text((text_x+2, text_y+2), text, fill=(0, 0, 0), font=font)  # Shadow
+                draw.text((text_x, text_y), text, fill=(255, 255, 255), font=font)  # Text
                 
                 logger.info(f"Text added at position ({text_x}, {text_y})")
                 
             except Exception as text_error:
                 logger.error(f"Text error: {str(text_error)}")
+                # Continue without text - image is still valid
             
+            # Convert to base64
             try:
                 buffer = BytesIO()
                 img.save(buffer, format='JPEG', quality=90, optimize=True)
@@ -1314,6 +1566,7 @@ def virtual_tryon():
                 logger.error(f"Save error: {str(save_error)}")
                 raise Exception(f"Cannot save image: {str(save_error)}")
             
+            # Return success response
             response_data = {
                 "success": True,
                 "message": f"✨ Style preview created: {style_description}",
@@ -1337,6 +1590,279 @@ def virtual_tryon():
     except Exception as e:
         logger.error(f"Error in virtual try-on endpoint: {str(e)}")
         response = make_response(jsonify({"error": f"Failed to process try-on: {str(e)}"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+# ============================================================
+# NEW FEATURES: Reviews, Comments, Follows, AI Insights
+# ============================================================
+
+# Review endpoints for barbers
+@app.route('/barbers/<barber_id>/reviews', methods=['GET', 'POST', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def handle_reviews(barber_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        return response, 200
+    
+    if request.method == 'GET':
+        reviews = barber_reviews.get(barber_id, [])
+        avg_rating = sum(r['rating'] for r in reviews) / len(reviews) if reviews else 0
+        response = make_response(jsonify({
+            "reviews": reviews,
+            "total_reviews": len(reviews),
+            "average_rating": round(avg_rating, 1)
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            new_review = {
+                "id": str(uuid.uuid4()),
+                "username": data.get("username", "anonymous"),
+                "rating": data.get("rating", 5),
+                "text": data.get("text", ""),
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            if barber_id not in barber_reviews:
+                barber_reviews[barber_id] = []
+            barber_reviews[barber_id].append(new_review)
+            
+            response = make_response(jsonify({"success": True, "review": new_review}), 201)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        except Exception as e:
+            logger.error(f"Error creating review: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to create review"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+
+# Comment endpoints for social posts
+@app.route('/social/<post_id>/comments', methods=['GET', 'POST', 'OPTIONS'])
+@limiter.limit("60 per hour")
+def handle_comments(post_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        return response, 200
+    
+    if request.method == 'GET':
+        comments = post_comments.get(post_id, [])
+        response = make_response(jsonify({"comments": comments}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            new_comment = {
+                "id": str(uuid.uuid4()),
+                "username": data.get("username", "anonymous"),
+                "text": data.get("text", ""),
+                "timeAgo": "just now",
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            if post_id not in post_comments:
+                post_comments[post_id] = []
+            post_comments[post_id].append(new_comment)
+            
+            # Update comment count on post
+            post = next((p for p in social_posts if p["id"] == post_id), None)
+            if post:
+                post["comments"] = post.get("comments", 0) + 1
+            
+            response = make_response(jsonify({"success": True, "comment": new_comment}), 201)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        except Exception as e:
+            logger.error(f"Error creating comment: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to create comment"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+
+# Follow/unfollow endpoints
+@app.route('/users/<user_id>/follow', methods=['POST', 'OPTIONS'])
+@app.route('/users/<user_id>/unfollow', methods=['POST', 'OPTIONS'])
+@limiter.limit("100 per hour")
+def toggle_follow(user_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 200
+    
+    try:
+        data = request.get_json()
+        follower_id = data.get("follower_id", "current_user")
+        
+        if request.path.endswith('/follow'):
+            if follower_id not in user_follows:
+                user_follows[follower_id] = []
+            if user_id not in user_follows[follower_id]:
+                user_follows[follower_id].append(user_id)
+        else:  # unfollow
+            if follower_id in user_follows:
+                user_follows[follower_id] = [uid for uid in user_follows[follower_id] if uid != user_id]
+        
+        response = make_response(jsonify({"success": True}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error toggling follow: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to toggle follow"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+# Share post endpoint
+@app.route('/social/<post_id>/share', methods=['POST', 'OPTIONS'])
+@limiter.limit("100 per hour")
+def share_post(post_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 200
+    
+    try:
+        post = next((p for p in social_posts if p["id"] == post_id), None)
+        if not post:
+            response = make_response(jsonify({"error": "Post not found"}), 404)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        post["shares"] = post.get("shares", 0) + 1
+        
+        response = make_response(jsonify({"success": True, "shares": post["shares"]}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error sharing post: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to share post"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+# AI Insights endpoint - trending styles, tips, recommendations
+@app.route('/ai-insights', methods=['GET', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def get_ai_insights():
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response, 200
+    
+    try:
+        # Get user's preferred styles from recommendations if available
+        recommended_styles = request.args.get('styles', '').split(',') if request.args.get('styles') else []
+        
+        # Analyze trends from social posts
+        all_hashtags = []
+        for post in social_posts:
+            all_hashtags.extend(post.get('hashtags', []))
+        
+        trending_hashtags = list(set([tag for tag in all_hashtags if all_hashtags.count(tag) > 1]))[:5]
+        
+        # Combine with pre-loaded trends
+        insights = {
+            "trending_styles": hair_trends.get("trending_styles", [])[:5],
+            "trending_hashtags": trending_hashtags if trending_hashtags else hair_trends.get("trending_hashtags", []),
+            "popular_colors": hair_trends.get("popular_colors", [])[:4],
+            "seasonal_tips": hair_trends.get("seasonal_tips", ""),
+            "personalized_recommendations": []
+        }
+        
+        # Add personalized recommendations based on user's styles
+        if recommended_styles:
+            first_style = recommended_styles[0] if recommended_styles else "this style"
+            insights["personalized_recommendations"] = [
+                f"Since you like {first_style}, try these complementary looks:",
+                f"Professional tip: {first_style} works best for your face shape when paired with...",
+                f"Try {first_style} with a slight variation for a fresh look"
+            ][:3]
+        
+        response = make_response(jsonify(insights), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error getting AI insights: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to get insights"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+# Enhanced barber search with filters
+@app.route('/barbers/search', methods=['GET', 'OPTIONS'])
+@limiter.limit("100 per hour")
+def search_barbers():
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response, 200
+    
+    try:
+        location = request.args.get('location', 'Atlanta, GA')
+        min_rating = float(request.args.get('min_rating', 0))
+        max_price = float(request.args.get('max_price', 999))
+        service_type = request.args.get('service_type', '').lower()
+        sort_by = request.args.get('sort_by', 'rating')  # rating, price, distance
+        
+        # Get barbers (using existing mock data)
+        mock_barbers = getMockBarbersForLocation(location)
+        
+        # Apply filters
+        filtered_barbers = []
+        for barber in mock_barbers:
+            # Rating filter
+            if barber.get('rating', 0) < min_rating:
+                continue
+            
+            # Price filter
+            if barber.get('avgCost', 0) > max_price:
+                continue
+            
+            # Service type filter
+            if service_type:
+                specialties = [s.lower() for s in barber.get('specialties', [])]
+                if service_type not in ' '.join(specialties):
+                    continue
+            
+            filtered_barbers.append(barber)
+        
+        # Sort results
+        if sort_by == 'price':
+            filtered_barbers.sort(key=lambda x: x.get('avgCost', 0))
+        elif sort_by == 'rating':
+            filtered_barbers.sort(key=lambda x: x.get('rating', 0), reverse=True)
+        
+        response = make_response(jsonify({
+            "barbers": filtered_barbers,
+            "location": location,
+            "filters_applied": {
+                "min_rating": min_rating,
+                "max_price": max_price,
+                "service_type": service_type
+            },
+            "total_results": len(filtered_barbers)
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error searching barbers: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to search barbers"}), 400)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
@@ -1373,6 +1899,7 @@ def server_error(e):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
+    # Initialize mock data on startup
     initialize_mock_data()
     logger.info(f"🚀 Starting LineUp API server on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False)  # debug=False for production

@@ -115,6 +115,43 @@
           <div id="barber-search" class="mb-6">
             <input type="text" id="location-search" placeholder="Enter ZIP code or city (e.g., 30308 or Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
           </div>
+          
+          <!-- Filter Section -->
+          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-4 mb-6">
+            <h3 class="text-lg font-semibold mb-3 text-white">🔍 Filters</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="text-gray-300 text-sm mb-2 block">Min Rating</label>
+                <select id="filter-rating" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white">
+                  <option value="0">All Ratings</option>
+                  <option value="3">3+ Stars</option>
+                  <option value="4">4+ Stars</option>
+                  <option value="4.5">4.5+ Stars</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-gray-300 text-sm mb-2 block">Max Price</label>
+                <select id="filter-price" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white">
+                  <option value="999">Any Price</option>
+                  <option value="30">Under $30</option>
+                  <option value="50">Under $50</option>
+                  <option value="75">Under $75</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-gray-300 text-sm mb-2 block">Sort By</label>
+                <select id="filter-sort" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white">
+                  <option value="rating">Highest Rated</option>
+                  <option value="price">Lowest Price</option>
+                </select>
+              </div>
+            </div>
+            <div class="mt-4 flex gap-2">
+              <button onclick="applyFilters()" class="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-lg font-medium">Apply Filters</button>
+              <button onclick="clearFilters()" class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">Clear</button>
+            </div>
+          </div>
+          
           <p id="barber-intro" class="text-center text-gray-400 mb-8">Enter your location to find real barbershops near you.</p>
           <div id="barber-list-container" class="space-y-4"></div>
         </div>

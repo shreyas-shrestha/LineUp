@@ -273,10 +273,13 @@ def getMockBarbersForLocation(location):
             "name": f"Elite Cuts {location.split(',')[0]}",
             "specialties": ["Fade", "Taper", "Modern Cuts"],
             "rating": 4.9,
+            "user_ratings_total": 127,
             "avgCost": 45,
             "address": f"Downtown {location.split(',')[0]}",
             "photo": "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400&h=300&fit=crop",
             "phone": "(555) 123-4567",
+            "website": "https://elitecuts.example.com",
+            "google_maps_url": "https://www.google.com/maps/search/?api=1&query=33.7490,-84.3880",
             "hours": "Mon-Sat 9AM-8PM"
         },
         {
@@ -284,10 +287,13 @@ def getMockBarbersForLocation(location):
             "name": f"The {location.split(',')[0]} Barber",
             "specialties": ["Pompadour", "Buzz Cut", "Beard Trim"],
             "rating": 4.8,
+            "user_ratings_total": 89,
             "avgCost": 55,
             "address": f"Uptown {location.split(',')[0]}",
             "photo": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400&h=300&fit=crop",
             "phone": "(555) 123-4568",
+            "website": "",
+            "google_maps_url": "https://www.google.com/maps/search/?api=1&query=33.7490,-84.3880",
             "hours": "Tue-Sun 10AM-7PM"
         },
         {
@@ -295,10 +301,13 @@ def getMockBarbersForLocation(location):
             "name": f"{location.split(',')[0]} Style Studio",
             "specialties": ["Modern Fade", "Beard Trim", "Styling"],
             "rating": 4.9,
+            "user_ratings_total": 156,
             "avgCost": 65,
             "address": f"Midtown {location.split(',')[0]}",
             "photo": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop",
             "phone": "(555) 123-4569",
+            "website": "https://stylestudio.example.com",
+            "google_maps_url": "https://www.google.com/maps/search/?api=1&query=33.7490,-84.3880",
             "hours": "Mon-Fri 8AM-6PM"
         }
     ]
@@ -834,6 +843,11 @@ def get_barbers():
                 if photo_ref:
                     photo_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={photo_ref}&key={GOOGLE_PLACES_API_KEY}"
             
+            # Generate Google Maps URL from coordinates
+            lat = place['geometry']['location']['lat']
+            lng = place['geometry']['location']['lng']
+            google_maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
+            
             barber_info = {
                 'id': place['place_id'],
                 'name': place['name'],
@@ -844,13 +858,14 @@ def get_barbers():
                 'avgCost': 25 + (place.get('price_level', 2) * 15),  # Estimate cost
                 'phone': details.get('formatted_phone_number', 'Call for info'),
                 'website': details.get('website', ''),
+                'google_maps_url': google_maps_url,
                 'hours': details.get('opening_hours', {}).get('weekday_text', []),
                 'open_now': place.get('opening_hours', {}).get('open_now', None),
                 'photo': photo_url,
                 'specialties': specialties,
                 'location': {
-                    'lat': place['geometry']['location']['lat'],
-                    'lng': place['geometry']['location']['lng']
+                    'lat': lat,
+                    'lng': lng
                 },
                 'recommended_for_styles': recommended_styles if recommended_styles else []
             }

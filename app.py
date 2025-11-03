@@ -13,6 +13,7 @@ from io import BytesIO
 from datetime import datetime, timedelta
 import uuid
 import time
+# Firebase import will be conditional
 
 # Set up logging FIRST
 logging.basicConfig(level=logging.INFO)
@@ -33,6 +34,18 @@ try:
 except ImportError:
     Client = None
     logger.warning("Gradio Client not installed. HairFastGAN will not be available.")
+
+# Optional: Firebase Admin SDK
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+    logger.info("Firebase Admin SDK loaded successfully")
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    firebase_admin = None
+    firestore = None
+    FIREBASE_AVAILABLE = False
+    logger.warning("Firebase not installed. Will use in-memory storage.")
 
 # Create Flask app FIRST - This was missing!
 app = Flask(__name__)
@@ -63,7 +76,27 @@ else:
     model = None
     logger.warning("GEMINI_API_KEY not found - will use mock data")
 
-# In-memory storage (in production, use a proper database)
+# Configure Firebase/Firestore
+db = None
+if FIREBASE_AVAILABLE:
+    try:
+        # Check for Firebase credentials
+        FIREBASE_CREDENTIALS = os.environ.get("FIREBASE_CREDENTIALS")
+        
+        if FIREBASE_CREDENTIALS:
+            # Initialize with credentials from environment variable
+            cred_dict = json.loads(FIREBASE_CREDENTIALS)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            db = firestore.client()
+            logger.info("Firebase initialized with credentials from environment")
+        else:
+            logger.warning("FIREBASE_CREDENTIALS not found - will use in-memory storage")
+    except Exception as e:
+        logger.error(f"Firebase initialization failed: {str(e)}")
+        db = None
+
+# In-memory storage (fallback when database not available)
 social_posts = []
 barber_portfolios = {}
 appointments = []
@@ -117,6 +150,92 @@ def increment_gemini_api_usage():
     """Increment Gemini API usage counter"""
     reset_daily_counters()
     api_usage_tracker['gemini_api_calls'] += 1
+
+# ========================================
+# FIREBASE/FIRESTORE DATABASE FUNCTIONS
+# ========================================
+
+def get_collection(collection_name):
+    """Get Firestore collection or None if not available"""
+    if db:
+        return db.collection(collection_name)
+    return None
+
+def db_get_all(collection_name):
+    """Get all documents from a collection"""
+    if not db:
+        return None
+    try:
+        docs = get_collection(collection_name).stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+    except Exception as e:
+        logger.error(f"Error getting all from {collection_name}: {str(e)}")
+        return None
+
+def db_get_doc(collection_name, doc_id):
+    """Get a single document by ID"""
+    if not db:
+        return None
+    try:
+        doc = get_collection(collection_name).document(doc_id).get()
+        if doc.exists:
+            return {**doc.to_dict(), 'id': doc.id}
+        return None
+    except Exception as e:
+        logger.error(f"Error getting doc from {collection_name}: {str(e)}")
+        return None
+
+def db_add_doc(collection_name, data, doc_id=None):
+    """Add a document to a collection"""
+    if not db:
+        return None
+    try:
+        if doc_id:
+            get_collection(collection_name).document(doc_id).set(data)
+            return {**data, 'id': doc_id}
+        else:
+            doc_ref = get_collection(collection_name).add(data)[1]
+            return {**data, 'id': doc_ref.id}
+    except Exception as e:
+        logger.error(f"Error adding doc to {collection_name}: {str(e)}")
+        return None
+
+def db_update_doc(collection_name, doc_id, data):
+    """Update a document"""
+    if not db:
+        return False
+    try:
+        get_collection(collection_name).document(doc_id).update(data)
+        return True
+    except Exception as e:
+        logger.error(f"Error updating doc in {collection_name}: {str(e)}")
+        return False
+
+def db_delete_doc(collection_name, doc_id):
+    """Delete a document"""
+    if not db:
+        return False
+    try:
+        get_collection(collection_name).document(doc_id).delete()
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting doc from {collection_name}: {str(e)}")
+        return False
+
+def db_query(collection_name, field, operator, value):
+    """Query a collection"""
+    if not db:
+        return []
+    try:
+        docs = get_collection(collection_name).where(field, operator, value).stream()
+        return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
+    except Exception as e:
+        logger.error(f"Error querying {collection_name}: {str(e)}")
+        return []
+
+# ========================================
+# END DATABASE FUNCTIONS
+# ========================================
 
 # Initialize with mock data
 def initialize_mock_data():
@@ -529,8 +648,14 @@ def social():
         # Lighter rate limit for GET requests
         limiter.limit("100 per hour")(lambda: None)()
         
+        # Try to get from database, fallback to in-memory
+        if db:
+            posts = db_get_all('social_posts') or []
+        else:
+            posts = social_posts
+        
         # Return social posts sorted by timestamp
-        sorted_posts = sorted(social_posts, key=lambda x: x['timestamp'], reverse=True)
+        sorted_posts = sorted(posts, key=lambda x: x['timestamp'], reverse=True)
         response = make_response(jsonify({"posts": sorted_posts}), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
@@ -543,7 +668,6 @@ def social():
             data = request.get_json()
             
             new_post = {
-                "id": str(uuid.uuid4()),
                 "username": data.get("username", "anonymous"),
                 "avatar": data.get("avatar", "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face"),
                 "image": data.get("image", ""),
@@ -551,10 +675,19 @@ def social():
                 "likes": 0,
                 "timeAgo": "now",
                 "liked": False,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "shares": 0,
+                "comments": 0,
+                "hashtags": data.get("hashtags", [])
             }
             
-            social_posts.insert(0, new_post)
+            # Try to save to database, fallback to in-memory
+            if db:
+                result = db_add_doc('social_posts', new_post)
+                new_post['id'] = result['id'] if result else str(uuid.uuid4())
+            else:
+                new_post['id'] = str(uuid.uuid4())
+                social_posts.insert(0, new_post)
             
             response = make_response(jsonify({"success": True, "post": new_post}), 201)
             response.headers['Access-Control-Allow-Origin'] = '*'

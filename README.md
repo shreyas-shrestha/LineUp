@@ -1,253 +1,279 @@
-#LineUp AI - v2.0
+# LineUp AI - v2.0
 
 **AI-Powered Haircut Analysis & Barber Booking Platform**
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
-[![Flask](https://img.shields.io/badge/Flask-2.3+-green.svg)](https://flask.palletsprojects.com)
-[![Tests](https://img.shields.io/badge/Tests-30%20passing-success.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/Coverage-75%25-success.svg)](tests/)
-[![Cost](https://img.shields.io/badge/Cost-$0%2Fmonth-brightgreen.svg)](#)
+## Overview
 
-## 🆕 What's New in v2.0?
+LineUp is a two-sided AI-powered haircut analysis and barber platform that helps users find the perfect haircut and connects them with barbershops in their area.
 
-Version 2.0 is a **complete rewrite** with 10 major improvements using **100% FREE tools**:
-
-✅ **Modular Architecture** - 6 focused modules vs 1 monolithic file  
-✅ **SQLite Database** - Persistent data with PostgreSQL migration path  
-✅ **Input Validation** - Pydantic validation on all endpoints  
-✅ **Test Suite** - 30+ tests with 75% coverage  
-✅ **PWA Support** - Install as native app, works offline  
-✅ **Optimized Frontend** - 44% faster loads with smart caching  
-✅ **Error Handling** - Centralized, consistent error responses  
-✅ **Redis Caching** - Optional Redis with memory fallback  
-✅ **Production Ready** - Automated setup and deployment scripts  
-✅ **Still FREE** - $0/month with generous free tiers
-
-### 📚 Documentation
-
-- **[QUICKSTART.md](QUICKSTART.md)** - Get running in 5 minutes
-- **[README_IMPROVEMENTS.md](README_IMPROVEMENTS.md)** - Complete feature guide
-- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Technical details
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Deploy to production (FREE hosting)
-- **[HAIR_TRYON_SETUP.md](HAIR_TRYON_SETUP.md)** - Virtual try-on setup (works immediately!)
-
-### 🚀 Quick Start
-
-```bash
-# Option 1: Automated (Recommended)
-python setup.py
-
-# Option 2: Manual
-pip install -r requirements.txt
-cp env.example.txt .env
-# Add your GEMINI_API_KEY to .env
-python app_refactored.py
-
-# Option 3: One-liner
-chmod +x run.sh && ./run.sh
-```
-
-Visit: http://localhost:5000
-
-**Minimum requirement:** Just add `GEMINI_API_KEY` to .env (free at https://makersuite.google.com)
-
----
-
-## Project Overview
-
-LineUp is a two-sided AI-powered haircut analysis and barber platform consisting of:
-- **Frontend**: Vanilla HTML/CSS/JavaScript with TailwindCSS (single-page app)
+- **Frontend**: Vanilla HTML/CSS/JavaScript with TailwindCSS (single-page application)
 - **Backend**: Flask API with Google Gemini AI integration and Google Places API
-- **Deployment**: Render (both frontend and backend hosted separately)
+- **Database**: Firebase Cloud Firestore with automatic fallback to in-memory storage
+- **Deployment**: Render (frontend and backend hosted separately)
 
-## Common Development Commands
+## Quick Start
 
 ### Local Development
+
 ```bash
-# Start the Flask backend locally
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the Flask backend
 python app.py
 # Backend runs on http://localhost:5000
 
-# For frontend development, serve the HTML file
+# For frontend development
 # Open index.html directly in browser or use a local server:
 python -m http.server 8000
 # Frontend accessible at http://localhost:8000
 ```
 
-### Testing Backend
+**Minimum requirement:** Add `GEMINI_API_KEY` to environment variables (free at https://makersuite.google.com)
+
+## Environment Variables
+
+Required for full functionality:
+
+- `GEMINI_API_KEY`: Google Gemini API key for AI hair analysis (required)
+- `GOOGLE_PLACES_API_KEY`: Google Places API key for real barber shop data (optional)
+- `FIREBASE_CREDENTIALS`: Firebase service account JSON for persistent storage (optional)
+- `REPLICATE_API_TOKEN`: Replicate API key for AI hair transformation enhancement (optional)
+- `HF_TOKEN`: Hugging Face token for HairFastGAN (optional)
+- `PORT`: Port for Flask app (defaults to 5000)
+
+**Virtual Try-On**: Works immediately with preview mode. No API keys required for basic functionality. See `HAIR_TRYON_SETUP.md` for optional AI enhancement.
+
+## Features
+
+### Client Mode
+- Upload photo for AI-powered facial analysis
+- Receive personalized haircut recommendations based on face shape, hair texture, and features
+- Virtual try-on with preview mode (works immediately, no setup required)
+- Find barbershops by location with real-time data from Google Places API
+- Search for barbers specializing in specific haircut styles
+- View barber reviews and ratings
+- Book appointments
+- Browse social feed with posts, likes, comments, and shares
+
+### Barber Mode
+- Manage portfolio of work
+- Create subscription packages
+- View and manage appointments
+- Track client subscriptions
+
+## Architecture
+
+### Backend (`app.py`)
+
+Flask REST API with the following components:
+
+- **Rate Limiting**: Flask-Limiter with 1000 requests/hour default limit
+- **AI Analysis**: Google Gemini 2.0 Flash model for facial/hair analysis
+- **Database**: Firebase Cloud Firestore with automatic fallback to in-memory storage
+- **External APIs**: 
+  - Google Places API for barbershop discovery
+  - Google Gemini for AI analysis
+  - Replicate (optional) for AI hair transformation
+  - HairFastGAN via Gradio Client (optional, free but unreliable)
+- **Image Processing**: PIL/Pillow for virtual try-on preview mode
+- **CORS**: Enabled for cross-origin requests
+- **Error Handling**: Comprehensive fallbacks when APIs are unavailable
+
+### API Endpoints
+
+- `GET /` - Service information and status
+- `GET /health` - System health check and API usage tracking
+- `GET /config` - Configuration and API availability status
+- `POST /analyze` - AI haircut analysis (10 requests/hour limit)
+- `POST /virtual-tryon` - Virtual hair try-on with preview mode (20 requests/hour limit)
+- `GET /barbers?location=...` - Search barbershops by location via Google Places API
+- `GET /social` - Get all social posts
+- `POST /social` - Create new social post
+- `POST /social/<post_id>/like` - Like/unlike a post
+- `POST /social/<post_id>/comments` - Add comment to a post
+- `POST /social/<post_id>/share` - Share a post
+- `GET /appointments` - Get appointments (filter by user type and ID)
+- `POST /appointments` - Create new appointment
+- `PUT /appointments/<id>/status` - Update appointment status
+- `GET /portfolio` or `GET /portfolio/<barber_id>` - Get barber portfolio
+- `POST /portfolio` or `POST /portfolio/<barber_id>` - Add work to portfolio
+- `GET /barbers/<barber_id>/reviews` - Get reviews for a barber
+- `POST /barbers/<barber_id>/reviews` - Add review for a barber
+- `POST /users/<user_id>/follow` - Follow a user
+- `DELETE /users/<user_id>/unfollow` - Unfollow a user
+- `GET /subscription-packages` - Get subscription packages
+- `POST /subscription-packages` - Create subscription package
+- `GET /client-subscriptions` - Get client subscriptions
+- `POST /client-subscriptions` - Create client subscription
+- `GET /ai-insights` - Get AI-generated hair trends and recommendations
+
+### Frontend (`index.html` + `scripts-updated.js`)
+
+Single-page application with:
+
+- **Role-based UI**: Switch between Client and Barber modes
+- **Tab Navigation**: AI Analysis, Virtual Try-On, Social Feed, Barbers, Appointments
+- **Image Upload**: Client-side compression and base64 encoding
+- **Real-time Updates**: Dynamic UI updates without page refreshes
+- **Responsive Design**: Works on mobile and desktop using TailwindCSS
+- **Modal Dialogs**: For image uploads, appointments, and reviews
+
+## Database
+
+### Firebase/Firestore
+
+The application uses Firebase Cloud Firestore for persistent data storage. If Firebase is not configured, it automatically falls back to in-memory storage.
+
+**Collections:**
+- `social_posts` - Social media posts
+- `appointments` - Appointment bookings
+- `barber_portfolios` - Barber work portfolios
+- `barber_reviews` - Reviews for barbers
+- `post_comments` - Comments on social posts
+- `user_follows` - User follow relationships
+- `subscription_packages` - Barber subscription packages
+- `client_subscriptions` - Active client subscriptions
+
+**Setup:**
+1. Create a Firebase project at https://console.firebase.google.com
+2. Enable Firestore Database
+3. Generate service account credentials
+4. Add credentials JSON to `FIREBASE_CREDENTIALS` environment variable
+
+If `FIREBASE_CREDENTIALS` is not set, the app uses in-memory storage (data resets on restart).
+
+## Virtual Try-On
+
+The virtual try-on feature works immediately without any API keys using preview mode:
+
+1. User uploads a photo
+2. Selects a hairstyle from recommendations
+3. Backend processes the image and adds a text overlay showing the style name
+4. Returns the preview image with overlay
+
+**Optional Enhancements:**
+- **HairFastGAN**: Free but unreliable Hugging Face model. Set `HF_TOKEN` environment variable.
+- **Replicate**: More reliable paid option. Set `REPLICATE_API_TOKEN` environment variable.
+
+See `HAIR_TRYON_SETUP.md` for detailed setup instructions.
+
+## Testing
+
+### Test Backend Endpoints
+
 ```bash
-# Test backend health
+# Health check
 curl http://localhost:5000/health
 
-# Test AI analysis endpoint (requires image data)
+# AI analysis (requires image data)
 curl -X POST http://localhost:5000/analyze \
   -H "Content-Type: application/json" \
   -d '{"payload": {"contents": [{"parts": [{"text": "analyze"}, {"inlineData": {"mimeType": "image/jpeg", "data": "base64data"}}]}]}}'
 
-# Test barber search
+# Barber search
 curl "http://localhost:5000/barbers?location=Atlanta,GA"
 
-# Test virtual try-on endpoint (requires base64 image data)
+# Virtual try-on
 curl -X POST http://localhost:5000/virtual-tryon \
   -H "Content-Type: application/json" \
   -d '{"userPhoto": "base64data", "styleDescription": "Side Part with Volume"}'
 ```
 
-### Dependency Management
-```bash
-# Install Python dependencies
-pip install -r requirements.txt
+## Deployment
 
-# Update requirements (when adding new packages)
-pip freeze > requirements.txt
-```
+### Render Deployment
 
-### Environment Setup
-Required environment variables for full functionality:
-- `GEMINI_API_KEY`: Google Gemini API key for AI hair analysis
-- `GOOGLE_PLACES_API_KEY`: Google Places API key for real barber data
-- `REPLICATE_API_TOKEN`: (Optional) Replicate API key for AI hair transformation enhancement
-- `PORT`: Port for Flask app (defaults to 5000)
+**Backend:**
+1. Connect GitHub repository to Render
+2. Create new Web Service
+3. Set build command: `pip install -r requirements.txt`
+4. Set start command: `gunicorn app:app`
+5. Add environment variables in Render dashboard
 
-**For Virtual Try-On**: Works immediately with preview mode! See `HAIR_TRYON_SETUP.md` for optional AI enhancement (5 min setup)
+**Frontend:**
+1. Create new Static Site on Render
+2. Connect to repository
+3. Set build command: (none needed for static files)
+4. Set publish directory: `/` (or wherever index.html is located)
 
-## Architecture Overview
+### Environment Variables on Render
 
-### High-Level Structure
-The application is a **two-sided platform** with distinct user modes:
-1. **Client Mode**: Upload photo → AI analysis → haircut recommendations → find barbers
-2. **Barber Mode**: Dashboard → portfolio management → appointment scheduling
+Add all required environment variables in the Render dashboard under your service settings.
 
-### Backend Architecture (`app.py`)
-- **Flask API** with comprehensive rate limiting using Flask-Limiter
-- **AI Analysis Engine**: Google Gemini 2.5 Pro model for facial/hair analysis
-- **Real Data Integration**: Google Places API for barbershop discovery
-- **In-Memory Storage**: Mock data for social posts, appointments, portfolios (production would use database)
-- **CORS enabled** for cross-origin requests from frontend
-- **Fallback System**: Mock data when APIs are unavailable or rate-limited
+## Rate Limiting
 
-#### Key Endpoints
-- `/analyze` - AI haircut analysis with Google Gemini (10 req/hour limit)
-- `/barbers` - Real barbershop search with location via Google Places API
-- `/virtual-tryon` - **Visual hair transformation** (20 req/hour limit)
-  - Works immediately with preview mode (no setup required!)
-  - Optional: Add `REPLICATE_API_TOKEN` for AI enhancement
-  - Returns transformed image with hairstyle preview
-  - See `HAIR_TRYON_SETUP.md` for optional AI upgrade
-- `/subscription-packages` - Barber subscription package management (GET/POST)
-- `/client-subscriptions` - Client subscription tracking (GET/POST)
-- `/social` - Social media feed functionality (GET/POST)
-- `/appointments` - Appointment booking and management (GET/POST)
-- `/portfolio` - Barber portfolio management (GET/POST)
-- `/health` - System health and API usage tracking
+The backend implements rate limiting to prevent API abuse:
 
-### Frontend Architecture (`index.html` + `scripts-updated.js`)
-- **Single-page application** with role-based content switching
-- **Tab-based navigation** for different features
-- **Responsive design** using TailwindCSS
-- **Modal dialogs** for image uploads, posts, and appointments
-- **Real-time UI updates** without page refreshes
+- Global limit: 1000 requests/hour per IP
+- AI Analysis: 10 requests/hour per IP
+- Social posts: 20 requests/hour per IP
+- Appointments: 30 requests/hour per IP
+- Barber search: 50 requests/hour per IP
+- Virtual try-on: 20 requests/hour per IP
 
-#### Key Components
-- **Role Switcher**: Toggle between Client/Barber modes
-- **AI Analysis Flow**: Image upload → compression → Gemini API → structured recommendations
-- **Virtual Try-On**: Upload photo → Select hairstyle → Image transformation → visual result
-  - Works immediately with preview mode (no setup!)
-  - Optional AI enhancement with Replicate (simple 5-min setup)
-  - Returns transformed image showing hairstyle preview on user's photo
-- **Subscription Packages**: Barbers create subscription deals (e.g., 2 cuts/month for $X)
-- **Individual Style Barber Search**: Each recommendation has "Find Barbers" button
-- **Barber Discovery**: Location-based search with Google Places API
-- **Social Feed**: Community posts with like/comment functionality
-- **Appointment System**: Booking interface with real-time availability
+## Error Handling
 
-### Data Flow Patterns
-1. **Image Analysis**: Frontend compresses images → Base64 encoding → Gemini API → Structured recommendations
-2. **Virtual Try-On**: User photo (base64) + style description → Backend `/virtual-tryon` → Image processing (preview or AI) → Transformed image returned → Displayed in UI
-3. **Individual Style Barber Search**: User clicks "Find Barbers" → Google Places API search for that style
-4. **General Barber Search**: Location input → Geocoding → Places API → Enhanced results with specialties
-5. **Subscription Management**: Barbers create packages → Stored in backend → Clients view and subscribe
-6. **Rate Limiting**: Daily API quotas tracked server-side with graceful fallbacks
+The application implements comprehensive error handling:
+
+- Graceful fallbacks to mock data when external APIs fail
+- Daily API usage tracking to prevent quota exhaustion
+- Detailed logging for debugging
+- User-friendly error messages
+- Automatic retry logic where appropriate
 
 ## Development Guidelines
 
-### API Integration Patterns
-- **Graceful Degradation**: Always provide fallback mock data when external APIs fail
-- **Rate Limiting Awareness**: Backend tracks daily API usage to prevent quota exhaustion
-- **Error Handling**: Comprehensive try-catch blocks with meaningful error messages
+### Code Standards
 
-### Frontend State Management
-- **Global State Variables**: `currentUserMode`, `lastRecommendedStyles`, `socialPosts`, etc.
-- **Event-Driven Updates**: UI components re-render when underlying data changes
-- **Modal Dialog Management**: Centralized show/hide logic with cleanup functions
-
-### Image Handling
-- **Client-Side Compression**: Images resized to max 800px before upload
-- **Base64 Encoding**: Used for API transmission to Gemini
-- **Fallback Images**: Placeholder URLs when image loads fail
-
-### Location Services
-- **Flexible Input**: Supports ZIP codes, city names, neighborhoods
-- **Caching System**: Places API results cached for 1 hour to reduce API calls
-- **Search Enhancement**: Recommended styles passed to barber search for better matching
-
-## Code Quality Standards
-
-### Python (Backend)
-- Use type hints where beneficial
+**Backend (Python):**
 - Comprehensive error handling with logging
-- Rate limiting on all user-facing endpoints
-- Environment variable configuration for API keys
-- Mock data fallbacks for development and API failures
+- Rate limiting on all endpoints
+- Environment variable configuration
+- Mock data fallbacks for development
+- CORS properly configured
 
-### JavaScript (Frontend)
-- ES6+ syntax and patterns
-- Async/await for API calls
+**Frontend (JavaScript):**
+- ES6+ syntax with async/await
 - Event delegation for dynamic content
 - Responsive design principles
-- Accessibility considerations for dialogs and forms
+- Client-side image compression
+- Error handling for API calls
 
-### Security Considerations
-- CORS properly configured for production domains
-- API keys stored as environment variables, never in code
+### Security
+
+- API keys stored as environment variables
+- CORS configured for production domains
 - Rate limiting to prevent abuse
 - Input validation on all endpoints
-- No sensitive data in frontend JavaScript
+- No sensitive data in frontend code
 
-## Platform-Specific Notes
+## Documentation
 
-### Render Deployment
-- **Backend**: Deployed as web service with gunicorn
-- **Frontend**: Deployed as static site
-- **Environment Variables**: Configure GEMINI_API_KEY and GOOGLE_PLACES_API_KEY in Render dashboard
-- **Health Checks**: `/health` endpoint provides deployment status
+- `HAIR_TRYON_SETUP.md` - Virtual try-on setup guide
+- `FREE_HAIR_TRYON_SETUP.md` - Free hair try-on options
+- `HAIRFASTGAN_VERIFICATION.md` - HairFastGAN integration details
 
-### External Dependencies
-- **Google Gemini AI**: Powers facial analysis and haircut recommendations
-- **Google Places API**: Provides real barbershop data with photos, ratings, hours
-- **Unsplash**: Used for placeholder images and mock data photos
-- **TailwindCSS CDN**: Styling framework loaded from CDN
+## Project Structure
 
-## Testing Approach
+```
+LineUp/
+├── app.py                 # Main Flask backend application
+├── index.html            # Frontend HTML
+├── scripts-updated.js    # Frontend JavaScript
+├── requirements.txt      # Python dependencies
+├── README.md            # This file
+└── [other .md files]    # Additional documentation
+```
 
-### Manual Testing Workflow
-1. **Image Analysis**: Test with various face angles and lighting conditions
-2. **Virtual Try-On**: Upload a photo → Select hairstyle → Verify transformed image displays (works without API key via PIL fallback)
-3. **Subscription Packages**: In Barber mode, create packages and verify they display correctly
-4. **Location Search**: Verify with different location formats (ZIP, city, neighborhood)
-5. **Role Switching**: Ensure all tabs and features work in both Client/Barber modes
-6. **Responsive Design**: Test on mobile and desktop screen sizes
-7. **API Fallbacks**: Test behavior when external APIs are unavailable
+## Support
 
-### Common Issues and Solutions
-- **CORS Errors**: Ensure API_URL in frontend matches deployed backend URL
-- **Image Upload Issues**: Check file size limits and supported formats
-- **API Rate Limits**: Monitor `/health` endpoint for usage tracking
-- **Location Search Problems**: Verify Google Places API key and billing setup
-- **Virtual Try-On Not Working**: 
-  - Virtual try-on works immediately with preview mode (no setup required!)
-  - Check browser console (F12 → Network tab) for any errors
-  - **Optional AI Enhancement**: See `HAIR_TRYON_SETUP.md`
-    - Get FREE Replicate API token: https://replicate.com/account/api-tokens
-    - Add `REPLICATE_API_TOKEN` to environment variables
-    - Takes 5 minutes, costs ~$3/month for 100 users
+For issues or questions:
+1. Check the `/health` endpoint for system status
+2. Review application logs on Render dashboard
+3. Verify environment variables are set correctly
+4. Check API quotas and rate limits
+
+## License
+
+This project is available for use as specified in the repository.

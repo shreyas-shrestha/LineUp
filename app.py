@@ -1448,36 +1448,107 @@ def virtual_tryon():
                 
                 logger.info(f"Starting hair style transformation: {style_description}")
                 
-                # Map style descriptions to clean haircut names for the model
-                # The model works with simple style names
+                # Map style descriptions to EXACT haircut names required by the model
+                # The model ONLY accepts specific values from its predefined list
+                # Valid values from error message: "No change", "Random", "Straight", "Wavy", 
+                # "Curly", "Bob", "Pixie Cut", "Layered", "Messy Bun", "High Ponytail", etc.
+                # Reference: https://replicate.com/flux-kontext-apps/change-haircut
                 style_map = {
-                    "fade": "Fade",
-                    "buzz": "Buzz Cut",
-                    "quiff": "Quiff",
-                    "pompadour": "Pompadour",
-                    "undercut": "Undercut",
-                    "side part": "Side Part",
-                    "slick back": "Slick Back",
-                    "long": "Long Hair",
-                    "curly": "Curly",
-                    "textured": "Textured",
-                    "mohawk": "Mohawk",
+                    # Fade styles
+                    "fade": "Mohawk Fade",
+                    "modern fade": "Mohawk Fade",
+                    "fade with": "Mohawk Fade",
+                    
+                    # Short styles
+                    "buzz": "Crew Cut",
+                    "buzz cut": "Crew Cut",
                     "crew cut": "Crew Cut",
-                    "bowl cut": "Bowl Cut",
-                    "man bun": "Man Bun",
+                    "crewcut": "Crew Cut",
+                    "short": "Crew Cut",
+                    
+                    # Slicked/Quiff/Pompadour
+                    "quiff": "Slicked Back",
+                    "pompadour": "Slicked Back",
+                    "slick back": "Slicked Back",
+                    "slicked back": "Slicked Back",
+                    "slickback": "Slicked Back",
+                    
+                    # Parted styles - MUST be "Side-Parted" with hyphen
+                    "side part": "Side-Parted",
+                    "side-part": "Side-Parted",
+                    "sidepart": "Side-Parted",
+                    "side parted": "Side-Parted",
+                    "parted": "Side-Parted",
+                    "volume": "Side-Parted",  # For "Side Part with Volume"
+                    "with volume": "Side-Parted",
+                    
+                    # Undercut
+                    "undercut": "Undercut",
+                    
+                    # Mohawk
+                    "mohawk": "Mohawk",
+                    
+                    # Long styles
+                    "long": "Half-Up, Half-Down",
+                    "long hair": "Half-Up, Half-Down",
+                    
+                    # Texture/Curly
+                    "curly": "Curly",
+                    "textured": "Tousled",
+                    "messy": "Tousled",
+                    "tousled": "Tousled",
+                    "afro": "Curly",
+                    
+                    # Wavy/Straight
+                    "wavy": "Wavy",
+                    "waves": "Wavy",
+                    "soft waves": "Soft Waves",
+                    "straight": "Straight",
+                    "straightened": "Straightened",
+                    
+                    # Bob styles
+                    "bob": "Bob",
+                    "lob": "Lob",
+                    "a-line bob": "A-Line Bob",
+                    
+                    # Pixie
+                    "pixie": "Pixie Cut",
+                    "pixie cut": "Pixie Cut",
+                    "bowl cut": "Pixie Cut",
+                    
+                    # Bun/Top Knot
+                    "man bun": "Top Knot",
+                    "bun": "Top Knot",
+                    "top knot": "Top Knot",
+                    "messy bun": "Messy Bun",
+                    
+                    # Layered
+                    "layered": "Layered",
+                    "layers": "Layered",
+                    
+                    # Dreadlocks
                     "dreadlocks": "Dreadlocks",
-                    "afro": "Afro"
+                    "dreads": "Dreadlocks",
+                    
+                    # Center part
+                    "center part": "Center-Parted",
+                    "center-part": "Center-Parted",
+                    "centerpart": "Center-Parted"
                 }
                 
-                # Get the best matching haircut name
-                style_lower = style_description.lower()
-                haircut_name = style_description  # Default to original description
-                for key, name in style_map.items():
+                # Get the best matching haircut name from the model's allowed list
+                style_lower = style_description.lower().strip()
+                haircut_name = "Random"  # Default fallback - model accepts this
+                
+                # Check for exact keyword matches first (longest matches first)
+                # Sort by key length descending to match longer phrases first
+                sorted_keys = sorted(style_map.keys(), key=len, reverse=True)
+                for key in sorted_keys:
                     if key in style_lower:
-                        haircut_name = name
+                        haircut_name = style_map[key]
                         break
                 
-                logger.info(f"Using haircut style: {haircut_name}")
+                logger.info(f"Using haircut style: {haircut_name} (from description: {style_description})")
                 
                 # Use flux-kontext-apps/change-haircut model
                 # This model uses FLUX.1 Kontext for text-guided hair editing

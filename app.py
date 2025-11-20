@@ -1302,7 +1302,7 @@ def virtual_tryon():
                 logger.info(f"Saved input to: {input_path}")
                 
                 # Download reference image to temp file (HairFastGAN needs local file, not URL!)
-            import requests as req
+                import requests as req
                 logger.info(f"Downloading reference image from: {reference_url}")
                 
                 try:
@@ -1548,9 +1548,9 @@ def virtual_tryon():
                 # Sort by key length descending to match longer phrases first
                 sorted_keys = sorted(style_map.keys(), key=len, reverse=True)
                 for key in sorted_keys:
-                if key in style_lower:
+                    if key in style_lower:
                         haircut_name = style_map[key]
-                    break
+                        break
             
                 logger.info(f"Using haircut style: {haircut_name} (from description: {style_description})")
                 
@@ -1597,7 +1597,7 @@ def virtual_tryon():
                 
                 # Download and verify the result
                 logger.info(f"Downloading result from: {result_url}")
-            import requests as req
+                import requests as req
                 
                 try:
                     result_response = req.get(result_url, timeout=60)  # Longer timeout for large images
@@ -1618,21 +1618,21 @@ def virtual_tryon():
                         # Also include original image for before/after comparison
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
-                response_data = {
-                    "success": True,
+                        response_data = {
+                            "success": True,
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "originalImage": original_base64,
                             "resultImage": result_base64,
-                    "styleApplied": style_description,
+                            "styleApplied": style_description,
                             "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
-                }
-                
-                response = make_response(jsonify(response_data), 200)
-                response.headers['Access-Control-Allow-Origin'] = '*'
+                        }
+                        
+                        response = make_response(jsonify(response_data), 200)
+                        response.headers['Access-Control-Allow-Origin'] = '*'
                         logger.info("✅ AI hair transformation successful!")
-                return response
-            else:
+                        return response
+                    else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")

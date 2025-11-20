@@ -1507,8 +1507,9 @@ def virtual_tryon():
                 
                 # Use Style-Your-Hair model for REAL hair style transfer
                 # This model transfers hairstyle from reference image to face
+                # Using :latest to always get the most recent version
                 output = replicate.run(
-                    "cjwbw/style-your-hair:d28c54ed4e370318f03e2e7e763938e33cf8b2d9b4ac1ad42af0de78cb1e6ea3",
+                    "cjwbw/style-your-hair:latest",
                     input={
                         "face_image": face_data_uri,
                         "style_image": reference_url,
@@ -1589,10 +1590,57 @@ def virtual_tryon():
                     raise
                 
             except Exception as e:
+                error_str = str(e).lower()
                 logger.error(f"Replicate hair style transfer error: {str(e)}")
                 import traceback
                 logger.error(traceback.format_exc())
-                # Continue to fallback
+                
+                # Try alternative model if the first one doesn't exist
+                if "does not exist" in error_str or "permission" in error_str:
+                    logger.info("Primary model not available, trying alternative model: flux-kontext-apps/change-haircut")
+                    try:
+                        # Alternative model: flux-kontext-apps/change-haircut
+                        # This model uses text prompts instead of reference images
+                        output_alt = replicate.run(
+                            "flux-kontext-apps/change-haircut:latest",
+                            input={
+                                "image": face_data_uri,
+                                "haircut_style": hair_prompt
+                            }
+                        )
+                        
+                        # Process alternative model output the same way
+                        result_url_alt = None
+                        if isinstance(output_alt, str):
+                            result_url_alt = output_alt
+                        elif hasattr(output_alt, '__iter__'):
+                            output_list_alt = list(output_alt)
+                            if output_list_alt and len(output_list_alt) > 0:
+                                result_url_alt = output_list_alt[0]
+                        else:
+                            result_url_alt = str(output_alt)
+                        
+                        if result_url_alt:
+                            import requests as req
+                            result_response_alt = req.get(result_url_alt, timeout=60)
+                            if result_response_alt.status_code == 200:
+                                result_base64_alt = base64.b64encode(result_response_alt.content).decode('utf-8')
+                                response_data = {
+                                    "success": True,
+                                    "message": f"✨ Real AI hair transformation complete: {style_description}",
+                                    "resultImage": result_base64_alt,
+                                    "styleApplied": style_description,
+                                    "poweredBy": "Replicate Change-Haircut AI",
+                                    "note": "This is a real AI transformation!"
+                                }
+                                response = make_response(jsonify(response_data), 200)
+                                response.headers['Access-Control-Allow-Origin'] = '*'
+                                logger.info("✅ Alternative AI hair transformation successful!")
+                                return response
+                    except Exception as alt_error:
+                        logger.error(f"Alternative model also failed: {str(alt_error)}")
+                
+                # Continue to fallback preview mode
         
         # PREVIEW MODE: Return user photo with text overlay
         logger.info("Using preview mode - user photo with text overlay - GUARANTEED TO WORK")

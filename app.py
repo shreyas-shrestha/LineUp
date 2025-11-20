@@ -1434,6 +1434,7 @@ def virtual_tryon():
                 # Continue to Replicate or fallback
         
         # Option 2: Replicate (Paid but better quality)
+        # Using flux-kontext-apps/change-haircut - FLUX.1 Kontext model for hair transformations
         if REPLICATE_API_TOKEN and replicate:
             logger.info("Using Replicate API for REAL hair style transformation")
             
@@ -1447,73 +1448,48 @@ def virtual_tryon():
                 
                 logger.info(f"Starting hair style transformation: {style_description}")
                 
-                # Map style descriptions to style descriptions for the model
-                # The model works better with descriptive prompts
-                style_prompts = {
-                    "fade": "short fade haircut with clean sides and textured top",
-                    "buzz": "very short buzz cut military style",
-                    "quiff": "voluminous quiff hairstyle swept back",
-                    "pompadour": "classic pompadour with volume and shine",
-                    "undercut": "modern undercut with longer top and short sides",
-                    "side part": "classic side part hairstyle neat and professional",
-                    "slick back": "slicked back hair with gel smooth and shiny",
-                    "long": "long flowing hair shoulder length or longer",
-                    "curly": "natural curly hair with defined curls",
-                    "textured": "textured messy hairstyle with movement",
-                    "mohawk": "mohawk hairstyle with shaved sides",
-                    "crew cut": "short crew cut military style",
-                    "bowl cut": "bowl cut hairstyle with straight fringe",
-                    "man bun": "man bun with hair tied back",
-                    "dreadlocks": "dreadlocks hairstyle",
-                    "afro": "natural afro hairstyle"
+                # Map style descriptions to clean haircut names for the model
+                # The model works with simple style names
+                style_map = {
+                    "fade": "Fade",
+                    "buzz": "Buzz Cut",
+                    "quiff": "Quiff",
+                    "pompadour": "Pompadour",
+                    "undercut": "Undercut",
+                    "side part": "Side Part",
+                    "slick back": "Slick Back",
+                    "long": "Long Hair",
+                    "curly": "Curly",
+                    "textured": "Textured",
+                    "mohawk": "Mohawk",
+                    "crew cut": "Crew Cut",
+                    "bowl cut": "Bowl Cut",
+                    "man bun": "Man Bun",
+                    "dreadlocks": "Dreadlocks",
+                    "afro": "Afro"
                 }
                 
-                # Get the best matching prompt
+                # Get the best matching haircut name
                 style_lower = style_description.lower()
-                hair_prompt = style_description  # Default
-                for key, prompt in style_prompts.items():
+                haircut_name = style_description  # Default to original description
+                for key, name in style_map.items():
                     if key in style_lower:
-                        hair_prompt = prompt
+                        haircut_name = name
                         break
                 
-                logger.info(f"Using prompt: {hair_prompt}")
+                logger.info(f"Using haircut style: {haircut_name}")
                 
-                # Reference hairstyle images for Style-Your-Hair model
-                # Using high-quality stock images as reference styles
-                reference_hair_images = {
-                    "fade": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512",
-                    "buzz": "https://images.unsplash.com/photo-1564564321837-a57b7070ac4f?w=512",
-                    "quiff": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=512",
-                    "pompadour": "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?w=512",
-                    "undercut": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=512",
-                    "side part": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512",
-                    "slick back": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=512",
-                    "long": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=512",
-                    "curly": "https://images.unsplash.com/photo-1524660988542-c440de9c0fde?w=512",
-                    "textured": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512",
-                    "mohawk": "https://images.unsplash.com/photo-1560264280-88b68371db39?w=512",
-                    "crew cut": "https://images.unsplash.com/photo-1556137744-c88c25c44e09?w=512",
-                    "afro": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=512"
-                }
-                
-                # Find matching reference image
-                reference_url = reference_hair_images.get("fade")  # Default
-                for key in reference_hair_images:
-                    if key in style_lower:
-                        reference_url = reference_hair_images[key]
-                        break
-                
-                logger.info(f"Using reference image: {reference_url}")
-                
-                # Use Style-Your-Hair model for REAL hair style transfer
-                # This model transfers hairstyle from reference image to face
-                # Using :latest to always get the most recent version
+                # Use flux-kontext-apps/change-haircut model
+                # This model uses FLUX.1 Kontext for text-guided hair editing
+                # Version: 48f03523665cabe9a2e832ea9cc2d7c30ad5079cb5f1c1f07890d40596fe1f87
                 output = replicate.run(
-                    "cjwbw/style-your-hair:latest",
+                    "flux-kontext-apps/change-haircut:48f03523665cabe9a2e832ea9cc2d7c30ad5079cb5f1c1f07890d40596fe1f87",
                     input={
-                        "face_image": face_data_uri,
-                        "style_image": reference_url,
-                        "color_transfer": "True"
+                        "input_image": face_data_uri,
+                        "haircut": haircut_name,
+                        "aspect_ratio": "match_input_image",
+                        "output_format": "png",
+                        "safety_tolerance": 2
                     }
                 )
                 
@@ -1569,7 +1545,7 @@ def virtual_tryon():
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "resultImage": result_base64,
                             "styleApplied": style_description,
-                            "poweredBy": "Replicate Style-Your-Hair AI",
+                            "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
                         }
                         
@@ -1590,56 +1566,9 @@ def virtual_tryon():
                     raise
                 
             except Exception as e:
-                error_str = str(e).lower()
                 logger.error(f"Replicate hair style transfer error: {str(e)}")
                 import traceback
                 logger.error(traceback.format_exc())
-                
-                # Try alternative model if the first one doesn't exist
-                if "does not exist" in error_str or "permission" in error_str:
-                    logger.info("Primary model not available, trying alternative model: flux-kontext-apps/change-haircut")
-                    try:
-                        # Alternative model: flux-kontext-apps/change-haircut
-                        # This model uses text prompts instead of reference images
-                        output_alt = replicate.run(
-                            "flux-kontext-apps/change-haircut:latest",
-                            input={
-                                "image": face_data_uri,
-                                "haircut_style": hair_prompt
-                            }
-                        )
-                        
-                        # Process alternative model output the same way
-                        result_url_alt = None
-                        if isinstance(output_alt, str):
-                            result_url_alt = output_alt
-                        elif hasattr(output_alt, '__iter__'):
-                            output_list_alt = list(output_alt)
-                            if output_list_alt and len(output_list_alt) > 0:
-                                result_url_alt = output_list_alt[0]
-                        else:
-                            result_url_alt = str(output_alt)
-                        
-                        if result_url_alt:
-                            import requests as req
-                            result_response_alt = req.get(result_url_alt, timeout=60)
-                            if result_response_alt.status_code == 200:
-                                result_base64_alt = base64.b64encode(result_response_alt.content).decode('utf-8')
-                                response_data = {
-                                    "success": True,
-                                    "message": f"✨ Real AI hair transformation complete: {style_description}",
-                                    "resultImage": result_base64_alt,
-                                    "styleApplied": style_description,
-                                    "poweredBy": "Replicate Change-Haircut AI",
-                                    "note": "This is a real AI transformation!"
-                                }
-                                response = make_response(jsonify(response_data), 200)
-                                response.headers['Access-Control-Allow-Origin'] = '*'
-                                logger.info("✅ Alternative AI hair transformation successful!")
-                                return response
-                    except Exception as alt_error:
-                        logger.error(f"Alternative model also failed: {str(alt_error)}")
-                
                 # Continue to fallback preview mode
         
         # PREVIEW MODE: Return user photo with text overlay

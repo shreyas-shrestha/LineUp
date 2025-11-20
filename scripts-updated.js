@@ -1301,10 +1301,12 @@ async function tryOnStyle(styleName) {
     const result = await response.json();
 
     if (response.ok && result.success) {
-      // Display the result image in a modal or new section
-      displayTryOnResult(result.resultImage, styleName, result.poweredBy);
+      // Display the result image with before/after comparison
+      // Use originalImage from response, or fall back to stored base64ImageData
+      const originalImg = result.originalImage || base64ImageData;
+      displayTryOnResult(originalImg, result.resultImage, styleName, result.poweredBy);
       
-      alert(`✅ Try-On Complete!\n\nStyle: ${styleName}\n${result.message || ''}\n\nScroll down to see your new look!`);
+      alert(`✅ Try-On Complete!\n\nStyle: ${styleName}\n${result.message || ''}\n\nScroll down to see your before & after!`);
     } else {
       throw new Error(result.error || 'Try-on failed');
     }
@@ -1320,7 +1322,7 @@ async function tryOnStyle(styleName) {
   }
 }
 
-function displayTryOnResult(resultImageBase64, styleName, poweredBy) {
+function displayTryOnResult(originalImageBase64, resultImageBase64, styleName, poweredBy) {
   // Find or create results container
   let resultsContainer = document.getElementById('tryon-results-container');
   
@@ -1337,15 +1339,33 @@ function displayTryOnResult(resultImageBase64, styleName, poweredBy) {
     }
   }
 
-  // Display the result
+  // Display before/after comparison
   resultsContainer.innerHTML = `
     <h3 class="text-2xl font-bold mb-4 text-white">✨ Your Try-On Result</h3>
     <div class="bg-gray-800 rounded-lg p-4">
-      <p class="text-gray-300 mb-3">Style: <span class="text-sky-400 font-semibold">${styleName}</span></p>
-      <img src="data:image/jpeg;base64,${resultImageBase64}" 
-           alt="Try-on result" 
-           class="w-full max-w-md mx-auto rounded-lg shadow-lg mb-3">
-      <p class="text-gray-400 text-sm text-center">${poweredBy || 'Preview Mode'}</p>
+      <p class="text-gray-300 mb-4 text-center">Style: <span class="text-sky-400 font-semibold">${styleName}</span></p>
+      
+      <!-- Before/After Comparison -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <!-- Before Image -->
+        <div class="text-center">
+          <p class="text-gray-400 text-sm font-semibold mb-2">Before</p>
+          <img src="data:image/jpeg;base64,${originalImageBase64}" 
+               alt="Before" 
+               class="w-full rounded-lg shadow-lg border-2 border-gray-600">
+        </div>
+        
+        <!-- After Image -->
+        <div class="text-center">
+          <p class="text-gray-400 text-sm font-semibold mb-2">After</p>
+          <img src="data:image/jpeg;base64,${resultImageBase64}" 
+               alt="After" 
+               class="w-full rounded-lg shadow-lg border-2 border-sky-500">
+        </div>
+      </div>
+      
+      <p class="text-gray-400 text-sm text-center mb-4">${poweredBy || 'Preview Mode'}</p>
+      
       <div class="flex gap-3 mt-4">
         <button onclick="document.getElementById('tryon-results-container').remove()" 
                 class="flex-1 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">
@@ -1353,7 +1373,7 @@ function displayTryOnResult(resultImageBase64, styleName, poweredBy) {
         </button>
         <button onclick="downloadTryOnImage('${resultImageBase64}', '${styleName}')" 
                 class="flex-1 bg-sky-500 text-white py-2 px-4 rounded-lg hover:bg-sky-600 transition-colors">
-          Download Image
+          Download After Image
         </button>
       </div>
     </div>

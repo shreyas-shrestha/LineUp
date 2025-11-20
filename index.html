@@ -201,28 +201,65 @@
       <div id="barber-content" class="hidden">
         <!-- Dashboard Tab (Home) -->
         <div id="barber-dashboard-tab-content" class="tab-content px-4 py-8">
-          <h2 class="text-3xl font-bold text-center mb-6">Barber Dashboard</h2>
+          <div class="mb-6">
+            <h2 class="text-3xl font-bold text-white mb-2">Dashboard</h2>
+            <p class="text-gray-400 text-sm">Manage your shop and track performance</p>
+          </div>
           
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-6 text-white">
-              <h3 class="text-lg font-semibold">Today's Appointments</h3>
-              <p class="text-3xl font-bold mt-2" id="today-appointments">3</p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Today</h3>
+                <div class="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white mb-1" id="today-appointments">3</p>
+              <p class="text-sm text-gray-400">Appointments</p>
             </div>
-            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 text-white">
-              <h3 class="text-lg font-semibold">This Week</h3>
-              <p class="text-3xl font-bold mt-2" id="week-appointments">12</p>
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">This Week</h3>
+                <div class="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white mb-1" id="week-appointments">12</p>
+              <p class="text-sm text-gray-400">Appointments</p>
             </div>
-            <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl p-6 text-white">
-              <h3 class="text-lg font-semibold">Portfolio Photos</h3>
-              <p class="text-3xl font-bold mt-2" id="portfolio-count">8</p>
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Portfolio</h3>
+                <div class="w-10 h-10 bg-purple-500/10 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white mb-1" id="portfolio-count">8</p>
+              <p class="text-sm text-gray-400">Photos</p>
             </div>
           </div>
 
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-6">
-            <h3 class="text-xl font-bold mb-4">Quick Actions</h3>
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+            <h3 class="text-xl font-bold text-white mb-4">Quick Actions</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button id="add-portfolio-btn" class="bg-sky-500 text-white py-3 px-6 rounded-lg hover:bg-sky-600 transition-colors">Add Portfolio Photo</button>
-              <button id="view-schedule-btn" class="bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 transition-colors">View Schedule</button>
+              <button id="add-portfolio-btn" class="btn-primary py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Portfolio Photo
+              </button>
+              <button id="view-schedule-btn" class="btn-secondary py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                View Schedule
+              </button>
             </div>
           </div>
         </div>
@@ -230,47 +267,79 @@
         <!-- Portfolio Tab -->
         <div id="barber-portfolio-tab-content" class="tab-content hidden px-4 py-8">
           <div class="flex justify-between items-center mb-6">
-            <h2 class="text-3xl font-bold">My Portfolio</h2>
-            <button id="upload-work-button" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors">+ Upload Work</button>
+            <div>
+              <h2 class="text-3xl font-bold text-white mb-2">My Portfolio</h2>
+              <p class="text-gray-400 text-sm">Showcase your best work</p>
+            </div>
+            <button id="upload-work-button" class="btn-primary px-6 py-3 rounded-lg font-medium flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              </svg>
+              Upload Work
+            </button>
           </div>
-          <div id="barber-portfolio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+          <div id="barber-portfolio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
         </div>
 
         <!-- Schedule Tab (Clients / Bookings) -->
         <div id="barber-schedule-tab-content" class="tab-content hidden px-4 py-8">
-          <h2 class="text-3xl font-bold text-center mb-6">Clients & Bookings</h2>
+          <div class="mb-6">
+            <h2 class="text-3xl font-bold text-white mb-2">Clients & Bookings</h2>
+            <p class="text-gray-400 text-sm">Manage your appointments</p>
+          </div>
           <div id="barber-appointments-container" class="space-y-4"></div>
         </div>
 
         <!-- Barber Profile / Shop Settings -->
         <div id="barber-profile-tab-content" class="tab-content hidden px-4 py-8">
-          <h2 class="text-2xl font-bold mb-6 text-white">Shop settings</h2>
+          <div class="mb-6">
+            <h2 class="text-3xl font-bold text-white mb-2">Shop Settings</h2>
+            <p class="text-gray-400 text-sm">Manage your business profile and preferences</p>
+          </div>
           
           <!-- Business Info -->
-          <div class="bg-gray-900 border border-gray-800 rounded-lg p-5 mb-4">
-            <h3 class="text-lg font-semibold mb-3 text-white">Business information</h3>
-            <div class="space-y-3">
-              <input placeholder="Shop name" class="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-white text-white" value="Your Barber Shop">
-              <input placeholder="Phone number" class="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-white text-white" value="(555) 123-4567">
-              <input placeholder="Address" class="w-full bg-black border border-gray-800 rounded-lg p-3 text-sm focus:outline-none focus:border-white text-white" value="123 Main St, Atlanta, GA">
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
+            <h3 class="text-xl font-bold text-white mb-4">Business Information</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-400 mb-2">Shop Name</label>
+                <input placeholder="Your Barber Shop" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-400 focus:outline-none" value="Your Barber Shop">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-400 mb-2">Phone Number</label>
+                <input placeholder="(555) 123-4567" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-400 focus:outline-none" value="(555) 123-4567">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-400 mb-2">Address</label>
+                <input placeholder="123 Main St, Atlanta, GA" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-400 focus:outline-none" value="123 Main St, Atlanta, GA">
+              </div>
             </div>
           </div>
           
           <!-- Payments -->
-          <div class="bg-gray-900 border border-gray-800 rounded-lg p-5 mb-4">
-            <h3 class="text-lg font-semibold mb-2 text-white">Payment processing</h3>
-            <p class="text-gray-400 text-sm mb-3">Connect Stripe to accept online payments</p>
-            <button class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Connect Stripe</button>
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-white mb-1">Payment Processing</h3>
+                <p class="text-gray-400 text-sm">Connect Stripe to accept online payments</p>
+              </div>
+              <button class="btn-primary px-6 py-3 rounded-lg font-medium">Connect Stripe</button>
+            </div>
           </div>
           
           <!-- Subscription Packages -->
-          <div class="bg-gray-900 border border-gray-800 rounded-lg p-5">
-            <div class="flex justify-between items-center mb-3">
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <div class="flex justify-between items-center mb-4">
               <div>
-                <h3 class="text-lg font-semibold text-white">Subscription packages</h3>
-                <p class="text-gray-400 text-sm mt-0.5">Offer monthly deals to boost customer retention</p>
+                <h3 class="text-xl font-bold text-white mb-1">Subscription Packages</h3>
+                <p class="text-gray-400 text-sm">Offer monthly deals to boost customer retention</p>
               </div>
-              <button id="create-package-btn" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Create</button>
+              <button id="create-package-btn" class="btn-primary px-6 py-3 rounded-lg font-medium flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Create Package
+              </button>
             </div>
             <div id="subscription-packages-list" class="space-y-3 mt-4">
               <!-- Packages will be loaded here -->
@@ -308,8 +377,8 @@
       <img id="post-image-preview" class="hidden w-full h-48 object-cover rounded-lg mb-4">
       <textarea id="post-caption" placeholder="Tell us about your new look..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-24 focus:border-sky-400 focus:outline-none"></textarea>
       <div class="flex gap-3 mt-4">
-        <button id="cancel-post" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
-        <button id="submit-post" class="flex-1 bg-sky-500 text-white py-2 rounded-lg hover:bg-sky-600 transition-colors">Post</button>
+        <button id="cancel-post" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
+        <button id="submit-post" class="flex-1 btn-primary py-3 rounded-lg font-medium">Post</button>
       </div>
     </div>
   </div>
@@ -326,8 +395,8 @@
       <input type="text" id="work-style-name" placeholder="Style name (e.g., Modern Fade)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 mb-3 focus:border-sky-400 focus:outline-none">
       <textarea id="work-description" placeholder="Describe the cut and technique..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-24 focus:border-sky-400 focus:outline-none"></textarea>
       <div class="flex gap-3 mt-4">
-        <button id="cancel-work" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
-        <button id="submit-work" class="flex-1 bg-sky-500 text-white py-2 rounded-lg hover:bg-sky-600 transition-colors">Upload</button>
+        <button id="cancel-work" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
+        <button id="submit-work" class="flex-1 btn-primary py-3 rounded-lg font-medium">Upload</button>
       </div>
     </div>
   </div>
@@ -357,8 +426,8 @@
       </select>
       <textarea id="appointment-notes" placeholder="Special requests or notes..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 focus:border-sky-400 focus:outline-none"></textarea>
       <div class="flex gap-3 mt-4">
-        <button id="cancel-booking" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
-        <button id="confirm-booking" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors">Book Now</button>
+        <button id="cancel-booking" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
+        <button id="confirm-booking" class="flex-1 btn-primary py-3 rounded-lg font-medium">Book Now</button>
       </div>
     </div>
   </div>
@@ -378,8 +447,8 @@
         <input type="text" id="package-discount" placeholder="Discount (e.g., 25% off)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
       </div>
       <div class="flex gap-3 mt-4">
-        <button id="cancel-package" class="flex-1 bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600 transition-colors">Cancel</button>
-        <button id="submit-package" class="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors">Create Package</button>
+        <button id="cancel-package" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
+        <button id="submit-package" class="flex-1 btn-primary py-3 rounded-lg font-medium">Create Package</button>
       </div>
     </div>
   </div>

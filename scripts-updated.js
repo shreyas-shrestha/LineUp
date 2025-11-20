@@ -983,21 +983,38 @@ function renderBarberPortfolio() {
   portfolioGrid.innerHTML = '';
   
   if (barberPortfolio.length === 0) {
-    portfolioGrid.innerHTML = '<div class="col-span-full text-center text-gray-500 py-10">No portfolio items yet. Upload your first work!</div>';
+    portfolioGrid.innerHTML = `
+      <div class="col-span-full text-center py-16">
+        <div class="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        <p class="text-gray-400 text-lg mb-2">No portfolio items yet</p>
+        <p class="text-gray-500 text-sm">Upload your first work to showcase your skills</p>
+      </div>
+    `;
     return;
   }
   
   barberPortfolio.forEach(work => {
     const workElement = document.createElement('div');
-    workElement.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden';
+    workElement.className = 'bg-gray-900 border border-gray-800 rounded-xl overflow-hidden card-hover';
     workElement.innerHTML = `
-      <img src="${work.image}" alt="${work.styleName}" class="w-full h-64 object-cover">
+      <div class="relative aspect-square overflow-hidden bg-gray-800">
+        <img src="${work.image}" alt="${work.styleName}" class="w-full h-full object-cover">
+      </div>
       <div class="p-4">
         <h3 class="text-lg font-bold text-white mb-2">${work.styleName}</h3>
-        <p class="text-gray-300 text-sm mb-3">${work.description}</p>
-        <div class="flex justify-between items-center text-xs text-gray-400">
-          <span>${work.likes} likes</span>
-          <span>${new Date(work.date).toLocaleDateString()}</span>
+        <p class="text-gray-400 text-sm mb-3 line-clamp-2">${work.description}</p>
+        <div class="flex justify-between items-center pt-3 border-t border-gray-800">
+          <div class="flex items-center gap-2 text-sm text-gray-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+            </svg>
+            <span>${work.likes}</span>
+          </div>
+          <span class="text-xs text-gray-500">${new Date(work.date).toLocaleDateString()}</span>
         </div>
       </div>
     `;
@@ -1198,37 +1215,67 @@ function renderBarberAppointments() {
   barberAppointmentsContainer.innerHTML = '';
   
   if (appointments.length === 0) {
-    barberAppointmentsContainer.innerHTML = '<p class="text-center text-gray-500 py-10">No appointments scheduled.</p>';
+    barberAppointmentsContainer.innerHTML = `
+      <div class="text-center py-16">
+        <div class="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+        </div>
+        <p class="text-gray-400 text-lg mb-2">No appointments scheduled</p>
+        <p class="text-gray-500 text-sm">Your upcoming bookings will appear here</p>
+      </div>
+    `;
     return;
   }
   
   appointments.forEach(appointment => {
     const appointmentElement = document.createElement('div');
-    appointmentElement.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl p-5';
+    appointmentElement.className = 'bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover';
     appointmentElement.innerHTML = `
-      <div class="flex justify-between items-start mb-3">
-        <div>
-          <h3 class="text-lg font-bold text-white">${appointment.clientName}</h3>
-          <p class="text-gray-400">${appointment.service}</p>
-        </div>
-        <div class="flex gap-2">
+      <div class="flex justify-between items-start mb-4">
+        <div class="flex-1">
+          <h3 class="text-xl font-bold text-white mb-1">${appointment.clientName}</h3>
+          <p class="text-gray-400 text-sm mb-2">${appointment.service}</p>
+          <div class="flex items-center gap-2">
           <span class="px-3 py-1 rounded-full text-xs font-semibold ${
-            appointment.status === 'confirmed' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
+              appointment.status === 'confirmed' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 
+              appointment.status === 'completed' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+              'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
           }">
             ${appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
           </span>
+          </div>
+        </div>
           ${appointment.status === 'pending' ? 
-            `<button onclick="confirmAppointment(${appointment.id})" class="bg-green-500 text-white px-3 py-1 rounded-full text-xs hover:bg-green-600 transition-colors">Confirm</button>` : ''
+          `<button onclick="confirmAppointment(${appointment.id})" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap">Confirm</button>` : ''
           }
         </div>
+      
+      <div class="grid grid-cols-2 gap-4 mb-4 pt-4 border-t border-gray-800">
+        <div>
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Date</p>
+          <p class="text-sm font-medium text-white">${new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
       </div>
-      <div class="grid grid-cols-2 gap-4 text-sm">
-        <p class="text-gray-300"><span class="text-gray-400">Date:</span> ${new Date(appointment.date).toLocaleDateString()}</p>
-        <p class="text-gray-300"><span class="text-gray-400">Time:</span> ${appointment.time}</p>
-        <p class="text-gray-300"><span class="text-gray-400">Price:</span> ${appointment.price}</p>
-        <p class="text-gray-300"><span class="text-gray-400">Contact:</span> ${appointment.clientName}</p>
+        <div>
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Time</p>
+          <p class="text-sm font-medium text-white">${appointment.time}</p>
       </div>
-      ${appointment.notes !== 'No special requests' ? `<p class="text-gray-400 text-sm mt-3">Notes: ${appointment.notes}</p>` : ''}
+        <div>
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Price</p>
+          <p class="text-sm font-medium text-white">${appointment.price}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Contact</p>
+          <p class="text-sm font-medium text-white">${appointment.clientName}</p>
+        </div>
+      </div>
+      ${appointment.notes && appointment.notes !== 'No special requests' ? `
+        <div class="pt-4 border-t border-gray-800">
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Notes</p>
+          <p class="text-sm text-gray-300">${appointment.notes}</p>
+        </div>
+      ` : ''}
     `;
     barberAppointmentsContainer.appendChild(appointmentElement);
   });
@@ -1479,7 +1526,15 @@ function renderSubscriptionPackages() {
 
   if (subscriptionPackages.length === 0) {
     subscriptionPackagesList.innerHTML = `
-      <p class="text-gray-400 text-sm text-center py-4">No subscription packages yet. Create one to start!</p>
+      <div class="text-center py-12 border border-gray-800 rounded-xl bg-gray-800/30">
+        <div class="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
+          <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <p class="text-gray-400 text-sm mb-1">No subscription packages yet</p>
+        <p class="text-gray-500 text-xs">Create one to offer monthly deals to clients</p>
+      </div>
     `;
     return;
   }
@@ -1488,24 +1543,38 @@ function renderSubscriptionPackages() {
   
   subscriptionPackages.forEach(pkg => {
     const packageElement = document.createElement('div');
-    packageElement.className = 'bg-gray-800 border border-gray-700 rounded-lg p-4';
+    packageElement.className = 'bg-gray-800 border border-gray-700 rounded-xl p-5 card-hover';
     packageElement.innerHTML = `
-      <div class="flex justify-between items-start">
+      <div class="flex justify-between items-start mb-4">
         <div class="flex-1">
-          <h4 class="text-white font-semibold">${pkg.title}</h4>
-          <p class="text-gray-400 text-sm mt-1">${pkg.description}</p>
-          <div class="flex flex-wrap gap-3 mt-3 text-sm">
-            <span class="text-green-400">💰 ${pkg.price}</span>
-            <span class="text-sky-400">✂️ ${pkg.numCuts} cuts</span>
-            <span class="text-purple-400">📅 ${pkg.durationMonths} month${pkg.durationMonths > 1 ? 's' : ''}</span>
-            ${pkg.discount ? `<span class="text-yellow-400">🏷️ ${pkg.discount}</span>` : ''}
-          </div>
+          <h4 class="text-xl font-bold text-white mb-2">${pkg.title}</h4>
+          <p class="text-gray-400 text-sm mb-4">${pkg.description}</p>
         </div>
-        <button onclick="deletePackage('${pkg.id}')" class="text-red-400 hover:text-red-300 ml-2">
+        <button onclick="deletePackage('${pkg.id}')" class="text-gray-400 hover:text-red-400 transition-colors p-2 -mt-2 -mr-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
         </button>
+      </div>
+      <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700">
+        <div>
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Price</p>
+          <p class="text-lg font-bold text-white">${pkg.price}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Haircuts</p>
+          <p class="text-lg font-bold text-white">${pkg.numCuts} per month</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Duration</p>
+          <p class="text-sm font-medium text-white">${pkg.durationMonths} month${pkg.durationMonths > 1 ? 's' : ''}</p>
+        </div>
+        ${pkg.discount ? `
+        <div>
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Discount</p>
+          <p class="text-sm font-medium text-green-400">${pkg.discount}</p>
+        </div>
+        ` : '<div></div>'}
       </div>
     `;
     subscriptionPackagesList.appendChild(packageElement);

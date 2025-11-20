@@ -1350,17 +1350,21 @@ function displayTryOnResult(originalImageBase64, resultImageBase64, styleName, p
         <!-- Before Image -->
         <div class="text-center">
           <p class="text-gray-400 text-sm font-semibold mb-2">Before</p>
-          <img src="data:image/jpeg;base64,${originalImageBase64}" 
-               alt="Before" 
-               class="w-full rounded-lg shadow-lg border-2 border-gray-600">
+          <div class="w-full aspect-square rounded-lg shadow-lg border-2 border-gray-600 overflow-hidden bg-gray-700 flex items-center justify-center">
+            <img src="data:image/jpeg;base64,${originalImageBase64}" 
+                 alt="Before" 
+                 class="w-full h-full object-contain rounded-lg">
+          </div>
         </div>
         
         <!-- After Image -->
         <div class="text-center">
           <p class="text-gray-400 text-sm font-semibold mb-2">After</p>
-          <img src="data:image/jpeg;base64,${resultImageBase64}" 
-               alt="After" 
-               class="w-full rounded-lg shadow-lg border-2 border-sky-500">
+          <div class="w-full aspect-square rounded-lg shadow-lg border-2 border-sky-500 overflow-hidden bg-gray-700 flex items-center justify-center">
+            <img src="data:image/jpeg;base64,${resultImageBase64}" 
+                 alt="After" 
+                 class="w-full h-full object-contain rounded-lg">
+          </div>
         </div>
       </div>
       

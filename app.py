@@ -1463,6 +1463,10 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                 # Use flux-kontext-apps/change-haircut model
                 # This model uses FLUX.1 Kontext for text-guided hair editing
                 # Version: 48f03523665cabe9a2e832ea9cc2d7c30ad5079cb5f1c1f07890d40596fe1f87
+                # Use replicate.run() - it handles polling internally
+                # Note: If it takes >30 seconds, the Gunicorn worker will timeout
+                # In that case, it will fall back to preview mode automatically
+                logger.info("Calling Replicate API (this may take 10-30 seconds)...")
                 output = replicate.run(
                     "flux-kontext-apps/change-haircut:48f03523665cabe9a2e832ea9cc2d7c30ad5079cb5f1c1f07890d40596fe1f87",
                     input={
@@ -1474,10 +1478,10 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     }
                 )
                 
-                logger.info(f"Replicate API called successfully")
+                logger.info(f"Replicate API call completed")
                 logger.info(f"Output type: {type(output)}")
                 
-                # Handle different output types from Replicate
+                # Handle different output types from Replicate prediction
                 result_url = None
                 
                 if output:
@@ -1485,7 +1489,10 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     if isinstance(output, str):
                         result_url = output
                         logger.info(f"Output is string URL: {result_url}")
-                    elif hasattr(output, '__iter__'):
+                    elif isinstance(output, list) and len(output) > 0:
+                        result_url = output[0]  # First element in list
+                        logger.info(f"Output is list, first item: {result_url}")
+                    elif hasattr(output, '__iter__') and not isinstance(output, str):
                         try:
                             output_list = list(output)
                             if output_list and len(output_list) > 0:
@@ -1498,7 +1505,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         logger.info(f"Output converted to string: {result_url}")
                 
                 if not result_url:
-                    logger.error("No result URL found in output")
+                    logger.error(f"No result URL found in output. Output type: {type(output)}, Output: {output}")
                     raise Exception("Model produced no output URL")
                 
                 # Download and verify the result
@@ -1525,14 +1532,14 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
                         response_data = {
-                        "success": True,
+                            "success": True,
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "originalImage": original_base64,
                             "resultImage": result_base64,
-                        "styleApplied": style_description,
+                            "styleApplied": style_description,
                             "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
-                    }
+                        }
                     
                         response = make_response(jsonify(response_data), 200)
                         response.headers['Access-Control-Allow-Origin'] = '*'

@@ -1264,12 +1264,63 @@ def virtual_tryon():
                 
                 logger.info(f"Starting hair style transformation: {style_description}")
                 
-                # Map style descriptions to EXACT haircut names required by the model
-                # The model ONLY accepts specific values from its predefined list
-                # Valid values from error message: "No change", "Random", "Straight", "Wavy", 
-                # "Curly", "Bob", "Pixie Cut", "Layered", "Messy Bun", "High Ponytail", etc.
-                # Reference: https://replicate.com/flux-kontext-apps/change-haircut
-                style_map = {
+                # List of ALL allowed haircut values from the Replicate model
+                ALLOWED_HAIRCUTS = [
+                    "No change", "Random", "Straight", "Wavy", "Curly", "Bob", "Pixie Cut",
+                    "Layered", "Messy Bun", "High Ponytail", "Low Ponytail", "Braided Ponytail",
+                    "French Braid", "Dutch Braid", "Fishtail Braid", "Space Buns", "Top Knot",
+                    "Undercut", "Mohawk", "Crew Cut", "Faux Hawk", "Slicked Back", "Side-Parted",
+                    "Center-Parted", "Blunt Bangs", "Side-Swept Bangs", "Shag", "Lob",
+                    "Angled Bob", "A-Line Bob", "Asymmetrical Bob", "Graduated Bob", "Inverted Bob",
+                    "Layered Shag", "Choppy Layers", "Razor Cut", "Perm", "Ombré", "Straightened",
+                    "Soft Waves", "Glamorous Waves", "Hollywood Waves", "Finger Waves", "Tousled",
+                    "Feathered", "Pageboy", "Pigtails", "Pin Curls", "Rollerset", "Twist Out",
+                    "Bantu Knots", "Dreadlocks", "Cornrows", "Box Braids", "Crochet Braids",
+                    "Double Dutch Braids", "French Fishtail Braid", "Waterfall Braid", "Rope Braid",
+                    "Heart Braid", "Halo Braid", "Crown Braid", "Braided Crown", "Bubble Braid",
+                    "Bubble Ponytail", "Ballerina Braids", "Milkmaid Braids", "Bohemian Braids",
+                    "Flat Twist", "Crown Twist", "Twisted Bun", "Twisted Half-Updo", "Twist and Pin Updo",
+                    "Chignon", "Simple Chignon", "Messy Chignon", "French Twist", "French Twist Updo",
+                    "French Roll", "Updo", "Messy Updo", "Knotted Updo", "Ballerina Bun",
+                    "Banana Clip Updo", "Beehive", "Bouffant", "Hair Bow", "Half-Up Top Knot",
+                    "Half-Up, Half-Down", "Messy Bun with a Headband", "Messy Bun with a Scarf",
+                    "Messy Fishtail Braid", "Sideswept Pixie", "Mohawk Fade", "Zig-Zag Part", "Victory Rolls"
+                ]
+                
+                # Try to use Gemini to find the best match
+                haircut_name = None
+                if model:
+                    try:
+                        logger.info("Using Gemini to find best matching haircut...")
+                        prompt = f"""Given this hairstyle description: "{style_description}"
+
+Choose the MOST similar haircut from this exact list (return ONLY the exact name, nothing else):
+
+{', '.join(ALLOWED_HAIRCUTS)}
+
+Return the single best match that most closely represents the style described. If unsure, choose the closest match based on:
+- Hair length similarity
+- Texture/style similarity  
+- Overall aesthetic similarity
+
+Return ONLY the exact name from the list above, no explanation."""
+                        
+                        gemini_response = model.generate_content(prompt)
+                        gemini_match = gemini_response.text.strip().strip('"').strip("'")
+                        
+                        # Verify it's in the allowed list
+                        if gemini_match in ALLOWED_HAIRCUTS:
+                            haircut_name = gemini_match
+                            logger.info(f"Gemini matched '{style_description}' to '{haircut_name}'")
+                        else:
+                            logger.warning(f"Gemini returned '{gemini_match}' which is not in allowed list, using fallback")
+                    except Exception as gemini_error:
+                        logger.warning(f"Gemini matching failed: {str(gemini_error)}, using fallback mapping")
+                
+                # Fallback: Use keyword-based mapping if Gemini not available or failed
+                if not haircut_name:
+                    logger.info("Using keyword-based fallback mapping...")
+                    style_map = {
                     # Fade styles
                     "fade": "Mohawk Fade",
                     "modern fade": "Mohawk Fade",
@@ -1350,20 +1401,23 @@ def virtual_tryon():
                     "center part": "Center-Parted",
                     "center-part": "Center-Parted",
                     "centerpart": "Center-Parted"
-                }
+                    }
+                    
+                    # Get the best matching haircut name from the model's allowed list
+                    style_lower = style_description.lower().strip()
+                    if not haircut_name:
+                        haircut_name = "Random"  # Default fallback - model accepts this
+                    
+                    # Check for exact keyword matches first (longest matches first)
+                    # Sort by key length descending to match longer phrases first
+                    sorted_keys = sorted(style_map.keys(), key=len, reverse=True)
+                    for key in sorted_keys:
+                        if key in style_lower:
+                            haircut_name = style_map[key]
+                            break
+                    
+                    logger.info(f"Fallback mapping matched '{style_description}' to '{haircut_name}'")
                 
-                # Get the best matching haircut name from the model's allowed list
-                style_lower = style_description.lower().strip()
-                haircut_name = "Random"  # Default fallback - model accepts this
-                
-                # Check for exact keyword matches first (longest matches first)
-                # Sort by key length descending to match longer phrases first
-                sorted_keys = sorted(style_map.keys(), key=len, reverse=True)
-                for key in sorted_keys:
-                    if key in style_lower:
-                        haircut_name = style_map[key]
-                        break
-            
                 logger.info(f"Using haircut style: {haircut_name} (from description: {style_description})")
                 
                 # Use flux-kontext-apps/change-haircut model

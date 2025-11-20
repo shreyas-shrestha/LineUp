@@ -1292,28 +1292,68 @@ def virtual_tryon():
                 if model:
                     try:
                         logger.info("Using Gemini to find best matching haircut...")
-                        prompt = f"""Given this hairstyle description: "{style_description}"
+                        
+                        # Create a more structured prompt with context
+                        prompt = f"""You are a professional hairstylist matching haircut descriptions to specific style names.
 
-Choose the MOST similar haircut from this exact list (return ONLY the exact name, nothing else):
+TASK: Match this haircut description to the BEST option from the allowed list below.
 
+HAIRCUT DESCRIPTION: "{style_description}"
+
+ALLOWED STYLES (choose ONE exact match):
 {', '.join(ALLOWED_HAIRCUTS)}
 
-Return the single best match that most closely represents the style described. If unsure, choose the closest match based on:
-- Hair length similarity
-- Texture/style similarity  
-- Overall aesthetic similarity
+MATCHING RULES:
+1. **Fade styles** → "Mohawk Fade" (for any fade: classic fade, modern fade, taper fade, etc.)
+2. **Parted styles** → "Side-Parted" (for side part, side part with volume, side-swept, etc.) OR "Center-Parted" (for center part, middle part)
+3. **Slicked/Quiff/Pompadour** → "Slicked Back" (for quiff, pompadour, slick back, swept back, etc.)
+4. **Short/Buzz** → "Crew Cut" (for buzz cut, crew cut, short cut, military cut)
+5. **Undercut** → "Undercut" (for undercut, disconnected undercut)
+6. **Mohawk** → "Mohawk" (for mohawk, faux hawk) OR "Mohawk Fade" (if it mentions fade)
+7. **Long hair** → "Half-Up, Half-Down" (for long hair, shoulder length, etc.)
+8. **Curly/Afro** → "Curly" (for curly, afro, natural curls)
+9. **Wavy** → "Wavy" (for wavy, soft waves) OR "Soft Waves" (if specifically soft)
+10. **Straight** → "Straight" (for straight, straightened)
+11. **Textured/Messy** → "Tousled" (for textured, messy, tousled, messy crop)
+12. **Bob styles** → "Bob" (for bob, classic bob) OR "Lob" (for long bob)
+13. **Pixie** → "Pixie Cut" (for pixie, pixie cut, bowl cut)
+14. **Bun/Top Knot** → "Top Knot" (for man bun, top knot, bun) OR "Messy Bun" (if messy)
+15. **Layered** → "Layered" (for layered, layers, layered cut)
+16. **Dreadlocks** → "Dreadlocks" (for dreadlocks, dreads)
 
-Return ONLY the exact name from the list above, no explanation."""
+EXAMPLES:
+- "Side Part with Volume" → "Side-Parted"
+- "Classic Fade" → "Mohawk Fade"
+- "Textured Quiff" → "Slicked Back"
+- "Modern Fade" → "Mohawk Fade"
+- "Messy Crop" → "Tousled"
+- "Buzz Cut" → "Crew Cut"
+- "Undercut" → "Undercut"
+
+CRITICAL: Return ONLY the exact name from the list above. No explanations, no quotes, just the exact name."""
                         
                         gemini_response = model.generate_content(prompt)
-                        gemini_match = gemini_response.text.strip().strip('"').strip("'")
+                        gemini_match = gemini_response.text.strip().strip('"').strip("'").strip('`')
+                        
+                        # Clean up common Gemini response patterns
+                        gemini_match = gemini_match.split('\n')[0].strip()  # Take first line only
+                        gemini_match = gemini_match.replace('**', '').replace('*', '')  # Remove markdown
                         
                         # Verify it's in the allowed list
                         if gemini_match in ALLOWED_HAIRCUTS:
                             haircut_name = gemini_match
                             logger.info(f"Gemini matched '{style_description}' to '{haircut_name}'")
                         else:
-                            logger.warning(f"Gemini returned '{gemini_match}' which is not in allowed list, using fallback")
+                            # Try fuzzy matching - check if any allowed style contains the match or vice versa
+                            gemini_lower = gemini_match.lower()
+                            for allowed in ALLOWED_HAIRCUTS:
+                                if gemini_lower == allowed.lower() or gemini_lower in allowed.lower() or allowed.lower() in gemini_lower:
+                                    haircut_name = allowed
+                                    logger.info(f"Gemini fuzzy matched '{style_description}' to '{haircut_name}' (via '{gemini_match}')")
+                                    break
+                            
+                            if not haircut_name:
+                                logger.warning(f"Gemini returned '{gemini_match}' which is not in allowed list, using fallback")
                     except Exception as gemini_error:
                         logger.warning(f"Gemini matching failed: {str(gemini_error)}, using fallback mapping")
                 
@@ -1485,15 +1525,15 @@ Return ONLY the exact name from the list above, no explanation."""
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
                         response_data = {
-                            "success": True,
+                        "success": True,
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "originalImage": original_base64,
                             "resultImage": result_base64,
-                            "styleApplied": style_description,
+                        "styleApplied": style_description,
                             "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
-                        }
-                        
+                    }
+                    
                         response = make_response(jsonify(response_data), 200)
                         response.headers['Access-Control-Allow-Origin'] = '*'
                         logger.info("✅ AI hair transformation successful!")
@@ -1502,7 +1542,7 @@ Return ONLY the exact name from the list above, no explanation."""
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
-                        
+                
                 except req.exceptions.Timeout:
                     logger.error("Download timeout after 60 seconds")
                     raise Exception("Result download timed out")

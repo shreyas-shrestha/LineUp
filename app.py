@@ -2221,8 +2221,8 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
-            
-            except req.exceptions.Timeout:
+                
+                except req.exceptions.Timeout:
                 logger.error("Download timeout after 60 seconds")
                 raise Exception("Result download timed out")
             except Exception as download_error:

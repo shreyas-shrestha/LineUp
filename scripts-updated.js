@@ -282,6 +282,82 @@ function setupEventListeners() {
       }
     });
   });
+  
+  // Barber Phase 1 modals
+  const availabilityModal = document.getElementById('availability-modal');
+  const servicesModal = document.getElementById('services-modal');
+  const clientsModal = document.getElementById('clients-modal');
+  
+  // Availability modal handlers
+  if (document.getElementById('manage-availability-btn')) {
+    document.getElementById('manage-availability-btn').addEventListener('click', () => {
+      loadAvailabilitySettings();
+      if (availabilityModal) availabilityModal.classList.remove('hidden');
+    });
+  }
+  if (document.getElementById('close-availability-modal')) {
+    document.getElementById('close-availability-modal').addEventListener('click', () => {
+      if (availabilityModal) availabilityModal.classList.add('hidden');
+    });
+  }
+  if (document.getElementById('cancel-availability')) {
+    document.getElementById('cancel-availability').addEventListener('click', () => {
+      if (availabilityModal) availabilityModal.classList.add('hidden');
+    });
+  }
+  if (document.getElementById('save-availability')) {
+    document.getElementById('save-availability').addEventListener('click', saveAvailabilitySettings);
+  }
+  
+  // Services modal handlers
+  if (document.getElementById('manage-services-btn')) {
+    document.getElementById('manage-services-btn').addEventListener('click', () => {
+      loadServices();
+      if (servicesModal) servicesModal.classList.remove('hidden');
+    });
+  }
+  if (document.getElementById('close-services-modal')) {
+    document.getElementById('close-services-modal').addEventListener('click', () => {
+      if (servicesModal) servicesModal.classList.add('hidden');
+    });
+  }
+  if (document.getElementById('close-services')) {
+    document.getElementById('close-services').addEventListener('click', () => {
+      if (servicesModal) servicesModal.classList.add('hidden');
+    });
+  }
+  if (document.getElementById('add-service-btn')) {
+    document.getElementById('add-service-btn').addEventListener('click', () => {
+      document.getElementById('add-service-form').classList.remove('hidden');
+    });
+  }
+  if (document.getElementById('cancel-service')) {
+    document.getElementById('cancel-service').addEventListener('click', () => {
+      document.getElementById('add-service-form').classList.add('hidden');
+      // Clear form
+      document.getElementById('service-name').value = '';
+      document.getElementById('service-price').value = '';
+      document.getElementById('service-duration').value = '';
+      document.getElementById('service-category').value = '';
+      document.getElementById('service-description').value = '';
+    });
+  }
+  if (document.getElementById('save-service')) {
+    document.getElementById('save-service').addEventListener('click', saveService);
+  }
+  
+  // Clients modal handlers
+  if (document.getElementById('view-clients-btn')) {
+    document.getElementById('view-clients-btn').addEventListener('click', () => {
+      loadClients();
+      if (clientsModal) clientsModal.classList.remove('hidden');
+    });
+  }
+  if (document.getElementById('close-clients-modal')) {
+    document.getElementById('close-clients-modal').addEventListener('click', () => {
+      if (clientsModal) clientsModal.classList.add('hidden');
+    });
+  }
 }
 
 // --- Mode Switching ---
@@ -1617,9 +1693,25 @@ async function addAppointmentNote(appointmentId) {
   }
 }
 
-function viewClientHistory(clientId) {
-  // This will be implemented with the client history UI
-  alert(`Viewing history for client: ${clientId}`);
+async function viewClientHistory(clientId) {
+  try {
+    const response = await fetch(`${API_URL}/barbers/${currentBarberId}/clients/${clientId}/history`);
+    const data = await response.json();
+    
+    const history = data.appointments || [];
+    const historyText = history.map(apt => 
+      `${apt.date} ${apt.time}: ${apt.service} - ${apt.status}`
+    ).join('\n');
+    
+    if (history.length === 0) {
+      alert(`No history for client: ${clientId}`);
+    } else {
+      alert(`Client History:\n\n${historyText}`);
+    }
+  } catch (error) {
+    console.error('Error loading client history:', error);
+    alert('Failed to load client history');
+  }
 }
 
 function confirmAppointment(appointmentId) {
@@ -2215,3 +2307,9 @@ window.sharePost = sharePost;
 window.toggleFollow = toggleFollow;
 window.loadAIInsights = loadAIInsights;
 window.showBarberReviews = showBarberReviews;
+window.acceptAppointment = acceptAppointment;
+window.rejectAppointment = rejectAppointment;
+window.rescheduleAppointment = rescheduleAppointment;
+window.cancelAppointment = cancelAppointment;
+window.addAppointmentNote = addAppointmentNote;
+window.viewClientHistory = viewClientHistory;

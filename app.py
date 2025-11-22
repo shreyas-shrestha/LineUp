@@ -1913,15 +1913,15 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     logger.info("✅ AI hair transformation successful!")
                     return response
                 else:
-                        logger.error(f"Failed to download result: HTTP {result_response.status_code}")
-                        logger.error(f"Response: {result_response.text[:500]}")
-                        raise Exception(f"Failed to download result: {result_response.status_code}")
+                    logger.error(f"Failed to download result: HTTP {result_response.status_code}")
+                    logger.error(f"Response: {result_response.text[:500]}")
+                    raise Exception(f"Failed to download result: {result_response.status_code}")
             
             except req.exceptions.Timeout:
-                    logger.error("Download timeout after 60 seconds")
-                    raise Exception("Result download timed out")
-                except Exception as download_error:
-                    logger.error(f"Download error: {str(download_error)}")
+                logger.error("Download timeout after 60 seconds")
+                raise Exception("Result download timed out")
+            except Exception as download_error:
+                logger.error(f"Download error: {str(download_error)}")
                     raise
                 
             except Exception as e:
@@ -2262,13 +2262,30 @@ def share_post(post_id):
         return response, 200
     
     try:
-        post = next((p for p in social_posts if p["id"] == post_id), None)
+        # Try to get post from database first, then fallback to in-memory
+        post = None
+        if db:
+            post_doc = db_get_doc('social_posts', post_id)
+            if post_doc:
+                post = post_doc
+        
+        # Fallback to in-memory if not in database
+        if not post:
+            post = next((p for p in social_posts if str(p.get("id")) == str(post_id)), None)
+        
         if not post:
             response = make_response(jsonify({"error": "Post not found"}), 404)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
         
-        post["shares"] = post.get("shares", 0) + 1
+        current_shares = post.get("shares", 0)
+        post["shares"] = current_shares + 1
+        
+        # Save to database if using database
+        if db:
+            db_update_doc('social_posts', post_id, {
+                "shares": post["shares"]
+            })
         
         response = make_response(jsonify({"success": True, "shares": post["shares"]}), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'

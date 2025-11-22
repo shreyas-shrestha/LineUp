@@ -602,6 +602,7 @@ def getMockBarbersForLocation(location):
             "photo": "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400&h=300&fit=crop",
             "phone": "(555) 123-4567",
             "website": "https://elitecuts.example.com",
+            "bookingUrl": "https://calendly.com/elitecuts/booking",
             "google_maps_url": "https://www.google.com/maps/search/?api=1&query=33.7490,-84.3880",
             "hours": "Mon-Sat 9AM-8PM"
         },
@@ -616,6 +617,7 @@ def getMockBarbersForLocation(location):
             "photo": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400&h=300&fit=crop",
             "phone": "(555) 123-4568",
             "website": "",
+            "bookingUrl": "https://booksy.com/thebarber",
             "google_maps_url": "https://www.google.com/maps/search/?api=1&query=33.7490,-84.3880",
             "hours": "Tue-Sun 10AM-7PM"
         },
@@ -630,6 +632,7 @@ def getMockBarbersForLocation(location):
             "photo": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop",
             "phone": "(555) 123-4569",
             "website": "https://stylestudio.example.com",
+            "bookingUrl": "https://squareup.com/appointments/book/stylestudio",
             "google_maps_url": "https://www.google.com/maps/search/?api=1&query=33.7490,-84.3880",
             "hours": "Mon-Fri 8AM-6PM"
         }
@@ -1553,7 +1556,7 @@ def get_barbers():
             details_url = f"https://maps.googleapis.com/maps/api/place/details/json"
             details_params = {
                 'place_id': place['place_id'],
-                'fields': 'name,formatted_address,formatted_phone_number,opening_hours,website,price_level,rating,user_ratings_total,photos',
+                'fields': 'name,formatted_address,formatted_phone_number,opening_hours,website,price_level,rating,user_ratings_total,photos,reviews',
                 'key': GOOGLE_PLACES_API_KEY
             }
             
@@ -1611,6 +1614,36 @@ def get_barbers():
             lng = place['geometry']['location']['lng']
             google_maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
             
+            # Get booking URL from website or generate Calendly-style URL
+            booking_url = details.get('website', '')
+            # If website exists, try to create booking URL (common patterns)
+            if booking_url:
+                # Common booking platforms
+                if 'calendly.com' in booking_url.lower():
+                    booking_url = booking_url
+                elif 'booksy.com' in booking_url.lower():
+                    booking_url = booking_url
+                elif 'squareup.com' in booking_url.lower() or 'square.site' in booking_url.lower():
+                    booking_url = booking_url
+                else:
+                    # Default: use website as booking URL
+                    booking_url = booking_url
+            
+            # Get reviews from Google Places
+            reviews = details.get('reviews', [])
+            google_reviews = []
+            if reviews:
+                for review in reviews[:10]:  # Limit to 10 reviews
+                    google_reviews.append({
+                        'id': review.get('author_name', '') + '_' + str(review.get('time', 0)),
+                        'username': review.get('author_name', 'Anonymous'),
+                        'rating': review.get('rating', 5),
+                        'text': review.get('text', ''),
+                        'date': datetime.fromtimestamp(review.get('time', 0)).strftime('%Y-%m-%d') if review.get('time') else 'Recent',
+                        'profile_photo': review.get('profile_photo_url', ''),
+                        'relative_time': review.get('relative_time_description', '')
+                    })
+            
             barber_info = {
                 'id': place['place_id'],
                 'name': place['name'],
@@ -1621,6 +1654,7 @@ def get_barbers():
                 'avgCost': 25 + (place.get('price_level', 2) * 15),  # Estimate cost
                 'phone': details.get('formatted_phone_number', 'Call for info'),
                 'website': details.get('website', ''),
+                'bookingUrl': booking_url,  # External booking URL
                 'google_maps_url': google_maps_url,
                 'hours': details.get('opening_hours', {}).get('weekday_text', []),
                 'open_now': place.get('opening_hours', {}).get('open_now', None),
@@ -1630,7 +1664,9 @@ def get_barbers():
                     'lat': lat,
                     'lng': lng
                 },
-                'recommended_for_styles': recommended_styles if recommended_styles else []
+                'recommended_for_styles': recommended_styles if recommended_styles else [],
+                'place_id': place['place_id'],  # Store place_id for reviews
+                'google_reviews': google_reviews  # Include reviews in barber data
             }
             
             real_barbers.append(barber_info)
@@ -2167,28 +2203,28 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         # Also include original image for before/after comparison
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
-                        response_data = {
-                            "success": True,
+                    response_data = {
+                        "success": True,
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "originalImage": original_base64,
                             "resultImage": result_base64,
-                            "styleApplied": style_description,
+                        "styleApplied": style_description,
                             "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
                     }
                     
-                        response = make_response(jsonify(response_data), 200)
+                    response = make_response(jsonify(response_data), 200)
 
-                        response.headers['Access-Control-Allow-Origin'] = '*'
+                    response.headers['Access-Control-Allow-Origin'] = '*'
 
                         logger.info("✅ AI hair transformation successful!")
-                        return response
-                    else:
+                    return response
+                else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
-                
-                except req.exceptions.Timeout:
+            
+            except req.exceptions.Timeout:
                     logger.error("Download timeout after 60 seconds")
                     raise Exception("Result download timed out")
                 except Exception as download_error:
@@ -2279,7 +2315,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     try:
                         font = ImageFont.truetype(font_path, 28)
                         logger.info(f"Loaded font: {font_path}")
-                        break
+                    break
                     except:
                         continue
                 
@@ -2325,20 +2361,20 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
             original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
             
             # Return success response
-            response_data = {
-            "success": True,
+                response_data = {
+                    "success": True,
             "message": f"✨ Style preview created: {style_description}",
             "originalImage": original_base64,
             "resultImage": result_base64,
-            "styleApplied": style_description,
+                    "styleApplied": style_description,
             "poweredBy": "LineUp Preview Mode",
             "note": "This is a preview mode. Works immediately with no setup!"
-            }
+                }
                 
-            response = make_response(jsonify(response_data), 200)
-            response.headers['Access-Control-Allow-Origin'] = '*'
+                response = make_response(jsonify(response_data), 200)
+                response.headers['Access-Control-Allow-Origin'] = '*'
             logger.info("✅ Preview mode response sent successfully")
-            return response
+                return response
             
         except Exception as e:
             logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")
@@ -2361,6 +2397,76 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
 @limiter.limit("50 per hour")
 def handle_reviews(barber_id):
     if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        return response, 200
+    
+    if request.method == 'GET':
+        # Check if barber_id is a Google place_id (Google place_ids are typically 27 characters)
+        # Try to fetch Google Reviews first
+        if GOOGLE_PLACES_API_KEY and len(barber_id) >= 27:
+            try:
+                details_url = f"https://maps.googleapis.com/maps/api/place/details/json"
+                details_params = {
+                    'place_id': barber_id,
+                    'fields': 'name,rating,user_ratings_total,reviews',
+                    'key': GOOGLE_PLACES_API_KEY
+                }
+                
+                details_response = requests.get(details_url, params=details_params)
+                details_data = details_response.json()
+                
+                if details_data['status'] == 'OK' and 'result' in details_data:
+                    result = details_data['result']
+                    reviews = result.get('reviews', [])
+                    
+                    google_reviews = []
+                    for review in reviews[:10]:  # Limit to 10 reviews
+                        google_reviews.append({
+                            'id': review.get('author_name', '') + '_' + str(review.get('time', 0)),
+                            'username': review.get('author_name', 'Anonymous'),
+                            'rating': review.get('rating', 5),
+                            'text': review.get('text', ''),
+                            'date': datetime.fromtimestamp(review.get('time', 0)).strftime('%Y-%m-%d') if review.get('time') else 'Recent',
+                            'profile_photo': review.get('profile_photo_url', ''),
+                            'relative_time': review.get('relative_time_description', '')
+                        })
+                    
+                    avg_rating = result.get('rating', 0)
+                    total_reviews = result.get('user_ratings_total', 0)
+                    
+                    response = make_response(jsonify({
+                        'reviews': google_reviews,
+                        'average_rating': avg_rating,
+                        'total_reviews': total_reviews,
+                        'source': 'google'
+                    }), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
+                    return response
+            except Exception as e:
+                logger.error(f"Error fetching Google Reviews: {str(e)}")
+                # Fall through to mock reviews
+        
+        # Fallback to mock reviews
+        reviews = barber_reviews.get(barber_id, [])
+        avg_rating = 0
+        total_reviews = len(reviews)
+        
+        if reviews:
+            avg_rating = sum(r.get('rating', 0) for r in reviews) / len(reviews)
+        
+        response = make_response(jsonify({
+            'reviews': reviews,
+            'average_rating': avg_rating,
+            'total_reviews': total_reviews,
+            'source': 'mock'
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    
+    if request.method == 'POST':
         response = make_response('')
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')

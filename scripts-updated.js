@@ -80,6 +80,7 @@ let currentBarberForBooking = null;
 let subscriptionPackages = [];
 let currentBarberId = 'barber_' + Math.random().toString(36).substr(2, 9);
 let currentBarberName = 'My Barber Shop';
+let nearbyBarbers = []; // Store loaded barbers for booking URL access
 
 // --- Initialize Mock Data ---
 function initializeMockData() {
@@ -770,6 +771,9 @@ async function loadNearbyBarbers(location = 'Atlanta, GA', recommendedStyles = [
 function renderBarberList(barbers, isRealData = false) {
   if (!barberListContainer) return;
   
+  // Store barbers globally for booking URL access
+  nearbyBarbers = barbers;
+  
   const dataSourceBadge = isRealData ? 
     '<span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs">✓ Real Barbershops</span>' :
     '<span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs">Sample Data</span>';
@@ -1413,7 +1417,18 @@ function renderClientProfile() {
 }
 
 // --- Appointment Functions ---
-function openBookingModal(barberId, barberName) {
+async function openBookingModal(barberId, barberName) {
+  // Find the barber in the current list to get booking URL
+  const barber = nearbyBarbers.find(b => b.id === barberId);
+  
+  // Check if barber has an external booking URL
+  if (barber && barber.bookingUrl) {
+    // Redirect to external booking site
+    window.open(barber.bookingUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  
+  // Fallback to modal if no booking URL
   currentBarberForBooking = { id: barberId, name: barberName };
   
   document.getElementById('booking-barber-info').innerHTML = `
@@ -2758,23 +2773,33 @@ async function showBarberReviews(barberId) {
           ${reviews.map(review => `
             <div class="bg-gray-800/30 rounded-xl p-4 border border-gray-700">
               <div class="flex items-start justify-between mb-2">
-                <div>
-                  <p class="font-semibold text-white">${review.username}</p>
-                  <p class="text-gray-400 text-sm">${review.date}</p>
+                <div class="flex items-center gap-3 flex-1">
+                  ${review.profile_photo ? `
+                    <img src="${review.profile_photo}" alt="${review.username}" class="w-10 h-10 rounded-full">
+                  ` : `
+                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold">
+                      ${(review.username || 'A').charAt(0).toUpperCase()}
+                    </div>
+                  `}
+                  <div class="flex-1">
+                    <p class="font-semibold text-white">${review.username || 'Anonymous'}</p>
+                    <p class="text-gray-400 text-sm">${review.relative_time || review.date || 'Recent'}</p>
+                  </div>
                 </div>
                 <div class="flex gap-1">
                   ${Array(5).fill(0).map((_, i) => `
-                    <span class="text-${i < review.rating ? 'yellow' : 'gray'}-400">⭐</span>
+                    <span class="text-${i < (review.rating || 5) ? 'yellow' : 'gray'}-400">⭐</span>
                   `).join('')}
                 </div>
               </div>
-              <p class="text-gray-300">${review.text}</p>
+              <p class="text-gray-300 mt-2">${review.text || 'No review text available'}</p>
             </div>
           `).join('')}
         </div>
         ` : `
         <div class="text-center py-10 text-gray-400">
-          <p>No reviews yet. Be the first to review!</p>
+          <p>No reviews available yet.</p>
+          ${reviewsData.source === 'google' ? '<p class="text-sm mt-2">Google Reviews will appear here when available.</p>' : ''}
         </div>
         `}
         

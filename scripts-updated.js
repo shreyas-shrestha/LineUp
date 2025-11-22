@@ -2320,3 +2320,40 @@ window.rescheduleAppointment = rescheduleAppointment;
 window.cancelAppointment = cancelAppointment;
 window.addAppointmentNote = addAppointmentNote;
 window.viewClientHistory = viewClientHistory;
+
+// Preview loading functions (non-modal versions)
+async function loadAvailabilityPreview() {
+  try {
+    const response = await fetch(`${API_URL}/barbers/${currentBarberId}/availability`);
+    const data = await response.json();
+    const availability = data.availability || {};
+    updateAvailabilityPreview(availability);
+  } catch (error) {
+    console.error('Error loading availability preview:', error);
+  }
+}
+
+async function loadServicesPreview() {
+  try {
+    const response = await fetch(`${API_URL}/barbers/${currentBarberId}/services`);
+    const data = await response.json();
+    const services = data.services || [];
+    updateServicesPreview(services);
+  } catch (error) {
+    console.error('Error loading services preview:', error);
+  }
+}
+
+async function loadClientsPreview() {
+  try {
+    const response = await fetch(`${API_URL}/barbers/${currentBarberId}/clients`);
+    const data = await response.json();
+    const clients = data.clients || [];
+    updateClientsPreview(clients);
+  } catch (error) {
+    console.error('Error loading clients preview:', error);
+  }
+}
+
+window.deleteService = deleteService;
+window.viewClientDetails = viewClientDetails;

@@ -1041,16 +1041,44 @@ def toggle_like(post_id):
         return response, 200
     
     try:
-        post = next((p for p in social_posts if p["id"] == post_id), None)
+        # Try to get post from database first, then fallback to in-memory
+        post = None
+        if db:
+            post_doc = db_get_doc('social_posts', post_id)
+            if post_doc:
+                post = post_doc
+        
+        # Fallback to in-memory if not in database
+        if not post:
+            post = next((p for p in social_posts if str(p.get("id")) == str(post_id)), None)
+        
         if not post:
             response = make_response(jsonify({"error": "Post not found"}), 404)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
         
-        post["liked"] = not post["liked"]
-        post["likes"] += 1 if post["liked"] else -1
+        # Toggle like
+        current_liked = post.get("liked", False)
+        new_liked = not current_liked
+        current_likes = post.get("likes", 0)
+        new_likes = current_likes + (1 if new_liked else -1)
         
-        response = make_response(jsonify({"success": True, "liked": post["liked"], "likes": post["likes"]}), 200)
+        # Update post
+        post["liked"] = new_liked
+        post["likes"] = max(0, new_likes)  # Ensure likes don't go negative
+        
+        # Save to database if using database
+        if db:
+            db_update_doc('social_posts', post_id, {
+                "liked": new_liked,
+                "likes": post["likes"]
+            })
+        
+        response = make_response(jsonify({
+            "success": True, 
+            "liked": new_liked, 
+            "likes": post["likes"]
+        }), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
         
@@ -1870,26 +1898,26 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         # Also include original image for before/after comparison
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
-                        response_data = {
-                            "success": True,
+                    response_data = {
+                        "success": True,
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "originalImage": original_base64,
                             "resultImage": result_base64,
-                            "styleApplied": style_description,
+                        "styleApplied": style_description,
                             "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
-                        }
-                        
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
-                        logger.info("✅ AI hair transformation successful!")
-                        return response
-                    else:
+                    }
+                    
+                    response = make_response(jsonify(response_data), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
+                    logger.info("✅ AI hair transformation successful!")
+                    return response
+                else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
-                
-                except req.exceptions.Timeout:
+            
+            except req.exceptions.Timeout:
                     logger.error("Download timeout after 60 seconds")
                     raise Exception("Result download timed out")
                 except Exception as download_error:
@@ -1980,7 +2008,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     try:
                         font = ImageFont.truetype(font_path, 28)
                         logger.info(f"Loaded font: {font_path}")
-                        break
+                    break
                     except:
                         continue
                 
@@ -2026,20 +2054,20 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
             original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
             
             # Return success response
-            response_data = {
-                "success": True,
+                response_data = {
+                    "success": True,
                 "message": f"✨ Style preview created: {style_description}",
                 "originalImage": original_base64,
                 "resultImage": result_base64,
-                "styleApplied": style_description,
+                    "styleApplied": style_description,
                 "poweredBy": "LineUp Preview Mode",
                 "note": "This is a preview mode. Works immediately with no setup!"
-            }
-            
-            response = make_response(jsonify(response_data), 200)
-            response.headers['Access-Control-Allow-Origin'] = '*'
+                }
+                
+                response = make_response(jsonify(response_data), 200)
+                response.headers['Access-Control-Allow-Origin'] = '*'
             logger.info("✅ Preview mode response sent successfully")
-            return response
+                return response
             
         except Exception as e:
             logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")
@@ -2116,7 +2144,17 @@ def handle_comments(post_id):
         return response, 200
     
     if request.method == 'GET':
-        comments = post_comments.get(post_id, [])
+        # Try to get comments from database first
+        comments = []
+        if db:
+            comments_doc = db_get_doc('post_comments', post_id)
+            if comments_doc and 'comments' in comments_doc:
+                comments = comments_doc['comments']
+        
+        # Fallback to in-memory
+        if not comments:
+            comments = post_comments.get(post_id, [])
+        
         response = make_response(jsonify({"comments": comments}), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
@@ -2132,14 +2170,42 @@ def handle_comments(post_id):
                 "timestamp": datetime.now().isoformat()
             }
             
-            if post_id not in post_comments:
-                post_comments[post_id] = []
-            post_comments[post_id].append(new_comment)
+            # Get existing comments
+            comments = []
+            if db:
+                comments_doc = db_get_doc('post_comments', post_id)
+                if comments_doc and 'comments' in comments_doc:
+                    comments = comments_doc['comments']
+            
+            if not comments:
+                comments = post_comments.get(post_id, [])
+            
+            # Add new comment
+            comments.append(new_comment)
+            
+            # Save to database if using database
+            if db:
+                db_add_doc('post_comments', {"comments": comments}, doc_id=post_id)
+            else:
+                post_comments[post_id] = comments
             
             # Update comment count on post
-            post = next((p for p in social_posts if p["id"] == post_id), None)
+            post = None
+            if db:
+                post = db_get_doc('social_posts', post_id)
+            
+            if not post:
+                post = next((p for p in social_posts if str(p.get("id")) == str(post_id)), None)
+            
             if post:
-                post["comments"] = post.get("comments", 0) + 1
+                current_comments = post.get("comments", 0)
+                post["comments"] = current_comments + 1
+                
+                # Update in database
+                if db:
+                    db_update_doc('social_posts', post_id, {
+                        "comments": post["comments"]
+                    })
             
             response = make_response(jsonify({"success": True, "comment": new_comment}), 201)
             response.headers['Access-Control-Allow-Origin'] = '*'

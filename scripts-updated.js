@@ -214,14 +214,15 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   
   // Render initial data
-  renderBarberPortfolio();
+  renderBarberPortfolio(); // This will show mock data initially
   renderClientAppointments();
   loadBarberAppointments();
   updateDashboardStats();
   
   loadNearbyBarbers('Atlanta, GA');
   
-  // Default to client Home
+  // Default to client Home - render nav first, then switch mode
+  renderBottomNav();
   switchMode('client');
 });
 

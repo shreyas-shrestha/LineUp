@@ -155,7 +155,7 @@ function initializeMockData() {
     }
   ];
   
-  // Appointments
+  // Appointments - Include appointments for current barber (will be filtered by barberId)
   appointments = [
     {
       id: 1,
@@ -195,6 +195,32 @@ function initializeMockData() {
       price: '$45',
       status: 'confirmed',
       notes: 'Regular trim'
+    },
+    {
+      id: 4,
+      clientName: 'Michael Chen',
+      clientId: 'client_3',
+      barberName: 'Mike\'s Cuts',
+      barberId: 'barber_1',
+      date: '2024-12-23',
+      time: '11:00',
+      service: 'Haircut + Beard',
+      price: '$65',
+      status: 'pending',
+      notes: 'Want a fade with texture on top'
+    },
+    {
+      id: 5,
+      clientName: 'David Williams',
+      clientId: 'client_4',
+      barberName: 'Mike\'s Cuts',
+      barberId: 'barber_1',
+      date: '2024-12-24',
+      time: '16:00',
+      service: 'Haircut',
+      price: '$45',
+      status: 'confirmed',
+      notes: 'Regular customer'
     }
   ];
 }

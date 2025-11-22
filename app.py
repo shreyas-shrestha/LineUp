@@ -2215,12 +2215,14 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     
                     response = make_response(jsonify(response_data), 200)
                     response.headers['Access-Control-Allow-Origin'] = '*'
-                    logger.info("✅ AI hair transformation successful!")
+                        logger.info("✅ AI hair transformation successful!")
                     return response
                 else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
+            
+            except req.exceptions.Timeout:
             
             except req.exceptions.Timeout:
                     logger.error("Download timeout after 60 seconds")

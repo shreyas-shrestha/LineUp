@@ -1883,7 +1883,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     response = make_response(jsonify(response_data), 200)
                     response.headers['Access-Control-Allow-Origin'] = '*'
                         logger.info("✅ AI hair transformation successful!")
-                    return response
+                        return response
                 else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")

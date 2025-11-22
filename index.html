@@ -207,7 +207,67 @@
             <p class="text-gray-400 text-sm">Manage your shop and track performance</p>
           </div>
           
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <!-- Key Metrics Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <!-- Revenue Card -->
+            <div class="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-xl p-6 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Revenue</h3>
+                <div class="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white mb-1" id="total-revenue">$0</p>
+              <p class="text-xs text-green-400" id="revenue-change">+0% vs last month</p>
+            </div>
+            
+            <!-- Appointments Card -->
+            <div class="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-xl p-6 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Appointments</h3>
+                <div class="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white mb-1" id="total-appointments">0</p>
+              <p class="text-xs text-blue-400" id="appointments-change">This month</p>
+            </div>
+            
+            <!-- Clients Card -->
+            <div class="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 rounded-xl p-6 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Clients</h3>
+                <div class="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white mb-1" id="total-clients">0</p>
+              <p class="text-xs text-purple-400" id="new-clients">+0 new this month</p>
+            </div>
+            
+            <!-- Utilization Card -->
+            <div class="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-xl p-6 card-hover">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Utilization</h3>
+                <div class="w-10 h-10 bg-orange-500/20 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                  </svg>
+                </div>
+              </div>
+              <p class="text-3xl font-bold text-white mb-1" id="utilization-rate">0%</p>
+              <p class="text-xs text-orange-400">Booking rate</p>
+            </div>
+          </div>
+          
+          <!-- Additional Stats (Today, This Week, Portfolio) -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
               <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Today</h3>
@@ -217,7 +277,7 @@
                   </svg>
                 </div>
               </div>
-              <p class="text-3xl font-bold text-white mb-1" id="today-appointments">3</p>
+              <p class="text-3xl font-bold text-white mb-1" id="today-appointments">0</p>
               <p class="text-sm text-gray-400">Appointments</p>
             </div>
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
@@ -229,7 +289,7 @@
                   </svg>
                 </div>
               </div>
-              <p class="text-3xl font-bold text-white mb-1" id="week-appointments">12</p>
+              <p class="text-3xl font-bold text-white mb-1" id="week-appointments">0</p>
               <p class="text-sm text-gray-400">Appointments</p>
             </div>
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
@@ -241,8 +301,27 @@
                   </svg>
                 </div>
               </div>
-              <p class="text-3xl font-bold text-white mb-1" id="portfolio-count">8</p>
+              <p class="text-3xl font-bold text-white mb-1" id="portfolio-count">0</p>
               <p class="text-sm text-gray-400">Photos</p>
+            </div>
+          </div>
+          
+          <!-- Analytics Section -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Popular Services -->
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <h3 class="text-xl font-bold text-white mb-4">Popular Services</h3>
+              <div id="services-analytics" class="space-y-3">
+                <p class="text-gray-400 text-sm text-center py-4">Loading service analytics...</p>
+              </div>
+            </div>
+            
+            <!-- Peak Times -->
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <h3 class="text-xl font-bold text-white mb-4">Peak Booking Times</h3>
+              <div id="peak-times" class="space-y-2">
+                <p class="text-gray-400 text-sm text-center py-4">Loading peak times...</p>
+              </div>
             </div>
           </div>
 
@@ -284,11 +363,46 @@
 
         <!-- Schedule Tab (Clients / Bookings) -->
         <div id="barber-schedule-tab-content" class="tab-content hidden px-4 py-8">
+          <!-- Header with View Toggle -->
           <div class="mb-6">
-            <h2 class="text-3xl font-bold text-white mb-2">Clients & Bookings</h2>
-            <p class="text-gray-400 text-sm">Manage your appointments</p>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+              <div>
+                <h2 class="text-3xl font-bold text-white mb-2">Bookings</h2>
+                <p class="text-gray-400 text-sm">Manage your appointments</p>
+              </div>
+              <!-- View Toggle -->
+              <div class="flex gap-2 bg-gray-900 rounded-lg p-1 border border-gray-800">
+                <button id="list-view-btn" class="px-4 py-2 rounded-md bg-white text-black text-sm font-medium transition-all">List</button>
+                <button id="calendar-view-btn" class="px-4 py-2 rounded-md text-gray-400 hover:text-white text-sm font-medium transition-all">Calendar</button>
+              </div>
+            </div>
+            
+            <!-- Filters Bar -->
+            <div class="flex flex-wrap gap-3 mb-4 p-4 bg-gray-900/50 rounded-xl border border-gray-800">
+              <select id="status-filter" class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:border-sky-500 focus:outline-none">
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <input type="date" id="date-filter-start" class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:border-sky-500 focus:outline-none">
+              <input type="date" id="date-filter-end" class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:border-sky-500 focus:outline-none">
+              <button id="clear-filters" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition-all">Clear Filters</button>
+            </div>
           </div>
-          <div id="barber-appointments-container" class="space-y-4"></div>
+          
+          <!-- List View -->
+          <div id="bookings-list-view" class="space-y-3">
+            <div id="barber-appointments-container" class="space-y-3"></div>
+          </div>
+          
+          <!-- Calendar View (Hidden initially) -->
+          <div id="bookings-calendar-view" class="hidden">
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+              <p class="text-gray-400 text-center py-8">Calendar view coming soon...</p>
+            </div>
+          </div>
         </div>
 
         <!-- Barber Profile / Shop Settings -->

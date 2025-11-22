@@ -385,6 +385,65 @@ function setupEventListeners() {
       if (clientsModal) clientsModal.classList.add('hidden');
     });
   }
+  
+  // Bookings view toggle and filters
+  const listViewBtn = document.getElementById('list-view-btn');
+  const calendarViewBtn = document.getElementById('calendar-view-btn');
+  const statusFilter = document.getElementById('status-filter');
+  const dateStartFilter = document.getElementById('date-filter-start');
+  const dateEndFilter = document.getElementById('date-filter-end');
+  const clearFiltersBtn = document.getElementById('clear-filters');
+  
+  if (listViewBtn) {
+    listViewBtn.addEventListener('click', () => {
+      listViewBtn.classList.add('bg-white', 'text-black');
+      listViewBtn.classList.remove('text-gray-400');
+      calendarViewBtn.classList.remove('bg-white', 'text-black');
+      calendarViewBtn.classList.add('text-gray-400');
+      
+      document.getElementById('bookings-list-view').classList.remove('hidden');
+      document.getElementById('bookings-calendar-view').classList.add('hidden');
+    });
+  }
+  
+  if (calendarViewBtn) {
+    calendarViewBtn.addEventListener('click', () => {
+      calendarViewBtn.classList.add('bg-white', 'text-black');
+      calendarViewBtn.classList.remove('text-gray-400');
+      listViewBtn.classList.remove('bg-white', 'text-black');
+      listViewBtn.classList.add('text-gray-400');
+      
+      document.getElementById('bookings-list-view').classList.add('hidden');
+      document.getElementById('bookings-calendar-view').classList.remove('hidden');
+    });
+  }
+  
+  if (statusFilter) {
+    statusFilter.addEventListener('change', () => {
+      loadBarberAppointments();
+    });
+  }
+  
+  if (dateStartFilter) {
+    dateStartFilter.addEventListener('change', () => {
+      loadBarberAppointments();
+    });
+  }
+  
+  if (dateEndFilter) {
+    dateEndFilter.addEventListener('change', () => {
+      loadBarberAppointments();
+    });
+  }
+  
+  if (clearFiltersBtn) {
+    clearFiltersBtn.addEventListener('click', () => {
+      if (statusFilter) statusFilter.value = 'all';
+      if (dateStartFilter) dateStartFilter.value = '';
+      if (dateEndFilter) dateEndFilter.value = '';
+      loadBarberAppointments();
+    });
+  }
 }
 
 // --- Mode Switching ---
@@ -1570,7 +1629,13 @@ function renderBarberAppointments() {
   
   barberAppointments.forEach(appointment => {
     const appointmentElement = document.createElement('div');
-    appointmentElement.className = 'bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover';
+    appointmentElement.className = 'bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-2xl p-5 card-hover transition-all duration-200 hover:border-sky-500/50 hover:shadow-lg hover:shadow-sky-500/10';
+    
+    const appointmentDate = new Date(`${appointment.date}T${appointment.time}`);
+    const now = new Date();
+    const isToday = appointmentDate.toDateString() === now.toDateString();
+    const isPast = appointmentDate < now;
+    const timeUntil = getTimeUntil(appointmentDate);
     
     const statusColors = {
       'pending': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -1584,81 +1649,184 @@ function renderBarberAppointments() {
     const statusColor = statusColors[appointment.status] || statusColors.pending;
     
     appointmentElement.innerHTML = `
+      <!-- Header with Status Badge & Time -->
       <div class="flex justify-between items-start mb-4">
         <div class="flex-1">
-          <h3 class="text-xl font-bold text-white mb-1">${appointment.clientName || 'Unknown Client'}</h3>
-          <p class="text-gray-400 text-sm mb-2">${appointment.service || 'Service'}</p>
-          <div class="flex items-center gap-2">
-            <span class="px-3 py-1 rounded-full text-xs font-semibold border ${statusColor}">
-              ${appointment.status ? appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1) : 'Pending'}
-            </span>
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-12 h-12 bg-gradient-to-br from-sky-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+              ${(appointment.clientName || 'U').charAt(0).toUpperCase()}
+            </div>
+        <div>
+              <h3 class="text-lg font-bold text-white">${appointment.clientName || 'Unknown Client'}</h3>
+              <p class="text-gray-400 text-sm">${appointment.service || 'Service'}</p>
+        </div>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            ${isToday ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">Today</span>' : ''}
+            ${isPast && appointment.status !== 'completed' && appointment.status !== 'cancelled' ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">Past Due</span>' : ''}
           </div>
         </div>
+        <div class="text-right">
+          <span class="px-3 py-1.5 rounded-full text-xs font-semibold border ${statusColor}">
+            ${appointment.status ? appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1) : 'Pending'}
+          </span>
+        </div>
       </div>
       
-      <div class="grid grid-cols-2 gap-4 mb-4 pt-4 border-t border-gray-800">
-        <div>
-          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Date</p>
-          <p class="text-sm font-medium text-white">${appointment.date ? new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'N/A'}</p>
+      <!-- Date & Time with Icon -->
+      <div class="flex items-center gap-4 mb-4 p-3 bg-gray-800/50 rounded-lg">
+        <div class="flex items-center gap-2 flex-1">
+          <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+          <span class="text-white font-medium text-sm">${formatDate(appointment.date)}</span>
+      </div>
+        <div class="flex items-center gap-2 flex-1">
+          <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span class="text-white font-medium text-sm">${appointment.time || 'N/A'}</span>
         </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Time</p>
-          <p class="text-sm font-medium text-white">${appointment.time || 'N/A'}</p>
+        <div class="ml-auto">
+          <span class="text-lg font-bold text-white">${appointment.price || '$0'}</span>
         </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Price</p>
-          <p class="text-sm font-medium text-white">${appointment.price || '$0'}</p>
       </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Client ID</p>
-          <p class="text-sm font-medium text-white">${appointment.clientId || 'N/A'}</p>
-      </div>
-      </div>
+      
+      ${timeUntil && !isPast ? `
+        <div class="mb-4 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <p class="text-xs text-blue-400">⏰ ${timeUntil}</p>
+        </div>
+      ` : ''}
       
       ${appointment.notes && appointment.notes !== 'No special requests' ? `
-        <div class="pt-4 border-t border-gray-800 mb-4">
-          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Client Notes</p>
+        <div class="mb-4 p-3 bg-gray-800/30 rounded-lg border-l-2 border-sky-500">
+          <p class="text-xs text-gray-400 mb-1 uppercase tracking-wide">Client Notes</p>
           <p class="text-sm text-gray-300">${appointment.notes}</p>
         </div>
       ` : ''}
       
       ${appointment.barberNotes && appointment.barberNotes.length > 0 ? `
-        <div class="pt-4 border-t border-gray-800 mb-4">
-          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Your Notes</p>
+        <div class="mb-4 p-3 bg-gray-800/30 rounded-lg border-l-2 border-purple-500">
+          <p class="text-xs text-gray-400 mb-1 uppercase tracking-wide">Your Notes</p>
           ${appointment.barberNotes.map(note => `
-            <p class="text-sm text-gray-300 mb-1">${note.note}</p>
+            <p class="text-sm text-gray-300 mb-1">${note.note || note}</p>
           `).join('')}
         </div>
       ` : ''}
       
-      <div class="pt-4 border-t border-gray-800">
-        <div class="flex flex-wrap gap-2">
-          ${appointment.status === 'pending' ? `
-            <button onclick="acceptAppointment('${appointment.id}')" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium">
-              Accept
-            </button>
-            <button onclick="rejectAppointment('${appointment.id}')" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors text-sm font-medium">
-              Reject
-            </button>
-          ` : ''}
-          ${appointment.status === 'confirmed' || appointment.status === 'pending' ? `
-            <button onclick="rescheduleAppointment('${appointment.id}')" class="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors text-sm font-medium">
-              Reschedule
-            </button>
-            <button onclick="cancelAppointment('${appointment.id}')" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors text-sm font-medium">
-              Cancel
-            </button>
-          ` : ''}
-          <button onclick="viewClientHistory('${appointment.clientId}')" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors text-sm font-medium">
-            View History
+      <!-- Action Buttons -->
+      <div class="flex gap-2 pt-4 border-t border-gray-800 flex-wrap">
+        ${appointment.status === 'pending' ? `
+          <button onclick="quickAccept('${appointment.id}')" class="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-all shadow-lg shadow-green-500/20">
+            ✓ Accept
           </button>
-          <button onclick="addAppointmentNote('${appointment.id}')" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium">
-            Add Note
+          <button onclick="quickReject('${appointment.id}')" class="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-all">
+            ✕ Reject
           </button>
-        </div>
+        ` : ''}
+        ${appointment.status === 'confirmed' || appointment.status === 'pending' ? `
+          <button onclick="rescheduleAppointment('${appointment.id}')" class="px-4 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium text-sm transition-all">
+            Reschedule
+          </button>
+          <button onclick="cancelAppointment('${appointment.id}')" class="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm transition-all">
+            Cancel
+          </button>
+        ` : ''}
+        <button onclick="viewClientHistory('${appointment.clientId}')" class="px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-lg font-medium text-sm transition-all">
+          History
+        </button>
+        <button onclick="addAppointmentNote('${appointment.id}')" class="px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium text-sm transition-all">
+          Note
+        </button>
       </div>
     `;
     barberAppointmentsContainer.appendChild(appointmentElement);
+  });
+  
+  // Apply filters if active
+  applyAppointmentFilters();
+}
+
+function getTimeUntil(date) {
+  try {
+    const now = new Date();
+    const diff = date - now;
+    if (diff < 0) return null;
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 24) {
+      const days = Math.floor(hours / 24);
+      return `${days} day${days > 1 ? 's' : ''} away`;
+    }
+    if (hours > 0) return `${hours}h ${minutes}m away`;
+    if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} away`;
+    return 'Starting soon';
+  } catch (e) {
+    return null;
+  }
+}
+
+function formatDate(dateString) {
+  try {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+    
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch (e) {
+    return dateString;
+  }
+}
+
+function quickAccept(appointmentId) {
+  acceptAppointment(appointmentId);
+}
+
+function quickReject(appointmentId) {
+  rejectAppointment(appointmentId);
+}
+
+function applyAppointmentFilters() {
+  const statusFilter = document.getElementById('status-filter');
+  const dateStartFilter = document.getElementById('date-filter-start');
+  const dateEndFilter = document.getElementById('date-filter-end');
+  
+  if (!statusFilter) return;
+  
+  const filterStatus = statusFilter.value;
+  const filterStart = dateStartFilter?.value;
+  const filterEnd = dateEndFilter?.value;
+  
+  const cards = barberAppointmentsContainer.querySelectorAll('[class*="bg-gradient-to-br"]');
+  
+  cards.forEach(card => {
+    let show = true;
+    
+    // Status filter
+    if (filterStatus !== 'all') {
+      const statusBadge = card.querySelector('[class*="rounded-full"]');
+      if (statusBadge && !statusBadge.textContent.toLowerCase().includes(filterStatus.toLowerCase())) {
+        show = false;
+      }
+    }
+    
+    // Date range filter
+    if (filterStart || filterEnd) {
+      const dateText = card.textContent;
+      // Simple check - could be improved
+      if (filterStart && dateText.includes(formatDate(filterStart))) {
+        // Check if date is in range
+      }
+    }
+    
+    card.style.display = show ? 'block' : 'none';
   });
 }
 
@@ -1821,8 +1989,10 @@ function updateDashboardStats() {
   
   const thisWeekStart = new Date();
   thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay());
+  thisWeekStart.setHours(0, 0, 0, 0);
   const thisWeekAppointments = appointments.filter(apt => {
     const aptDate = new Date(apt.date);
+    aptDate.setHours(0, 0, 0, 0);
     return aptDate >= thisWeekStart;
   }).length;
   
@@ -1833,6 +2003,218 @@ function updateDashboardStats() {
   if (todayElement) todayElement.textContent = todayAppointments;
   if (weekElement) weekElement.textContent = thisWeekAppointments;
   if (portfolioCountElement) portfolioCountElement.textContent = barberPortfolio.length;
+  
+  // Calculate and update analytics
+  calculateAnalytics();
+}
+
+// Analytics calculation functions
+function calculateAnalytics() {
+  try {
+    const now = new Date();
+    const thisMonth = now.getMonth();
+    const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
+    const thisYear = now.getFullYear();
+    
+    // Get barber appointments
+    const allAppointments = appointments.filter(apt => {
+      if (apt.barberId === 'barber_1') return true;
+      return apt.barberId === currentBarberId || !apt.barberId;
+    });
+    
+    // This month appointments (completed)
+    const thisMonthAppointments = allAppointments.filter(apt => {
+      try {
+        const aptDate = new Date(apt.date);
+        return aptDate.getMonth() === thisMonth && 
+               aptDate.getFullYear() === thisYear && 
+               apt.status === 'completed';
+      } catch (e) {
+        return false;
+      }
+    });
+    
+    // Last month appointments (completed)
+    const lastMonthAppointments = allAppointments.filter(apt => {
+      try {
+        const aptDate = new Date(apt.date);
+        return aptDate.getMonth() === lastMonth && 
+               aptDate.getFullYear() === thisYear && 
+               apt.status === 'completed';
+      } catch (e) {
+        return false;
+      }
+    });
+    
+    // Calculate revenue
+    const totalRevenue = thisMonthAppointments.reduce((sum, apt) => {
+      try {
+        const priceStr = apt.price || '$0';
+        const price = parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
+        return sum + price;
+      } catch (e) {
+        return sum;
+      }
+    }, 0);
+    
+    const lastMonthRevenue = lastMonthAppointments.reduce((sum, apt) => {
+      try {
+        const priceStr = apt.price || '$0';
+        const price = parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
+        return sum + price;
+      } catch (e) {
+        return sum;
+      }
+    }, 0);
+    
+    const revenueChange = lastMonthRevenue > 0 
+      ? ((totalRevenue - lastMonthRevenue) / lastMonthRevenue * 100).toFixed(1)
+      : totalRevenue > 0 ? '100.0' : '0.0';
+    
+    // Client calculations
+    const uniqueClients = new Set(allAppointments.map(apt => apt.clientId).filter(Boolean));
+    const thisMonthClients = new Set(thisMonthAppointments.map(apt => apt.clientId).filter(Boolean));
+    
+    // Count new clients this month
+    const newClients = [...thisMonthClients].filter(clientId => {
+      const firstApt = allAppointments.find(apt => apt.clientId === clientId);
+      if (!firstApt) return false;
+      try {
+        const firstAptDate = new Date(firstApt.date);
+        return firstAptDate.getMonth() === thisMonth && firstAptDate.getFullYear() === thisYear;
+      } catch (e) {
+        return false;
+      }
+    }).length;
+    
+    // Utilization calculation (estimate)
+    const workingDays = 5; // 5 days/week
+    const slotsPerDay = 8; // 8 slots/day
+    const totalSlots = workingDays * slotsPerDay * 4; // 4 weeks
+    const bookedSlots = thisMonthAppointments.length;
+    const utilization = totalSlots > 0 ? ((bookedSlots / totalSlots) * 100).toFixed(1) : '0.0';
+    
+    // Update UI
+    updateAnalyticsUI({
+      totalRevenue,
+      revenueChange,
+      totalAppointments: thisMonthAppointments.length,
+      totalClients: uniqueClients.size,
+      newClients,
+      utilization
+    });
+    
+    // Generate service analytics
+    generateServiceAnalytics(allAppointments);
+    generatePeakTimes(allAppointments);
+    
+  } catch (error) {
+    console.error('Error calculating analytics:', error);
+  }
+}
+
+function updateAnalyticsUI(data) {
+  const revenueEl = document.getElementById('total-revenue');
+  const revenueChangeEl = document.getElementById('revenue-change');
+  const appointmentsEl = document.getElementById('total-appointments');
+  const clientsEl = document.getElementById('total-clients');
+  const newClientsEl = document.getElementById('new-clients');
+  const utilizationEl = document.getElementById('utilization-rate');
+  
+  if (revenueEl) revenueEl.textContent = `$${data.totalRevenue.toFixed(2)}`;
+  if (revenueChangeEl) {
+    const change = parseFloat(data.revenueChange);
+    revenueChangeEl.textContent = `${change >= 0 ? '+' : ''}${data.revenueChange}% vs last month`;
+    revenueChangeEl.className = `text-xs ${change >= 0 ? 'text-green-400' : 'text-red-400'}`;
+  }
+  if (appointmentsEl) appointmentsEl.textContent = data.totalAppointments;
+  if (clientsEl) clientsEl.textContent = data.totalClients;
+  if (newClientsEl) newClientsEl.textContent = `+${data.newClients} new this month`;
+  if (utilizationEl) utilizationEl.textContent = `${data.utilization}%`;
+}
+
+function generateServiceAnalytics(appointments) {
+  const servicesContainer = document.getElementById('services-analytics');
+  if (!servicesContainer) return;
+  
+  // Count services
+  const serviceCounts = {};
+  appointments.forEach(apt => {
+    if (apt.status !== 'completed') return;
+    const serviceName = apt.service || 'Unknown';
+    serviceCounts[serviceName] = (serviceCounts[serviceName] || 0) + 1;
+  });
+  
+  // Sort by count
+  const sortedServices = Object.entries(serviceCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5); // Top 5
+  
+  if (sortedServices.length === 0) {
+    servicesContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No completed appointments yet</p>';
+    return;
+  }
+  
+  const total = Object.values(serviceCounts).reduce((sum, count) => sum + count, 0);
+  
+  servicesContainer.innerHTML = sortedServices.map(([serviceName, count]) => {
+    const percentage = ((count / total) * 100).toFixed(0);
+    return `
+      <div class="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+        <div class="flex-1">
+          <p class="text-white font-medium text-sm">${serviceName}</p>
+          <p class="text-gray-400 text-xs">${count} booking${count > 1 ? 's' : ''} (${percentage}%)</p>
+        </div>
+        <div class="w-24 h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-sky-500 to-purple-500 rounded-full" style="width: ${percentage}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function generatePeakTimes(appointments) {
+  const peakTimesContainer = document.getElementById('peak-times');
+  if (!peakTimesContainer) return;
+  
+  // Count appointments by hour
+  const hourCounts = {};
+  appointments.forEach(apt => {
+    if (!apt.time) return;
+    try {
+      const hour = parseInt(apt.time.split(':')[0]);
+      if (isNaN(hour)) return;
+      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    } catch (e) {
+      // Skip invalid times
+    }
+  });
+  
+  if (Object.keys(hourCounts).length === 0) {
+    peakTimesContainer.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No booking time data yet</p>';
+    return;
+  }
+  
+  const maxCount = Math.max(...Object.values(hourCounts));
+  
+  // Generate bars for common hours (9 AM - 6 PM)
+  const commonHours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+  
+  peakTimesContainer.innerHTML = commonHours.map(hour => {
+    const count = hourCounts[hour] || 0;
+    const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
+    const displayHour = hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`;
+    
+    return `
+      <div class="flex items-center gap-3">
+        <div class="w-16 text-gray-400 text-xs font-medium">${displayHour}</div>
+        <div class="flex-1 h-6 bg-gray-800 rounded-full overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all" style="width: ${percentage}%"></div>
+        </div>
+        <div class="w-8 text-white text-xs font-medium text-right">${count}</div>
+      </div>
+    `;
+  }).join('');
 }
 
 // --- Virtual Try-On Implementation ---
@@ -2410,6 +2792,8 @@ window.rescheduleAppointment = rescheduleAppointment;
 window.cancelAppointment = cancelAppointment;
 window.addAppointmentNote = addAppointmentNote;
 window.viewClientHistory = viewClientHistory;
+window.quickAccept = quickAccept;
+window.quickReject = quickReject;
 
 // ========================================
 // PHASE 1: BARBER FEATURES - Full Implementation

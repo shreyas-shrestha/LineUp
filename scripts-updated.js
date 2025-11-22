@@ -1538,7 +1538,13 @@ function renderBarberAppointments() {
   barberAppointmentsContainer.innerHTML = '';
   
   // Filter appointments for current barber
-  const barberAppointments = appointments.filter(apt => apt.barberId === currentBarberId || !apt.barberId);
+  // Show appointments that match currentBarberId, or show mock appointments (barber_1) for demo
+  const barberAppointments = appointments.filter(apt => {
+    // Always show mock appointments with barber_1 for demo purposes
+    if (apt.barberId === 'barber_1') return true;
+    // Otherwise match by currentBarberId
+    return apt.barberId === currentBarberId || !apt.barberId;
+  });
   
   if (barberAppointments.length === 0) {
     barberAppointmentsContainer.innerHTML = `

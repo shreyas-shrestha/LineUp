@@ -432,6 +432,13 @@ function switchTab(targetTab) {
   if (targetTab === 'barber-schedule') {
     loadBarberAppointments();
   }
+  
+  if (targetTab === 'barber-profile') {
+    // Load previews (but don't open modals)
+    loadAvailabilityPreview();
+    loadServicesPreview();
+    loadClientsPreview();
+  }
 }
 
 // --- Backend Connection ---

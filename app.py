@@ -2167,21 +2167,21 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         # Also include original image for before/after comparison
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
-                        response_data = {
-                            "success": True,
+                    response_data = {
+                        "success": True,
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "originalImage": original_base64,
                             "resultImage": result_base64,
-                            "styleApplied": style_description,
+                        "styleApplied": style_description,
                             "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
-                        }
-                        
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
+                    }
+                    
+                    response = make_response(jsonify(response_data), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
                         logger.info("✅ AI hair transformation successful!")
-                        return response
-                    else:
+                    return response
+                else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
@@ -2193,7 +2193,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     logger.error(f"Download error: {str(download_error)}")
                     raise
                     
-            except Exception as e:
+        except Exception as e:
                 logger.error(f"Replicate hair style transfer error: {str(e)}")
                 import traceback
                 logger.error(traceback.format_exc())

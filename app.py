@@ -1163,13 +1163,29 @@ def update_appointment_status(appointment_id):
         data = request.get_json()
         new_status = data.get("status", "pending")
         
-        appointment = next((apt for apt in appointments if apt["id"] == appointment_id), None)
+        # Try to get from database first
+        appointment = None
+        if db:
+            appointment = db_get_doc('appointments', appointment_id)
+        
+        # Fallback to in-memory
+        if not appointment:
+            appointment = next((apt for apt in appointments if apt.get("id") == appointment_id), None)
+        
         if not appointment:
             response = make_response(jsonify({"error": "Appointment not found"}), 404)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
         
         appointment["status"] = new_status
+        appointment["statusUpdatedAt"] = datetime.now().isoformat()
+        
+        # Save to database
+        if db:
+            db_update_doc('appointments', appointment_id, {
+                "status": new_status,
+                "statusUpdatedAt": appointment["statusUpdatedAt"]
+            })
         
         response = make_response(jsonify({"success": True, "appointment": appointment}), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
@@ -1178,6 +1194,259 @@ def update_appointment_status(appointment_id):
     except Exception as e:
         logger.error(f"Error updating appointment: {str(e)}")
         response = make_response(jsonify({"error": "Failed to update appointment"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+# ========================================
+# PHASE 1: PRODUCTION-GRADE BARBER FEATURES
+# ========================================
+
+# Appointment Management - Accept/Reject/Reschedule/Cancel
+@app.route('/appointments/<appointment_id>/accept', methods=['POST', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def accept_appointment(appointment_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 200
+    
+    try:
+        # Get appointment
+        appointment = None
+        if db:
+            appointment = db_get_doc('appointments', appointment_id)
+        if not appointment:
+            appointment = next((apt for apt in appointments if apt.get("id") == appointment_id), None)
+        
+        if not appointment:
+            response = make_response(jsonify({"error": "Appointment not found"}), 404)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        appointment["status"] = "confirmed"
+        appointment["statusUpdatedAt"] = datetime.now().isoformat()
+        
+        if db:
+            db_update_doc('appointments', appointment_id, {
+                "status": "confirmed",
+                "statusUpdatedAt": appointment["statusUpdatedAt"]
+            })
+        
+        response = make_response(jsonify({"success": True, "appointment": appointment}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error accepting appointment: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to accept appointment"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+@app.route('/appointments/<appointment_id>/reject', methods=['POST', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def reject_appointment(appointment_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 200
+    
+    try:
+        data = request.get_json() or {}
+        reason = data.get("reason", "No reason provided")
+        
+        appointment = None
+        if db:
+            appointment = db_get_doc('appointments', appointment_id)
+        if not appointment:
+            appointment = next((apt for apt in appointments if apt.get("id") == appointment_id), None)
+        
+        if not appointment:
+            response = make_response(jsonify({"error": "Appointment not found"}), 404)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        appointment["status"] = "rejected"
+        appointment["rejectionReason"] = reason
+        appointment["statusUpdatedAt"] = datetime.now().isoformat()
+        
+        if db:
+            db_update_doc('appointments', appointment_id, {
+                "status": "rejected",
+                "rejectionReason": reason,
+                "statusUpdatedAt": appointment["statusUpdatedAt"]
+            })
+        
+        response = make_response(jsonify({"success": True, "appointment": appointment}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error rejecting appointment: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to reject appointment"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+@app.route('/appointments/<appointment_id>/reschedule', methods=['POST', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def reschedule_appointment(appointment_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 200
+    
+    try:
+        data = request.get_json()
+        new_date = data.get("date")
+        new_time = data.get("time")
+        reason = data.get("reason", "Rescheduled by barber")
+        
+        if not new_date or not new_time:
+            response = make_response(jsonify({"error": "Date and time required"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        appointment = None
+        if db:
+            appointment = db_get_doc('appointments', appointment_id)
+        if not appointment:
+            appointment = next((apt for apt in appointments if apt.get("id") == appointment_id), None)
+        
+        if not appointment:
+            response = make_response(jsonify({"error": "Appointment not found"}), 404)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        # Store old date/time for history
+        if "rescheduleHistory" not in appointment:
+            appointment["rescheduleHistory"] = []
+        appointment["rescheduleHistory"].append({
+            "oldDate": appointment.get("date"),
+            "oldTime": appointment.get("time"),
+            "newDate": new_date,
+            "newTime": new_time,
+            "reason": reason,
+            "rescheduledAt": datetime.now().isoformat()
+        })
+        
+        appointment["date"] = new_date
+        appointment["time"] = new_time
+        appointment["status"] = "rescheduled"
+        appointment["statusUpdatedAt"] = datetime.now().isoformat()
+        
+        if db:
+            db_update_doc('appointments', appointment_id, {
+                "date": new_date,
+                "time": new_time,
+                "status": "rescheduled",
+                "rescheduleHistory": appointment["rescheduleHistory"],
+                "statusUpdatedAt": appointment["statusUpdatedAt"]
+            })
+        
+        response = make_response(jsonify({"success": True, "appointment": appointment}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error rescheduling appointment: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to reschedule appointment"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+@app.route('/appointments/<appointment_id>/cancel', methods=['POST', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def cancel_appointment(appointment_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response, 200
+    
+    try:
+        data = request.get_json() or {}
+        reason = data.get("reason", "Cancelled by barber")
+        
+        appointment = None
+        if db:
+            appointment = db_get_doc('appointments', appointment_id)
+        if not appointment:
+            appointment = next((apt for apt in appointments if apt.get("id") == appointment_id), None)
+        
+        if not appointment:
+            response = make_response(jsonify({"error": "Appointment not found"}), 404)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        appointment["status"] = "cancelled"
+        appointment["cancellationReason"] = reason
+        appointment["statusUpdatedAt"] = datetime.now().isoformat()
+        
+        if db:
+            db_update_doc('appointments', appointment_id, {
+                "status": "cancelled",
+                "cancellationReason": reason,
+                "statusUpdatedAt": appointment["statusUpdatedAt"]
+            })
+        
+        response = make_response(jsonify({"success": True, "appointment": appointment}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error cancelling appointment: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to cancel appointment"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+# Add notes to appointment
+@app.route('/appointments/<appointment_id>/notes', methods=['POST', 'PUT', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def add_appointment_notes(appointment_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, PUT, OPTIONS')
+        return response, 200
+    
+    try:
+        data = request.get_json()
+        note = data.get("note", "")
+        note_type = data.get("type", "general")  # general, client_preference, service_notes, etc.
+        
+        appointment = None
+        if db:
+            appointment = db_get_doc('appointments', appointment_id)
+        if not appointment:
+            appointment = next((apt for apt in appointments if apt.get("id") == appointment_id), None)
+        
+        if not appointment:
+            response = make_response(jsonify({"error": "Appointment not found"}), 404)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        if "barberNotes" not in appointment:
+            appointment["barberNotes"] = []
+        
+        appointment["barberNotes"].append({
+            "note": note,
+            "type": note_type,
+            "createdAt": datetime.now().isoformat()
+        })
+        
+        if db:
+            db_update_doc('appointments', appointment_id, {
+                "barberNotes": appointment["barberNotes"]
+            })
+        
+        response = make_response(jsonify({"success": True, "appointment": appointment}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error adding notes: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to add notes"}), 400)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
@@ -1898,26 +2167,26 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         # Also include original image for before/after comparison
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
-                        response_data = {
-                            "success": True,
+                    response_data = {
+                        "success": True,
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "originalImage": original_base64,
                             "resultImage": result_base64,
-                            "styleApplied": style_description,
+                        "styleApplied": style_description,
                             "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
-                        }
-                        
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
-                        logger.info("✅ AI hair transformation successful!")
-                        return response
-                    else:
+                    }
+                    
+                    response = make_response(jsonify(response_data), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
+                    logger.info("✅ AI hair transformation successful!")
+                    return response
+                else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
-                
-                except req.exceptions.Timeout:
+            
+            except req.exceptions.Timeout:
                     logger.error("Download timeout after 60 seconds")
                     raise Exception("Result download timed out")
                 except Exception as download_error:
@@ -2008,7 +2277,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     try:
                         font = ImageFont.truetype(font_path, 28)
                         logger.info(f"Loaded font: {font_path}")
-                        break
+                    break
                     except:
                         continue
                 
@@ -2054,20 +2323,20 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
             original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
             
             # Return success response
-            response_data = {
-                "success": True,
+                response_data = {
+                    "success": True,
                 "message": f"✨ Style preview created: {style_description}",
                 "originalImage": original_base64,
                 "resultImage": result_base64,
-                "styleApplied": style_description,
+                    "styleApplied": style_description,
                 "poweredBy": "LineUp Preview Mode",
                 "note": "This is a preview mode. Works immediately with no setup!"
-            }
-            
-            response = make_response(jsonify(response_data), 200)
-            response.headers['Access-Control-Allow-Origin'] = '*'
+                }
+                
+                response = make_response(jsonify(response_data), 200)
+                response.headers['Access-Control-Allow-Origin'] = '*'
             logger.info("✅ Preview mode response sent successfully")
-            return response
+                return response
             
         except Exception as e:
             logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")
@@ -2249,6 +2518,417 @@ def toggle_follow(user_id):
         response = make_response(jsonify({"error": "Failed to toggle follow"}), 400)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
+
+# ========================================
+# Availability & Working Hours Management
+# ========================================
+
+@app.route('/barbers/<barber_id>/availability', methods=['GET', 'PUT', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def manage_availability(barber_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, PUT, OPTIONS')
+        return response, 200
+    
+    if request.method == 'GET':
+        try:
+            availability = None
+            if db:
+                availability = db_get_doc('barber_availability', barber_id)
+            
+            if not availability:
+                # Default availability
+                availability = {
+                    "barberId": barber_id,
+                    "workingHours": {
+                        "monday": {"enabled": True, "start": "09:00", "end": "18:00"},
+                        "tuesday": {"enabled": True, "start": "09:00", "end": "18:00"},
+                        "wednesday": {"enabled": True, "start": "09:00", "end": "18:00"},
+                        "thursday": {"enabled": True, "start": "09:00", "end": "18:00"},
+                        "friday": {"enabled": True, "start": "09:00", "end": "18:00"},
+                        "saturday": {"enabled": True, "start": "09:00", "end": "17:00"},
+                        "sunday": {"enabled": False, "start": "09:00", "end": "17:00"}
+                    },
+                    "breakTimes": [],
+                    "blockedDates": [],
+                    "serviceDuration": 30,  # Default 30 minutes
+                    "bufferTime": 15,  # 15 minutes between appointments
+                    "timezone": "America/New_York"
+                }
+            
+            response = make_response(jsonify({"availability": availability}), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        except Exception as e:
+            logger.error(f"Error getting availability: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to get availability"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+    
+    elif request.method == 'PUT':
+        try:
+            data = request.get_json()
+            
+            availability_data = {
+                "barberId": barber_id,
+                "workingHours": data.get("workingHours", {}),
+                "breakTimes": data.get("breakTimes", []),
+                "blockedDates": data.get("blockedDates", []),
+                "serviceDuration": data.get("serviceDuration", 30),
+                "bufferTime": data.get("bufferTime", 15),
+                "timezone": data.get("timezone", "America/New_York"),
+                "updatedAt": datetime.now().isoformat()
+            }
+            
+            if db:
+                db_add_doc('barber_availability', availability_data, doc_id=barber_id)
+            
+            response = make_response(jsonify({"success": True, "availability": availability_data}), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        except Exception as e:
+            logger.error(f"Error updating availability: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to update availability"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+
+@app.route('/barbers/<barber_id>/available-slots', methods=['GET', 'OPTIONS'])
+@limiter.limit("100 per hour")
+def get_available_slots(barber_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response, 200
+    
+    try:
+        date = request.args.get('date')
+        if not date:
+            response = make_response(jsonify({"error": "Date parameter required"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        # Get availability
+        availability = None
+        if db:
+            availability = db_get_doc('barber_availability', barber_id)
+        
+        if not availability:
+            response = make_response(jsonify({"error": "Availability not configured"}), 404)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        # Get existing appointments for that date
+        appointments_today = []
+        if db:
+            appointments_today = db_query('appointments', 'barberId', '==', barber_id)
+            appointments_today = [apt for apt in appointments_today if apt.get('date') == date and apt.get('status') not in ['cancelled', 'rejected']]
+        else:
+            appointments_today = [apt for apt in appointments if apt.get('barberId') == barber_id and apt.get('date') == date and apt.get('status') not in ['cancelled', 'rejected']]
+        
+        # Calculate available slots (simplified - can be enhanced)
+        from datetime import datetime as dt
+        day_name = dt.strptime(date, "%Y-%m-%d").strftime("%A").lower()
+        day_hours = availability.get("workingHours", {}).get(day_name, {})
+        
+        if not day_hours.get("enabled", False):
+            response = make_response(jsonify({"slots": []}), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        
+        start_time = day_hours.get("start", "09:00")
+        end_time = day_hours.get("end", "18:00")
+        duration = availability.get("serviceDuration", 30)
+        buffer = availability.get("bufferTime", 15)
+        
+        # Generate time slots
+        slots = []
+        # Simplified slot generation - in production, parse times properly
+        response = make_response(jsonify({
+            "slots": slots,
+            "date": date,
+            "workingHours": day_hours
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error getting available slots: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to get available slots"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+# ========================================
+# Service & Pricing Management
+# ========================================
+
+@app.route('/barbers/<barber_id>/services', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def manage_services(barber_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        return response, 200
+    
+    if request.method == 'GET':
+        try:
+            services = []
+            if db:
+                services = db_query('barber_services', 'barberId', '==', barber_id)
+            
+            if not services:
+                # Default services
+                services = [
+                    {"id": "1", "name": "Haircut", "price": 30, "duration": 30, "category": "Hair"},
+                    {"id": "2", "name": "Beard Trim", "price": 15, "duration": 15, "category": "Beard"},
+                    {"id": "3", "name": "Haircut + Beard", "price": 40, "duration": 45, "category": "Package"}
+                ]
+            
+            response = make_response(jsonify({"services": services}), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        except Exception as e:
+            logger.error(f"Error getting services: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to get services"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+    
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            service_id = str(uuid.uuid4())
+            
+            new_service = {
+                "id": service_id,
+                "barberId": barber_id,
+                "name": data.get("name", ""),
+                "price": data.get("price", 0),
+                "duration": data.get("duration", 30),
+                "category": data.get("category", "General"),
+                "description": data.get("description", ""),
+                "createdAt": datetime.now().isoformat()
+            }
+            
+            if db:
+                db_add_doc('barber_services', new_service, doc_id=service_id)
+            
+            response = make_response(jsonify({"success": True, "service": new_service}), 201)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        except Exception as e:
+            logger.error(f"Error creating service: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to create service"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+    
+    elif request.method == 'PUT':
+        try:
+            service_id = request.args.get('service_id')
+            if not service_id:
+                response = make_response(jsonify({"error": "service_id required"}), 400)
+                response.headers['Access-Control-Allow-Origin'] = '*'
+                return response
+            
+            data = request.get_json()
+            
+            if db:
+                db_update_doc('barber_services', service_id, data)
+            
+            response = make_response(jsonify({"success": True}), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        except Exception as e:
+            logger.error(f"Error updating service: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to update service"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+    
+    elif request.method == 'DELETE':
+        try:
+            service_id = request.args.get('service_id')
+            if not service_id:
+                response = make_response(jsonify({"error": "service_id required"}), 400)
+                response.headers['Access-Control-Allow-Origin'] = '*'
+                return response
+            
+            if db:
+                db_delete_doc('barber_services', service_id)
+            
+            response = make_response(jsonify({"success": True}), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        except Exception as e:
+            logger.error(f"Error deleting service: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to delete service"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+
+# ========================================
+# Client History & Notes
+# ========================================
+
+@app.route('/barbers/<barber_id>/clients', methods=['GET', 'OPTIONS'])
+@limiter.limit("100 per hour")
+def get_clients(barber_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response, 200
+    
+    try:
+        # Get all appointments for this barber to extract clients
+        appointments_list = []
+        if db:
+            appointments_list = db_query('appointments', 'barberId', '==', barber_id)
+        else:
+            appointments_list = [apt for apt in appointments if apt.get('barberId') == barber_id]
+        
+        # Group by client
+        clients_dict = {}
+        for apt in appointments_list:
+            client_id = apt.get('clientId')
+            if not client_id:
+                continue
+            
+            if client_id not in clients_dict:
+                clients_dict[client_id] = {
+                    "clientId": client_id,
+                    "clientName": apt.get('clientName', 'Unknown'),
+                    "totalVisits": 0,
+                    "lastVisit": None,
+                    "totalSpent": 0,
+                    "appointments": []
+                }
+            
+            clients_dict[client_id]["totalVisits"] += 1
+            clients_dict[client_id]["appointments"].append(apt)
+            
+            # Calculate total spent (simplified)
+            price_str = apt.get('price', '$0').replace('$', '').replace(',', '')
+            try:
+                price = float(price_str)
+                clients_dict[client_id]["totalSpent"] += price
+            except:
+                pass
+        
+        # Sort by last visit
+        clients = list(clients_dict.values())
+        for client in clients:
+            if client["appointments"]:
+                client["appointments"].sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+                client["lastVisit"] = client["appointments"][0].get('date')
+        
+        clients.sort(key=lambda x: x.get('lastVisit') or '', reverse=True)
+        
+        response = make_response(jsonify({"clients": clients}), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error getting clients: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to get clients"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+@app.route('/barbers/<barber_id>/clients/<client_id>/history', methods=['GET', 'OPTIONS'])
+@limiter.limit("100 per hour")
+def get_client_history(barber_id, client_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response, 200
+    
+    try:
+        appointments_list = []
+        if db:
+            appointments_list = db_query('appointments', 'barberId', '==', barber_id)
+            appointments_list = [apt for apt in appointments_list if apt.get('clientId') == client_id]
+        else:
+            appointments_list = [apt for apt in appointments if apt.get('barberId') == barber_id and apt.get('clientId') == client_id]
+        
+        # Sort by date
+        appointments_list.sort(key=lambda x: x.get('date', '') + ' ' + x.get('time', ''), reverse=True)
+        
+        response = make_response(jsonify({
+            "clientId": client_id,
+            "appointments": appointments_list,
+            "totalVisits": len(appointments_list)
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error getting client history: {str(e)}")
+        response = make_response(jsonify({"error": "Failed to get client history"}), 400)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+@app.route('/barbers/<barber_id>/clients/<client_id>/notes', methods=['GET', 'POST', 'PUT', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def manage_client_notes(barber_id, client_id):
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS')
+        return response, 200
+    
+    if request.method == 'GET':
+        try:
+            notes_doc = None
+            if db:
+                notes_doc = db_get_doc('client_notes', f"{barber_id}_{client_id}")
+            
+            notes = notes_doc.get("notes", []) if notes_doc else []
+            
+            response = make_response(jsonify({"notes": notes}), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        except Exception as e:
+            logger.error(f"Error getting client notes: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to get client notes"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+    
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            note_text = data.get("note", "")
+            note_type = data.get("type", "general")
+            
+            notes_doc = None
+            if db:
+                notes_doc = db_get_doc('client_notes', f"{barber_id}_{client_id}")
+            
+            notes = notes_doc.get("notes", []) if notes_doc else []
+            
+            new_note = {
+                "id": str(uuid.uuid4()),
+                "note": note_text,
+                "type": note_type,
+                "createdAt": datetime.now().isoformat()
+            }
+            notes.append(new_note)
+            
+            if db:
+                db_add_doc('client_notes', {
+                    "barberId": barber_id,
+                    "clientId": client_id,
+                    "notes": notes
+                }, doc_id=f"{barber_id}_{client_id}")
+            
+            response = make_response(jsonify({"success": True, "note": new_note}), 201)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
+        except Exception as e:
+            logger.error(f"Error adding client note: {str(e)}")
+            response = make_response(jsonify({"error": "Failed to add client note"}), 400)
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            return response
 
 # Share post endpoint
 @app.route('/social/<post_id>/share', methods=['POST', 'OPTIONS'])

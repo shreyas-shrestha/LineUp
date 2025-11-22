@@ -328,6 +328,48 @@
             </div>
           </div>
           
+          <!-- Working Hours & Availability -->
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
+            <div class="flex justify-between items-center mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-white mb-1">Working Hours & Availability</h3>
+                <p class="text-gray-400 text-sm">Set your schedule and manage availability</p>
+              </div>
+              <button id="manage-availability-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">Manage Hours</button>
+            </div>
+            <div id="availability-preview" class="text-gray-400 text-sm">
+              <!-- Availability preview will be loaded here -->
+            </div>
+          </div>
+          
+          <!-- Services & Pricing -->
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
+            <div class="flex justify-between items-center mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-white mb-1">Services & Pricing</h3>
+                <p class="text-gray-400 text-sm">Manage your service offerings and prices</p>
+              </div>
+              <button id="manage-services-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">Manage Services</button>
+            </div>
+            <div id="services-preview" class="text-gray-400 text-sm">
+              <!-- Services preview will be loaded here -->
+            </div>
+          </div>
+          
+          <!-- Client Management -->
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
+            <div class="flex justify-between items-center mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-white mb-1">Client Management</h3>
+                <p class="text-gray-400 text-sm">View and manage your clients</p>
+              </div>
+              <button id="view-clients-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">View Clients</button>
+            </div>
+            <div id="clients-preview" class="text-gray-400 text-sm">
+              <!-- Clients preview will be loaded here -->
+            </div>
+          </div>
+          
           <!-- Subscription Packages -->
           <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <div class="flex justify-between items-center mb-4">
@@ -506,6 +548,78 @@
   <!-- Firebase Integration -->
   <script type="module" src="firebase-simple.js"></script>
   
+  <!-- Availability Management Modal -->
+  <div id="availability-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-2xl font-bold">Working Hours & Availability</h3>
+        <button id="close-availability-modal" class="text-gray-400 hover:text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div id="availability-form" class="space-y-4">
+        <!-- Form will be populated by JavaScript -->
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button id="cancel-availability" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
+        <button id="save-availability" class="flex-1 btn-primary py-3 rounded-lg font-medium">Save Hours</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Services Management Modal -->
+  <div id="services-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-2xl font-bold">Services & Pricing</h3>
+        <button id="close-services-modal" class="text-gray-400 hover:text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div id="services-list" class="space-y-4 mb-4">
+        <!-- Services list will be populated by JavaScript -->
+      </div>
+      <button id="add-service-btn" class="w-full btn-secondary py-3 rounded-lg font-medium mb-4">+ Add New Service</button>
+      <div id="add-service-form" class="hidden space-y-4 p-4 bg-gray-800 rounded-lg">
+        <input type="text" id="service-name" placeholder="Service name" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+        <div class="grid grid-cols-2 gap-4">
+          <input type="number" id="service-price" placeholder="Price ($)" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+          <input type="number" id="service-duration" placeholder="Duration (minutes)" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+        </div>
+        <input type="text" id="service-category" placeholder="Category" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+        <textarea id="service-description" placeholder="Description" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 focus:border-sky-400 focus:outline-none"></textarea>
+        <div class="flex gap-3">
+          <button id="cancel-service" class="flex-1 btn-secondary py-2 rounded-lg font-medium">Cancel</button>
+          <button id="save-service" class="flex-1 btn-primary py-2 rounded-lg font-medium">Add Service</button>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button id="close-services" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clients Management Modal -->
+  <div id="clients-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-3xl max-h-screen overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-2xl font-bold">Client Management</h3>
+        <button id="close-clients-modal" class="text-gray-400 hover:text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      <div id="clients-list" class="space-y-4">
+        <!-- Clients list will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+
   <!-- Main App Script -->
   <script src="scripts-updated.js"></script>
 </body>

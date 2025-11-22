@@ -216,7 +216,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Render initial data
   renderBarberPortfolio();
   renderClientAppointments();
-  renderBarberAppointments();
+  loadBarberAppointments();
   updateDashboardStats();
   
   loadNearbyBarbers('Atlanta, GA');
@@ -351,6 +351,10 @@ function switchTab(targetTab) {
   if (targetTab === 'barber-dashboard') {
     updateDashboardStats();
     loadSubscriptionPackages();
+  }
+  
+  if (targetTab === 'barber-schedule') {
+    loadBarberAppointments();
   }
 }
 
@@ -1298,7 +1302,7 @@ function confirmBooking() {
   
   appointments.push(newAppointment);
   renderClientAppointments();
-  renderBarberAppointments();
+  loadBarberAppointments();
   updateDashboardStats();
   closeBookingModal();
   
@@ -1346,12 +1350,30 @@ function renderClientAppointments() {
   });
 }
 
+async function loadBarberAppointments() {
+  try {
+    const response = await fetch(`${API_URL}/appointments?type=barber&user_id=${currentBarberId}`);
+    const data = await response.json();
+    
+    if (data.appointments) {
+      appointments = data.appointments;
+      renderBarberAppointments();
+    }
+  } catch (error) {
+    console.error('Error loading appointments:', error);
+    // Keep existing appointments if API fails
+  }
+}
+
 function renderBarberAppointments() {
   if (!barberAppointmentsContainer) return;
   
   barberAppointmentsContainer.innerHTML = '';
   
-  if (appointments.length === 0) {
+  // Filter appointments for current barber
+  const barberAppointments = appointments.filter(apt => apt.barberId === currentBarberId || !apt.barberId);
+  
+  if (barberAppointments.length === 0) {
     barberAppointmentsContainer.innerHTML = `
       <div class="text-center py-16">
         <div class="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1366,68 +1388,242 @@ function renderBarberAppointments() {
     return;
   }
   
-  appointments.forEach(appointment => {
+  // Sort by date and time
+  barberAppointments.sort((a, b) => {
+    const dateA = new Date(`${a.date} ${a.time}`);
+    const dateB = new Date(`${b.date} ${b.time}`);
+    return dateA - dateB;
+  });
+  
+  barberAppointments.forEach(appointment => {
     const appointmentElement = document.createElement('div');
     appointmentElement.className = 'bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover';
+    
+    const statusColors = {
+      'pending': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+      'confirmed': 'bg-green-500/20 text-green-400 border-green-500/30',
+      'completed': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      'cancelled': 'bg-red-500/20 text-red-400 border-red-500/30',
+      'rejected': 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+      'rescheduled': 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+    };
+    
+    const statusColor = statusColors[appointment.status] || statusColors.pending;
+    
     appointmentElement.innerHTML = `
       <div class="flex justify-between items-start mb-4">
         <div class="flex-1">
-          <h3 class="text-xl font-bold text-white mb-1">${appointment.clientName}</h3>
-          <p class="text-gray-400 text-sm mb-2">${appointment.service}</p>
+          <h3 class="text-xl font-bold text-white mb-1">${appointment.clientName || 'Unknown Client'}</h3>
+          <p class="text-gray-400 text-sm mb-2">${appointment.service || 'Service'}</p>
           <div class="flex items-center gap-2">
-          <span class="px-3 py-1 rounded-full text-xs font-semibold ${
-              appointment.status === 'confirmed' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 
-              appointment.status === 'completed' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-              'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-          }">
-            ${appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
-          </span>
+            <span class="px-3 py-1 rounded-full text-xs font-semibold border ${statusColor}">
+              ${appointment.status ? appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1) : 'Pending'}
+            </span>
           </div>
         </div>
-          ${appointment.status === 'pending' ? 
-          `<button onclick="confirmAppointment(${appointment.id})" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap">Confirm</button>` : ''
-          }
-        </div>
+      </div>
       
       <div class="grid grid-cols-2 gap-4 mb-4 pt-4 border-t border-gray-800">
         <div>
           <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Date</p>
-          <p class="text-sm font-medium text-white">${new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
-      </div>
+          <p class="text-sm font-medium text-white">${appointment.date ? new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'N/A'}</p>
+        </div>
         <div>
           <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Time</p>
-          <p class="text-sm font-medium text-white">${appointment.time}</p>
-      </div>
+          <p class="text-sm font-medium text-white">${appointment.time || 'N/A'}</p>
+        </div>
         <div>
           <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Price</p>
-          <p class="text-sm font-medium text-white">${appointment.price}</p>
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Contact</p>
-          <p class="text-sm font-medium text-white">${appointment.clientName}</p>
-        </div>
+          <p class="text-sm font-medium text-white">${appointment.price || '$0'}</p>
       </div>
+        <div>
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Client ID</p>
+          <p class="text-sm font-medium text-white">${appointment.clientId || 'N/A'}</p>
+      </div>
+      </div>
+      
       ${appointment.notes && appointment.notes !== 'No special requests' ? `
-        <div class="pt-4 border-t border-gray-800">
-          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Notes</p>
+        <div class="pt-4 border-t border-gray-800 mb-4">
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Client Notes</p>
           <p class="text-sm text-gray-300">${appointment.notes}</p>
         </div>
       ` : ''}
+      
+      ${appointment.barberNotes && appointment.barberNotes.length > 0 ? `
+        <div class="pt-4 border-t border-gray-800 mb-4">
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Your Notes</p>
+          ${appointment.barberNotes.map(note => `
+            <p class="text-sm text-gray-300 mb-1">${note.note}</p>
+          `).join('')}
+        </div>
+      ` : ''}
+      
+      <div class="pt-4 border-t border-gray-800">
+        <div class="flex flex-wrap gap-2">
+          ${appointment.status === 'pending' ? `
+            <button onclick="acceptAppointment('${appointment.id}')" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium">
+              Accept
+            </button>
+            <button onclick="rejectAppointment('${appointment.id}')" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors text-sm font-medium">
+              Reject
+            </button>
+          ` : ''}
+          ${appointment.status === 'confirmed' || appointment.status === 'pending' ? `
+            <button onclick="rescheduleAppointment('${appointment.id}')" class="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors text-sm font-medium">
+              Reschedule
+            </button>
+            <button onclick="cancelAppointment('${appointment.id}')" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors text-sm font-medium">
+              Cancel
+            </button>
+          ` : ''}
+          <button onclick="viewClientHistory('${appointment.clientId}')" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors text-sm font-medium">
+            View History
+          </button>
+          <button onclick="addAppointmentNote('${appointment.id}')" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium">
+            Add Note
+          </button>
+        </div>
+      </div>
     `;
     barberAppointmentsContainer.appendChild(appointmentElement);
   });
 }
 
-function confirmAppointment(appointmentId) {
-  const appointment = appointments.find(apt => apt.id === appointmentId);
-  if (appointment) {
-    appointment.status = 'confirmed';
-    renderBarberAppointments();
-    renderClientAppointments();
-    updateDashboardStats();
+async function acceptAppointment(appointmentId) {
+  try {
+    const response = await fetch(`${API_URL}/appointments/${appointmentId}/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
     
-    alert(`Appointment with ${appointment.clientName} confirmed! ✅`);
+    const data = await response.json();
+    if (data.success) {
+      await loadBarberAppointments();
+    updateDashboardStats();
+      alert('Appointment accepted! ✅');
+    } else {
+      alert('Failed to accept appointment');
+    }
+  } catch (error) {
+    console.error('Error accepting appointment:', error);
+    alert('Error accepting appointment');
   }
+}
+
+async function rejectAppointment(appointmentId) {
+  const reason = prompt('Reason for rejection (optional):');
+  try {
+    const response = await fetch(`${API_URL}/appointments/${appointmentId}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason || 'No reason provided' })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      await loadBarberAppointments();
+      updateDashboardStats();
+      alert('Appointment rejected');
+    } else {
+      alert('Failed to reject appointment');
+    }
+  } catch (error) {
+    console.error('Error rejecting appointment:', error);
+    alert('Error rejecting appointment');
+  }
+}
+
+async function rescheduleAppointment(appointmentId) {
+  const newDate = prompt('New date (YYYY-MM-DD):');
+  const newTime = prompt('New time (HH:MM):');
+  const reason = prompt('Reason for rescheduling (optional):');
+  
+  if (!newDate || !newTime) {
+    alert('Date and time are required');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/appointments/${appointmentId}/reschedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date: newDate,
+        time: newTime,
+        reason: reason || 'Rescheduled by barber'
+      })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      await loadBarberAppointments();
+      updateDashboardStats();
+      alert('Appointment rescheduled! ✅');
+    } else {
+      alert('Failed to reschedule appointment');
+    }
+  } catch (error) {
+    console.error('Error rescheduling appointment:', error);
+    alert('Error rescheduling appointment');
+  }
+}
+
+async function cancelAppointment(appointmentId) {
+  const reason = prompt('Reason for cancellation (optional):');
+  if (!confirm('Are you sure you want to cancel this appointment?')) return;
+  
+  try {
+    const response = await fetch(`${API_URL}/appointments/${appointmentId}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason || 'Cancelled by barber' })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      await loadBarberAppointments();
+      updateDashboardStats();
+      alert('Appointment cancelled');
+    } else {
+      alert('Failed to cancel appointment');
+    }
+  } catch (error) {
+    console.error('Error cancelling appointment:', error);
+    alert('Error cancelling appointment');
+  }
+}
+
+async function addAppointmentNote(appointmentId) {
+  const note = prompt('Add a note for this appointment:');
+  if (!note) return;
+  
+  try {
+    const response = await fetch(`${API_URL}/appointments/${appointmentId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: note, type: 'general' })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      await loadBarberAppointments();
+      alert('Note added! ✅');
+    } else {
+      alert('Failed to add note');
+    }
+  } catch (error) {
+    console.error('Error adding note:', error);
+    alert('Error adding note');
+  }
+}
+
+function viewClientHistory(clientId) {
+  // This will be implemented with the client history UI
+  alert(`Viewing history for client: ${clientId}`);
+}
+
+function confirmAppointment(appointmentId) {
+  acceptAppointment(appointmentId);
 }
 
 function updateDashboardStats() {

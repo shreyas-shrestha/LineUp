@@ -1803,38 +1803,26 @@ async function quickReject(appointmentId) {
 
 function applyAppointmentFilters() {
   const statusFilter = document.getElementById('status-filter');
-  const dateStartFilter = document.getElementById('date-filter-start');
-  const dateEndFilter = document.getElementById('date-filter-end');
+  if (!statusFilter || !barberAppointmentsContainer) return;
   
-  if (!statusFilter) return;
-  
-  const filterStatus = statusFilter.value;
-  const filterStart = dateStartFilter?.value;
-  const filterEnd = dateEndFilter?.value;
-  
-  const cards = barberAppointmentsContainer.querySelectorAll('[class*="bg-gradient-to-br"]');
+  const filterStatus = statusFilter.value.toLowerCase();
+  const cards = barberAppointmentsContainer.querySelectorAll('[data-appointment-id]');
   
   cards.forEach(card => {
-    let show = true;
-    
-    // Status filter
-    if (filterStatus !== 'all') {
-      const statusBadge = card.querySelector('[class*="rounded-full"]');
-      if (statusBadge && !statusBadge.textContent.toLowerCase().includes(filterStatus.toLowerCase())) {
-        show = false;
-      }
+    if (filterStatus === 'all') {
+      card.style.display = 'block';
+      return;
     }
     
-    // Date range filter
-    if (filterStart || filterEnd) {
-      const dateText = card.textContent;
-      // Simple check - could be improved
-      if (filterStart && dateText.includes(formatDate(filterStart))) {
-        // Check if date is in range
-      }
+    // Find status badge and check if it matches filter
+    const statusBadge = card.querySelector('span[class*="bg-"]');
+    if (statusBadge) {
+      const statusText = statusBadge.textContent.toLowerCase().replace(/[✓✕⏳↻]/g, '').trim();
+      const matches = statusText.includes(filterStatus);
+      card.style.display = matches ? 'block' : 'none';
+    } else {
+      card.style.display = 'block';
     }
-    
-    card.style.display = show ? 'block' : 'none';
   });
 }
 

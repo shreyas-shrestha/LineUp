@@ -1202,10 +1202,55 @@ function renderBottomNav() {
 }
 
 // --- Barber Portfolio Functions ---
-function renderBarberPortfolio() {
+async function renderBarberPortfolio() {
   if (!portfolioGrid) return;
   
   portfolioGrid.innerHTML = '';
+  
+  // Try to load from API first
+  try {
+    const response = await fetch(`${API_URL}/portfolio/${currentBarberId}`);
+    const data = await response.json();
+    if (data.portfolio && data.portfolio.length > 0) {
+      barberPortfolio = data.portfolio;
+    }
+  } catch (error) {
+    console.error('Error loading portfolio from API:', error);
+    // Continue with existing barberPortfolio (mock data)
+  }
+  
+  // If still empty, ensure mock data is there
+  if (barberPortfolio.length === 0) {
+    // Mock data should already be initialized, but ensure it's there
+    if (barberPortfolio.length === 0) {
+      barberPortfolio = [
+        {
+          id: 1,
+          styleName: 'Modern Fade',
+          image: 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
+          description: 'Clean fade with textured top. Perfect for professionals.',
+          likes: 12,
+          date: '2024-01-15'
+        },
+        {
+          id: 2,
+          styleName: 'Classic Pompadour',
+          image: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&h=400&fit=crop',
+          description: 'Vintage-inspired pompadour with modern styling.',
+          likes: 18,
+          date: '2024-01-14'
+        },
+        {
+          id: 3,
+          styleName: 'Textured Quiff',
+          image: 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=400&fit=crop',
+          description: 'Voluminous quiff with natural texture and movement.',
+          likes: 25,
+          date: '2024-01-13'
+        }
+      ];
+    }
+  }
   
   if (barberPortfolio.length === 0) {
     portfolioGrid.innerHTML = `
@@ -2321,6 +2366,313 @@ window.rescheduleAppointment = rescheduleAppointment;
 window.cancelAppointment = cancelAppointment;
 window.addAppointmentNote = addAppointmentNote;
 window.viewClientHistory = viewClientHistory;
+
+// ========================================
+// PHASE 1: BARBER FEATURES - Full Implementation
+// ========================================
+
+// Availability & Working Hours Management
+async function loadAvailabilitySettings() {
+  try {
+    const response = await fetch(`${API_URL}/barbers/${currentBarberId}/availability`);
+    const data = await response.json();
+    
+    const availability = data.availability || {};
+    const workingHours = availability.workingHours || {};
+    const formContainer = document.getElementById('availability-form');
+    
+    if (!formContainer) return;
+    
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    
+    formContainer.innerHTML = `
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-400 mb-2">Service Duration (minutes)</label>
+          <input type="number" id="service-duration-setting" value="${availability.serviceDuration || 30}" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-400 mb-2">Buffer Time (minutes)</label>
+          <input type="number" id="buffer-time-setting" value="${availability.bufferTime || 15}" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-white">
+        </div>
+        <div class="space-y-3">
+          <label class="block text-sm font-medium text-gray-400 mb-2">Working Hours</label>
+          ${days.map(day => {
+            const dayHours = workingHours[day] || { enabled: false, start: '09:00', end: '18:00' };
+            return `
+              <div class="flex items-center gap-4 bg-gray-800 p-3 rounded-lg">
+                <input type="checkbox" id="${day}-enabled" ${dayHours.enabled ? 'checked' : ''} class="w-4 h-4">
+                <label class="text-white capitalize min-w-[80px]">${day}</label>
+                <input type="time" id="${day}-start" value="${dayHours.start || '09:00'}" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white text-sm" ${!dayHours.enabled ? 'disabled' : ''}>
+                <span class="text-gray-400">to</span>
+                <input type="time" id="${day}-end" value="${dayHours.end || '18:00'}" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white text-sm" ${!dayHours.enabled ? 'disabled' : ''}>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    
+    // Enable/disable time inputs based on checkbox
+    days.forEach(day => {
+      const checkbox = document.getElementById(`${day}-enabled`);
+      const startInput = document.getElementById(`${day}-start`);
+      const endInput = document.getElementById(`${day}-end`);
+      if (checkbox && startInput && endInput) {
+        checkbox.addEventListener('change', () => {
+          startInput.disabled = !checkbox.checked;
+          endInput.disabled = !checkbox.checked;
+        });
+      }
+    });
+    
+    // Update preview
+    updateAvailabilityPreview(availability);
+  } catch (error) {
+    console.error('Error loading availability:', error);
+    alert('Failed to load availability settings');
+  }
+}
+
+async function saveAvailabilitySettings() {
+  try {
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const workingHours = {};
+    
+    days.forEach(day => {
+      const enabledEl = document.getElementById(`${day}-enabled`);
+      const startEl = document.getElementById(`${day}-start`);
+      const endEl = document.getElementById(`${day}-end`);
+      if (enabledEl && startEl && endEl) {
+        const enabled = enabledEl.checked;
+        const start = startEl.value;
+        const end = endEl.value;
+        workingHours[day] = { enabled, start, end };
+      }
+    });
+    
+    const availabilityData = {
+      workingHours,
+      serviceDuration: parseInt(document.getElementById('service-duration-setting')?.value || '30') || 30,
+      bufferTime: parseInt(document.getElementById('buffer-time-setting')?.value || '15') || 15,
+      breakTimes: [],
+      blockedDates: [],
+      timezone: "America/New_York"
+    };
+    
+    const response = await fetch(`${API_URL}/barbers/${currentBarberId}/availability`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(availabilityData)
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      updateAvailabilityPreview(availabilityData);
+      const modal = document.getElementById('availability-modal');
+      if (modal) modal.classList.add('hidden');
+      alert('Availability settings saved! ✅');
+    } else {
+      alert('Failed to save availability settings');
+    }
+  } catch (error) {
+    console.error('Error saving availability:', error);
+    alert('Error saving availability settings');
+  }
+}
+
+function updateAvailabilityPreview(availability) {
+  const preview = document.getElementById('availability-preview');
+  if (!preview) return;
+  
+  const workingHours = availability.workingHours || {};
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const enabledDays = days.filter(day => workingHours[day]?.enabled);
+  
+  if (enabledDays.length === 0) {
+    preview.innerHTML = '<p class="text-gray-500">No working hours configured</p>';
+  } else {
+    preview.innerHTML = enabledDays.map(day => {
+      const hours = workingHours[day];
+      return `<p class="text-sm"><span class="capitalize">${day}</span>: ${hours.start} - ${hours.end}</p>`;
+    }).join('');
+  }
+}
+
+// Services Management
+async function loadServices() {
+  try {
+    const response = await fetch(`${API_URL}/barbers/${currentBarberId}/services`);
+    const data = await response.json();
+    
+    const services = data.services || [];
+    const servicesList = document.getElementById('services-list');
+    
+    if (!servicesList) return;
+    
+    if (services.length === 0) {
+      servicesList.innerHTML = '<p class="text-gray-500 text-center py-4">No services configured yet</p>';
+    } else {
+      servicesList.innerHTML = services.map(service => `
+        <div class="bg-gray-800 p-4 rounded-lg flex justify-between items-center">
+          <div>
+            <h4 class="font-semibold text-white">${service.name}</h4>
+            <p class="text-sm text-gray-400">$${service.price} • ${service.duration} min</p>
+          </div>
+          <button onclick="deleteService('${service.id}')" class="text-red-400 hover:text-red-300 text-sm">Delete</button>
+        </div>
+      `).join('');
+    }
+    
+    updateServicesPreview(services);
+  } catch (error) {
+    console.error('Error loading services:', error);
+    alert('Failed to load services');
+  }
+}
+
+async function saveService() {
+  try {
+    const nameEl = document.getElementById('service-name');
+    const priceEl = document.getElementById('service-price');
+    const durationEl = document.getElementById('service-duration');
+    const categoryEl = document.getElementById('service-category');
+    const descEl = document.getElementById('service-description');
+    
+    if (!nameEl || !priceEl || !durationEl) {
+      alert('Service form fields not found');
+      return;
+    }
+    
+    const serviceData = {
+      name: nameEl.value,
+      price: parseFloat(priceEl.value) || 0,
+      duration: parseInt(durationEl.value) || 30,
+      category: categoryEl?.value || 'General',
+      description: descEl?.value || ''
+    };
+    
+    if (!serviceData.name) {
+      alert('Service name is required');
+      return;
+    }
+    
+    const response = await fetch(`${API_URL}/barbers/${currentBarberId}/services`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(serviceData)
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      const form = document.getElementById('add-service-form');
+      if (form) form.classList.add('hidden');
+      if (nameEl) nameEl.value = '';
+      if (priceEl) priceEl.value = '';
+      if (durationEl) durationEl.value = '';
+      if (categoryEl) categoryEl.value = '';
+      if (descEl) descEl.value = '';
+      await loadServices();
+      alert('Service added! ✅');
+    } else {
+      alert('Failed to add service');
+    }
+  } catch (error) {
+    console.error('Error saving service:', error);
+    alert('Error saving service');
+  }
+}
+
+async function deleteService(serviceId) {
+  if (!confirm('Are you sure you want to delete this service?')) return;
+  
+  try {
+    const response = await fetch(`${API_URL}/barbers/${currentBarberId}/services?service_id=${serviceId}`, {
+      method: 'DELETE'
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      await loadServices();
+      alert('Service deleted');
+    } else {
+      alert('Failed to delete service');
+    }
+  } catch (error) {
+    console.error('Error deleting service:', error);
+    alert('Error deleting service');
+  }
+}
+
+function updateServicesPreview(services) {
+  const preview = document.getElementById('services-preview');
+  if (!preview) return;
+  
+  if (services.length === 0) {
+    preview.innerHTML = '<p class="text-gray-500">No services configured</p>';
+  } else {
+    preview.innerHTML = `<p class="text-sm">${services.length} service(s) configured</p>`;
+  }
+}
+
+// Client Management
+async function loadClients() {
+  try {
+    const response = await fetch(`${API_URL}/barbers/${currentBarberId}/clients`);
+    const data = await response.json();
+    
+    const clients = data.clients || [];
+    const clientsList = document.getElementById('clients-list');
+    
+    if (!clientsList) return;
+    
+    if (clients.length === 0) {
+      clientsList.innerHTML = '<p class="text-gray-500 text-center py-8">No clients yet</p>';
+    } else {
+      clientsList.innerHTML = clients.map(client => `
+        <div class="bg-gray-800 p-4 rounded-lg">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <h4 class="font-semibold text-white">${client.clientName}</h4>
+              <p class="text-sm text-gray-400">Client ID: ${client.clientId}</p>
+            </div>
+            <button onclick="viewClientDetails('${client.clientId}')" class="text-sky-400 hover:text-sky-300 text-sm">View Details</button>
+          </div>
+          <div class="grid grid-cols-3 gap-4 mt-3 text-sm">
+            <div>
+              <p class="text-gray-500">Visits</p>
+              <p class="text-white font-semibold">${client.totalVisits || 0}</p>
+            </div>
+            <div>
+              <p class="text-gray-500">Last Visit</p>
+              <p class="text-white font-semibold">${client.lastVisit || 'Never'}</p>
+            </div>
+            <div>
+              <p class="text-gray-500">Total Spent</p>
+              <p class="text-white font-semibold">$${(client.totalSpent || 0).toFixed(2)}</p>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    updateClientsPreview(clients);
+  } catch (error) {
+    console.error('Error loading clients:', error);
+    alert('Failed to load clients');
+  }
+}
+
+function updateClientsPreview(clients) {
+  const preview = document.getElementById('clients-preview');
+  if (!preview) return;
+  
+  if (clients.length === 0) {
+    preview.innerHTML = '<p class="text-gray-500">No clients yet</p>';
+  } else {
+    preview.innerHTML = `<p class="text-sm">${clients.length} client(s)</p>`;
+  }
+}
 
 // Preview loading functions (non-modal versions)
 async function loadAvailabilityPreview() {

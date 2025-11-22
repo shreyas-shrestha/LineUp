@@ -2062,12 +2062,12 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                 "styleApplied": style_description,
                 "poweredBy": "LineUp Preview Mode",
                 "note": "This is a preview mode. Works immediately with no setup!"
-                }
-                
-                response = make_response(jsonify(response_data), 200)
-                response.headers['Access-Control-Allow-Origin'] = '*'
+            }
+            
+            response = make_response(jsonify(response_data), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
             logger.info("✅ Preview mode response sent successfully")
-                return response
+            return response
             
         except Exception as e:
             logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")

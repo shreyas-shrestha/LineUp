@@ -386,62 +386,20 @@ function setupEventListeners() {
     });
   }
   
-  // Bookings view toggle and filters
-  const listViewBtn = document.getElementById('list-view-btn');
-  const calendarViewBtn = document.getElementById('calendar-view-btn');
+  // Bookings filters
   const statusFilter = document.getElementById('status-filter');
-  const dateStartFilter = document.getElementById('date-filter-start');
-  const dateEndFilter = document.getElementById('date-filter-end');
   const clearFiltersBtn = document.getElementById('clear-filters');
-  
-  if (listViewBtn) {
-    listViewBtn.addEventListener('click', () => {
-      listViewBtn.classList.add('bg-white', 'text-black');
-      listViewBtn.classList.remove('text-gray-400');
-      calendarViewBtn.classList.remove('bg-white', 'text-black');
-      calendarViewBtn.classList.add('text-gray-400');
-      
-      document.getElementById('bookings-list-view').classList.remove('hidden');
-      document.getElementById('bookings-calendar-view').classList.add('hidden');
-    });
-  }
-  
-  if (calendarViewBtn) {
-    calendarViewBtn.addEventListener('click', () => {
-      calendarViewBtn.classList.add('bg-white', 'text-black');
-      calendarViewBtn.classList.remove('text-gray-400');
-      listViewBtn.classList.remove('bg-white', 'text-black');
-      listViewBtn.classList.add('text-gray-400');
-      
-      document.getElementById('bookings-list-view').classList.add('hidden');
-      document.getElementById('bookings-calendar-view').classList.remove('hidden');
-    });
-  }
   
   if (statusFilter) {
     statusFilter.addEventListener('change', () => {
-      loadBarberAppointments();
-    });
-  }
-  
-  if (dateStartFilter) {
-    dateStartFilter.addEventListener('change', () => {
-      loadBarberAppointments();
-    });
-  }
-  
-  if (dateEndFilter) {
-    dateEndFilter.addEventListener('change', () => {
-      loadBarberAppointments();
+      applyAppointmentFilters();
     });
   }
   
   if (clearFiltersBtn) {
     clearFiltersBtn.addEventListener('click', () => {
       if (statusFilter) statusFilter.value = 'all';
-      if (dateStartFilter) dateStartFilter.value = '';
-      if (dateEndFilter) dateEndFilter.value = '';
-      loadBarberAppointments();
+      applyAppointmentFilters();
     });
   }
 }

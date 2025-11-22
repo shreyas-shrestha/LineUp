@@ -1926,9 +1926,9 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     
         except Exception as e:
             logger.error(f"Replicate hair style transfer error: {str(e)}")
-                import traceback
-                logger.error(traceback.format_exc())
-                # Continue to fallback preview mode
+            import traceback
+            logger.error(traceback.format_exc())
+            # Continue to fallback preview mode
         
         # PREVIEW MODE: Return user photo with text overlay
         logger.info("Using preview mode - user photo with text overlay - GUARANTEED TO WORK")

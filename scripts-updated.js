@@ -208,8 +208,12 @@ window.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   renderBottomNav();
   
+  // Load posts from API first, then render
+  loadSocialPosts().then(() => {
+    renderSocialFeed();
+  });
+  
   // Render initial data
-  renderSocialFeed();
   renderBarberPortfolio();
   renderClientAppointments();
   renderBarberAppointments();
@@ -340,6 +344,7 @@ function switchTab(targetTab) {
   }
   
   if (targetTab === 'community') {
+    loadSocialPosts(); // Load fresh posts from API when switching to community tab
     renderSocialFeed();
   }
   
@@ -788,6 +793,45 @@ function setupLocationSearch() {
 }
 
 // --- Social Media Functions ---
+async function loadSocialPosts() {
+  try {
+    const response = await fetch(`${API_URL}/social`);
+    const data = await response.json();
+    
+    if (data.posts && Array.isArray(data.posts)) {
+      // Create a map of existing post IDs to avoid duplicates
+      const existingIds = new Set(socialPosts.map(p => String(p.id)));
+      
+      // Add new posts that don't exist locally
+      const newPosts = data.posts.filter(p => !existingIds.has(String(p.id)));
+      
+      // Merge: new posts first, then existing local posts
+      socialPosts = [...newPosts, ...socialPosts];
+      
+      // Sort by timestamp (newest first)
+      socialPosts.sort((a, b) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeB - timeA;
+      });
+      
+      // Remove duplicates by ID
+      const seen = new Set();
+      socialPosts = socialPosts.filter(p => {
+        const id = String(p.id);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+      
+      renderSocialFeed();
+    }
+  } catch (error) {
+    console.error('Error loading posts:', error);
+    // Keep existing posts if API fails - don't clear the feed
+  }
+}
+
 function renderSocialFeed() {
   if (!socialFeedContainer) return;
   
@@ -806,20 +850,44 @@ function renderSocialFeed() {
     const caption = post.caption || '';
     const hashtags = post.hashtags || [];
     
+    // Calculate timeAgo from timestamp if not provided
+    let timeAgo = post.timeAgo || 'now';
+    if (post.timestamp && !post.timeAgo) {
+      const postTime = new Date(post.timestamp);
+      const now = new Date();
+      const diffMs = now - postTime;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+      
+      if (diffMins < 1) timeAgo = 'now';
+      else if (diffMins < 60) timeAgo = `${diffMins}m`;
+      else if (diffHours < 24) timeAgo = `${diffHours}h`;
+      else if (diffDays < 7) timeAgo = `${diffDays}d`;
+      else timeAgo = postTime.toLocaleDateString();
+    }
+    
+    // Handle image URL - support both base64 and Cloudinary URLs
+    let imageSrc = post.image || '';
+    if (imageSrc && !imageSrc.startsWith('http') && !imageSrc.startsWith('data:')) {
+      // If it's base64 without prefix, add data URL prefix
+      imageSrc = `data:image/jpeg;base64,${imageSrc}`;
+    }
+    
     postElement.innerHTML = `
       <div class="p-4 flex items-center gap-3 justify-between">
         <div class="flex items-center gap-3">
         <img src="${post.avatar}" alt="${post.username}" class="w-10 h-10 rounded-full object-cover">
         <div>
           <p class="font-semibold text-white">${post.username}</p>
-          <p class="text-xs text-gray-400">${post.timeAgo}</p>
+          <p class="text-xs text-gray-400">${timeAgo}</p>
         </div>
         </div>
         <button onclick="toggleFollow('${post.username}')" class="text-sky-400 hover:text-sky-300 text-sm font-medium">
           Follow
         </button>
       </div>
-      <img src="${post.image}" alt="Post image" class="w-full h-80 object-cover">
+      <img src="${imageSrc}" alt="Post image" class="w-full h-80 object-cover">
       <div class="p-4">
         <div class="flex items-center gap-4 mb-3">
           <button onclick="toggleLike(${post.id})" class="flex items-center gap-2 transition-colors ${post.liked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}">
@@ -877,29 +945,61 @@ function closeAddPostModal() {
   postCaption.value = '';
 }
 
-function submitSocialPost() {
+async function submitSocialPost() {
   const caption = postCaption.value.trim();
   if (!postImagePreview.src || !caption) {
     alert('Please add both an image and caption');
     return;
   }
   
-  const newPost = {
-    id: Date.now(),
-    username: 'you',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
-    image: postImagePreview.src,
-    caption: caption,
-    likes: 0,
-    timeAgo: 'now',
-    liked: false
-  };
+  // Show loading state
+  if (submitPost) {
+    submitPost.disabled = true;
+    submitPost.textContent = 'Posting...';
+  }
   
-  socialPosts.unshift(newPost);
-  renderSocialFeed();
-  closeAddPostModal();
-  
-  alert('Post shared successfully! 🎉');
+  try {
+    // Get base64 image (remove data URL prefix if present)
+    let imageBase64 = postImagePreview.src;
+    if (imageBase64.includes(',')) {
+      imageBase64 = imageBase64.split(',')[1];
+    }
+    
+    const response = await fetch(`${API_URL}/social`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: 'you',
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
+        image: imageBase64,
+        caption: caption,
+        hashtags: []
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      // Reload posts from server to get latest (includes the new post)
+      await loadSocialPosts();
+      closeAddPostModal();
+      alert('Post shared successfully! 🎉');
+    } else {
+      // Handle rejection (content moderation)
+      const errorMsg = data.reason || data.error || 'Failed to post. Please try again.';
+      alert(errorMsg);
+    }
+  } catch (error) {
+    console.error('Error posting:', error);
+    alert('Failed to post. Please check your connection and try again.');
+  } finally {
+    if (submitPost) {
+      submitPost.disabled = false;
+      submitPost.textContent = 'Post';
+    }
+  }
 }
 
 function toggleLike(postId) {

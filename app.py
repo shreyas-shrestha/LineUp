@@ -2217,7 +2217,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
 
                     response.headers['Access-Control-Allow-Origin'] = '*'
 
-                        logger.info("✅ AI hair transformation successful!")
+                    logger.info("✅ AI hair transformation successful!")
                     return response
                 else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")

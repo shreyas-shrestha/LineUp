@@ -2710,3 +2710,5 @@ async function loadClientsPreview() {
 
 window.deleteService = deleteService;
 window.viewClientDetails = viewClientDetails;
+window.saveAvailabilitySettings = saveAvailabilitySettings;
+window.saveService = saveService;

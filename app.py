@@ -2026,20 +2026,20 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
             original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
             
             # Return success response
-                response_data = {
-                    "success": True,
+            response_data = {
+                "success": True,
                 "message": f"✨ Style preview created: {style_description}",
                 "originalImage": original_base64,
                 "resultImage": result_base64,
-                    "styleApplied": style_description,
+                "styleApplied": style_description,
                 "poweredBy": "LineUp Preview Mode",
                 "note": "This is a preview mode. Works immediately with no setup!"
-                }
-                
-                response = make_response(jsonify(response_data), 200)
-                response.headers['Access-Control-Allow-Origin'] = '*'
+            }
+            
+            response = make_response(jsonify(response_data), 200)
+            response.headers['Access-Control-Allow-Origin'] = '*'
             logger.info("✅ Preview mode response sent successfully")
-                return response
+            return response
             
         except Exception as e:
             logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")

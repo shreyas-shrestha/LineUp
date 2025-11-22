@@ -32,14 +32,27 @@ except ImportError:
 # Optional: Firebase Admin SDK
 try:
     import firebase_admin
-    from firebase_admin import credentials, firestore
+    from firebase_admin import credentials, firestore, storage
     logger.info("Firebase Admin SDK loaded successfully")
     FIREBASE_AVAILABLE = True
 except ImportError:
     firebase_admin = None
     firestore = None
+    storage = None
     FIREBASE_AVAILABLE = False
     logger.warning("Firebase not installed. Will use in-memory storage.")
+
+# Optional: Cloudinary for FREE image storage (25GB free tier)
+try:
+    import cloudinary
+    import cloudinary.uploader
+    CLOUDINARY_AVAILABLE = True
+    logger.info("Cloudinary SDK loaded successfully")
+except ImportError:
+    cloudinary = None
+    cloudinary_uploader = None
+    CLOUDINARY_AVAILABLE = False
+    logger.warning("Cloudinary not installed. Will use base64 storage.")
 
 # Create Flask app FIRST - This was missing!
 app = Flask(__name__)
@@ -70,8 +83,35 @@ else:
     model = None
     logger.warning("GEMINI_API_KEY not found - will use mock data")
 
-# Configure Firebase/Firestore
+# Configure Cloudinary (FREE image storage - 25GB free tier)
+cloudinary_config = None
+CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET")
+
+if CLOUDINARY_AVAILABLE and CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
+    try:
+        cloudinary.config(
+            cloud_name=CLOUDINARY_CLOUD_NAME,
+            api_key=CLOUDINARY_API_KEY,
+            api_secret=CLOUDINARY_API_SECRET
+        )
+        cloudinary_config = cloudinary.config()
+        logger.info(f"Cloudinary configured successfully: {CLOUDINARY_CLOUD_NAME}")
+    except Exception as e:
+        logger.warning(f"Cloudinary configuration failed: {str(e)}")
+        cloudinary_config = None
+else:
+    if not CLOUDINARY_AVAILABLE:
+        logger.info("Cloudinary not installed. Will use base64 storage.")
+    elif not CLOUDINARY_CLOUD_NAME:
+        logger.info("CLOUDINARY_CLOUD_NAME not set. Will use base64 storage.")
+    else:
+        logger.info("Cloudinary credentials not set. Will use base64 storage.")
+
+# Configure Firebase/Firestore (for database only, not storage)
 db = None
+storage_bucket = None
 if FIREBASE_AVAILABLE:
     try:
         # Check for Firebase credentials
@@ -83,12 +123,23 @@ if FIREBASE_AVAILABLE:
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
             db = firestore.client()
+            # Initialize Firebase Storage bucket
+            try:
+                project_id = cred_dict.get('project_id')
+                if project_id:
+                    bucket_name = f"{project_id}.appspot.com"
+                    storage_bucket = storage.bucket(bucket_name)
+                    logger.info(f"Firebase Storage initialized: {bucket_name}")
+            except Exception as e:
+                logger.warning(f"Firebase Storage initialization failed: {str(e)}")
+                storage_bucket = None
             logger.info("Firebase initialized with credentials from environment")
         else:
             logger.warning("FIREBASE_CREDENTIALS not found - will use in-memory storage")
     except Exception as e:
         logger.error(f"Firebase initialization failed: {str(e)}")
         db = None
+        storage_bucket = None
 
 # In-memory storage (fallback when database not available)
 social_posts = []
@@ -105,6 +156,7 @@ hair_trends = {}  # AI insights on trending styles
 # Rate limiting cache for Google Places API
 places_api_cache = {}
 CACHE_DURATION = 3600  # 1 hour cache for Places API results
+MAX_CACHE_SIZE = 50  # Maximum number of cached entries to prevent memory issues
 
 # Rate limiting tracker
 api_usage_tracker = {
@@ -125,6 +177,39 @@ def reset_daily_counters():
         }
         logger.info("Daily API usage counters reset")
 
+def clean_cache():
+    """Clean expired cache entries and limit cache size"""
+    global places_api_cache
+    current_time = time.time()
+    
+    # Remove expired entries
+    expired_keys = []
+    for key, value in places_api_cache.items():
+        if current_time - value['timestamp'] >= CACHE_DURATION:
+            expired_keys.append(key)
+    
+    for key in expired_keys:
+        del places_api_cache[key]
+    
+    # Limit cache size - remove oldest entries if cache is too large
+    if len(places_api_cache) > MAX_CACHE_SIZE:
+        # Sort by timestamp and remove oldest entries
+        sorted_cache = sorted(places_api_cache.items(), key=lambda x: x[1]['timestamp'])
+        entries_to_remove = len(places_api_cache) - MAX_CACHE_SIZE
+        for i in range(entries_to_remove):
+            del places_api_cache[sorted_cache[i][0]]
+    
+    if expired_keys or len(places_api_cache) > MAX_CACHE_SIZE:
+        logger.info(f"Cache cleaned: removed {len(expired_keys)} expired entries, cache size: {len(places_api_cache)}")
+
+def clear_all_cache():
+    """Clear all cache entries"""
+    global places_api_cache
+    cache_size = len(places_api_cache)
+    places_api_cache.clear()
+    logger.info(f"All cache cleared: removed {cache_size} entries")
+    return cache_size
+
 def can_make_places_api_call():
     """Check if we can make a Places API call (limit: 100/day for free tier)"""
     reset_daily_counters()
@@ -144,6 +229,131 @@ def increment_gemini_api_usage():
     """Increment Gemini API usage counter"""
     reset_daily_counters()
     api_usage_tracker['gemini_api_calls'] += 1
+
+# ========================================
+# IMAGE STORAGE AND CONTENT MODERATION
+# ========================================
+
+def upload_image_to_storage(image_bytes, filename=None):
+    """
+    Upload image to FREE Cloudinary storage and return public URL
+    Falls back to base64 if Cloudinary is not configured
+    """
+    # Try Cloudinary first (FREE - 25GB free tier)
+    if cloudinary_config and CLOUDINARY_AVAILABLE:
+        try:
+            # Upload to Cloudinary
+            upload_result = cloudinary.uploader.upload(
+                image_bytes,
+                folder="lineup-community",
+                resource_type="image",
+                format="jpg",
+                quality="auto:good"  # Auto optimize quality
+            )
+            public_url = upload_result.get('secure_url') or upload_result.get('url')
+            logger.info(f"Image uploaded to Cloudinary: {public_url}")
+            return public_url
+        except Exception as e:
+            logger.error(f"Error uploading to Cloudinary: {str(e)}")
+            # Fall through to return None (will use base64)
+    
+    # Firebase Storage fallback (optional, costs money after free tier)
+    if storage_bucket:
+        try:
+            if not filename:
+                filename = f"community-posts/{uuid.uuid4()}_{int(time.time())}.jpg"
+            
+            blob = storage_bucket.blob(filename)
+            blob.upload_from_string(image_bytes, content_type='image/jpeg')
+            blob.make_public()
+            public_url = blob.public_url
+            logger.info(f"Image uploaded to Firebase Storage: {filename}")
+            return public_url
+        except Exception as e:
+            logger.error(f"Error uploading to Firebase Storage: {str(e)}")
+    
+    # Return None to use base64 fallback
+    return None
+
+def moderate_image_content(image_bytes):
+    """
+    Moderate image content using Gemini Vision API
+    Returns: (is_approved, reason) tuple
+    - is_approved: True if content passes moderation
+    - reason: Error message if rejected, None if approved
+    """
+    if not model:
+        logger.warning("Gemini model not available, skipping moderation (permissive mode)")
+        return (True, None)
+    
+    try:
+        # Decode image from bytes
+        image = Image.open(BytesIO(image_bytes))
+        
+        # Moderation prompt - check for explicit content and hair-related content
+        moderation_prompt = """Analyze this image and determine:
+1. Is there any explicit, adult, violent, or inappropriate content? (yes/no)
+2. Is this image related to hair, haircuts, hairstyles, or barber/stylist work? (yes/no)
+
+Respond with ONLY a JSON object in this exact format (no markdown, no explanation):
+{
+    "explicit_content": true/false,
+    "hair_related": true/false,
+    "confidence": "high" | "medium" | "low"
+}
+
+If explicit_content is true, the image must be rejected.
+If hair_related is false, the image must be rejected as it's not relevant to a hair/barber community."""
+
+        increment_gemini_api_usage()
+        response = model.generate_content([moderation_prompt, image])
+        response_text = response.text.strip()
+        
+        # Parse response
+        if "```json" in response_text:
+            start = response_text.find("```json") + 7
+            end = response_text.rfind("```")
+            if end > start:
+                response_text = response_text[start:end].strip()
+        elif "```" in response_text:
+            start = response_text.find("```") + 3
+            end = response_text.rfind("```")
+            if end > start:
+                response_text = response_text[start:end].strip()
+        
+        try:
+            moderation_result = json.loads(response_text)
+        except json.JSONDecodeError:
+            # If parsing fails, try to extract JSON from response
+            import re
+            json_match = re.search(r'\{[^}]+\}', response_text)
+            if json_match:
+                moderation_result = json.loads(json_match.group())
+            else:
+                logger.error(f"Failed to parse moderation response: {response_text}")
+                # Permissive fallback - approve if we can't parse
+                return (True, None)
+        
+        explicit_content = moderation_result.get("explicit_content", False)
+        hair_related = moderation_result.get("hair_related", False)
+        
+        # Check for explicit content
+        if explicit_content:
+            logger.warning("Content moderation: Rejected - Explicit/inappropriate content detected")
+            return (False, "Your image contains inappropriate or explicit content and cannot be posted.")
+        
+        # Check if hair-related
+        if not hair_related:
+            logger.warning("Content moderation: Rejected - Image is not hair-related")
+            return (False, "Your image must be related to hair, haircuts, or hairstyles. Please post hair-related content only.")
+        
+        logger.info("Content moderation: Approved")
+        return (True, None)
+        
+    except Exception as e:
+        logger.error(f"Error in content moderation: {str(e)}")
+        # Permissive fallback - approve if moderation fails
+        return (True, None)
 
 # ========================================
 # FIREBASE/FIRESTORE DATABASE FUNCTIONS
@@ -453,10 +663,69 @@ def index():
     })
 
 # Health check endpoint
+@app.route('/clear-cache', methods=['POST', 'GET', 'OPTIONS'])
+@limiter.limit("10 per hour")  # Limit cache clearing to prevent abuse
+def clear_cache():
+    """Clear all cache entries to free memory"""
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        return response, 200
+    
+    try:
+        cleared_count = clear_all_cache()
+        response = make_response(jsonify({
+            "success": True,
+            "message": f"Cache cleared successfully",
+            "entries_removed": cleared_count,
+            "cache_size": len(places_api_cache),
+            "timestamp": datetime.now().isoformat()
+        }), 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error clearing cache: {str(e)}")
+        response = make_response(jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+
+@app.route('/cache-stats', methods=['GET', 'OPTIONS'])
+@limiter.limit("50 per hour")
+def cache_stats():
+    """Get cache statistics"""
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response, 200
+    
+    # Clean cache first
+    clean_cache()
+    
+    current_time = time.time()
+    expired_count = sum(1 for v in places_api_cache.values() if current_time - v['timestamp'] >= CACHE_DURATION)
+    
+    response = make_response(jsonify({
+        "cache_size": len(places_api_cache),
+        "max_cache_size": MAX_CACHE_SIZE,
+        "cache_duration_seconds": CACHE_DURATION,
+        "expired_entries": expired_count,
+        "memory_usage_estimate_kb": len(places_api_cache) * 10  # Rough estimate
+    }), 200)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
+
 @app.route('/health', methods=['GET'])
 @limiter.limit("200 per minute")
 def health():
     reset_daily_counters()
+    # Clean cache on health check
+    clean_cache()
     return jsonify({
         "status": "healthy",
         "service": "lineup-backend",
@@ -464,6 +733,7 @@ def health():
         "cors_enabled": True,
         "gemini_configured": model is not None,
         "places_api_configured": bool(os.environ.get("GOOGLE_PLACES_API_KEY")),
+        "cache_size": len(places_api_cache),
         "frontend_url": "https://lineupai.onrender.com",
         "api_usage": {
             "places_api_calls_today": api_usage_tracker['places_api_calls'],
@@ -660,11 +930,71 @@ def social():
         
         try:
             data = request.get_json()
+            image_base64 = data.get("image", "")
+            
+            if not image_base64:
+                response = make_response(jsonify({
+                    "success": False,
+                    "error": "Image is required"
+                }), 400)
+                response.headers['Access-Control-Allow-Origin'] = '*'
+                return response
+            
+            # Decode base64 image
+            try:
+                # Remove data URL prefix if present
+                if ',' in image_base64:
+                    image_base64 = image_base64.split(',')[1]
+                
+                image_bytes = base64.b64decode(image_base64)
+                
+                # Validate image
+                try:
+                    img = Image.open(BytesIO(image_bytes))
+                    img.verify()
+                except Exception as e:
+                    logger.error(f"Invalid image format: {str(e)}")
+                    response = make_response(jsonify({
+                        "success": False,
+                        "error": "Invalid image format. Please upload a valid image."
+                    }), 400)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
+                    return response
+                
+                # Re-open image after verification (verify() closes it)
+                image_bytes = base64.b64decode(image_base64.split(',')[-1] if ',' in image_base64 else image_base64)
+                
+            except Exception as e:
+                logger.error(f"Error decoding image: {str(e)}")
+                response = make_response(jsonify({
+                    "success": False,
+                    "error": "Failed to process image. Please try again."
+                }), 400)
+                response.headers['Access-Control-Allow-Origin'] = '*'
+                return response
+            
+            # Content moderation - check for explicit and non-hair-related content
+            is_approved, rejection_reason = moderate_image_content(image_bytes)
+            
+            if not is_approved:
+                response = make_response(jsonify({
+                    "success": False,
+                    "error": "Content rejected",
+                    "reason": rejection_reason
+                }), 403)
+                response.headers['Access-Control-Allow-Origin'] = '*'
+                return response
+            
+            # Upload image to Cloudinary (FREE) or Firebase Storage, or keep base64
+            image_url = upload_image_to_storage(image_bytes)
+            
+            # Use storage URL if available, otherwise use base64
+            final_image = image_url if image_url else image_base64
             
             new_post = {
                 "username": data.get("username", "anonymous"),
                 "avatar": data.get("avatar", "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face"),
-                "image": data.get("image", ""),
+                "image": final_image,
                 "caption": data.get("caption", ""),
                 "likes": 0,
                 "timeAgo": "now",
@@ -672,7 +1002,8 @@ def social():
                 "timestamp": datetime.now().isoformat(),
                 "shares": 0,
                 "comments": 0,
-                "hashtags": data.get("hashtags", [])
+                "hashtags": data.get("hashtags", []),
+                "stored_in_storage": bool(image_url)  # Track if using storage
             }
             
             # Try to save to database, fallback to in-memory
@@ -683,13 +1014,18 @@ def social():
                 new_post['id'] = str(uuid.uuid4())
             social_posts.insert(0, new_post)
             
+            logger.info(f"Social post created successfully: {new_post['id']}")
             response = make_response(jsonify({"success": True, "post": new_post}), 201)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
             
         except Exception as e:
             logger.error(f"Error creating social post: {str(e)}")
-            response = make_response(jsonify({"error": "Failed to create post"}), 400)
+            response = make_response(jsonify({
+                "success": False,
+                "error": "Failed to create post",
+                "details": str(e) if logger.level == logging.DEBUG else None
+            }), 400)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
 
@@ -830,6 +1166,9 @@ def get_barbers():
     
     location = request.args.get('location', 'Atlanta, GA')
     recommended_styles = request.args.get('styles', '').split(',')  # Get recommended styles
+    
+    # Clean cache before checking
+    clean_cache()
     
     # Check cache first
     cache_key = location.lower().strip()
@@ -1531,26 +1870,26 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         # Also include original image for before/after comparison
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
-                        response_data = {
-                            "success": True,
-                            "message": f"✨ Real AI hair transformation complete: {style_description}",
-                            "originalImage": original_base64,
-                            "resultImage": result_base64,
-                            "styleApplied": style_description,
-                            "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
-                            "note": "This is a real AI transformation!"
-                        }
+                    response_data = {
+                        "success": True,
+                                "message": f"✨ Real AI hair transformation complete: {style_description}",
+                                "originalImage": original_base64,
+                                "resultImage": result_base64,
+                        "styleApplied": style_description,
+                                "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
+                                "note": "This is a real AI transformation!"
+                    }
                     
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
+                    response = make_response(jsonify(response_data), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
                         logger.info("✅ AI hair transformation successful!")
-                        return response
-                    else:
+                    return response
+                else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
-                
-                except req.exceptions.Timeout:
+            
+            except req.exceptions.Timeout:
                     logger.error("Download timeout after 60 seconds")
                     raise Exception("Result download timed out")
                 except Exception as download_error:
@@ -1641,7 +1980,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     try:
                         font = ImageFont.truetype(font_path, 28)
                         logger.info(f"Loaded font: {font_path}")
-                        break
+                    break
                     except:
                         continue
                 
@@ -1687,20 +2026,20 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
             original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
             
             # Return success response
-            response_data = {
-                "success": True,
+                response_data = {
+                    "success": True,
                 "message": f"✨ Style preview created: {style_description}",
                 "originalImage": original_base64,
                 "resultImage": result_base64,
-                "styleApplied": style_description,
+                    "styleApplied": style_description,
                 "poweredBy": "LineUp Preview Mode",
                 "note": "This is a preview mode. Works immediately with no setup!"
-            }
-            
-            response = make_response(jsonify(response_data), 200)
-            response.headers['Access-Control-Allow-Origin'] = '*'
+                }
+                
+                response = make_response(jsonify(response_data), 200)
+                response.headers['Access-Control-Allow-Origin'] = '*'
             logger.info("✅ Preview mode response sent successfully")
-            return response
+                return response
             
         except Exception as e:
             logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")

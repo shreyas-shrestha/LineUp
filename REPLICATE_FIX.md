@@ -109,3 +109,4 @@ If neither model works, you can manually change the model in `app.py` line 1512:
 
 The integration should now work correctly!
 
+

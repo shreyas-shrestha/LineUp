@@ -1480,18 +1480,30 @@ function renderClientAppointments() {
 }
 
 async function loadBarberAppointments() {
+  // Save current appointments (mock data) before API call
+  const currentAppointments = [...appointments];
+  
   try {
     const response = await fetch(`${API_URL}/appointments?type=barber&user_id=${currentBarberId}`);
     const data = await response.json();
     
-    if (data.appointments) {
-      appointments = data.appointments;
-      renderBarberAppointments();
+    if (data.appointments && data.appointments.length > 0) {
+      // Merge API appointments with mock data (avoid duplicates)
+      const apiAppointmentIds = new Set(data.appointments.map(apt => String(apt.id)));
+      const mockAppointments = currentAppointments.filter(apt => !apiAppointmentIds.has(String(apt.id)));
+      appointments = [...data.appointments, ...mockAppointments];
+    } else {
+      // If API returns empty, keep mock data
+      appointments = currentAppointments;
     }
   } catch (error) {
     console.error('Error loading appointments:', error);
-    // Keep existing appointments if API fails
+    // Keep existing appointments (mock data) if API fails
+    appointments = currentAppointments;
   }
+  
+  // Always render after loading (whether from API or mock data)
+  renderBarberAppointments();
 }
 
 function renderBarberAppointments() {

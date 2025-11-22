@@ -1421,14 +1421,20 @@ async function openBookingModal(barberId, barberName) {
   // Find the barber in the current list to get booking URL
   const barber = nearbyBarbers.find(b => b.id === barberId);
   
+  console.log('Opening booking for barber:', barberId, barber);
+  console.log('Booking URL:', barber?.bookingUrl);
+  
   // Check if barber has an external booking URL
-  if (barber && barber.bookingUrl) {
+  if (barber && (barber.bookingUrl || barber.booking_url)) {
+    const bookingUrl = barber.bookingUrl || barber.booking_url;
+    console.log('Redirecting to booking URL:', bookingUrl);
     // Redirect to external booking site
-    window.open(barber.bookingUrl, '_blank', 'noopener,noreferrer');
+    window.open(bookingUrl, '_blank', 'noopener,noreferrer');
     return;
   }
   
   // Fallback to modal if no booking URL
+  console.log('No booking URL found, opening modal');
   currentBarberForBooking = { id: barberId, name: barberName };
   
   document.getElementById('booking-barber-info').innerHTML = `
@@ -2731,7 +2737,25 @@ async function loadBarberReviews(barberId) {
 
 // Show barber reviews in a modal
 async function showBarberReviews(barberId) {
+  console.log('Loading reviews for barber:', barberId);
+  
+  // Show loading state
+  const loadingModal = document.createElement('div');
+  loadingModal.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-50';
+  loadingModal.innerHTML = `
+    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6">
+      <div class="flex items-center gap-3">
+        <div class="loader"></div>
+        <p class="text-white">Loading reviews...</p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(loadingModal);
+  
   const reviewsData = await loadBarberReviews(barberId);
+  loadingModal.remove();
+  
+  console.log('Reviews data received:', reviewsData);
   
   if (!reviewsData) {
     alert('Failed to load reviews');
@@ -2741,6 +2765,8 @@ async function showBarberReviews(barberId) {
   const reviews = reviewsData.reviews || [];
   const avgRating = reviewsData.average_rating || 0;
   const totalReviews = reviewsData.total_reviews || 0;
+  
+  console.log(`Found ${reviews.length} reviews, avg rating: ${avgRating}, total: ${totalReviews}`);
   
   const modalHtml = `
     <div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 modal">

@@ -2203,26 +2203,26 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         # Also include original image for before/after comparison
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
-                        response_data = {
-                            "success": True,
+                    response_data = {
+                        "success": True,
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "originalImage": original_base64,
                             "resultImage": result_base64,
-                            "styleApplied": style_description,
+                        "styleApplied": style_description,
                             "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
-                        }
-                        
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
+                    }
+                    
+                    response = make_response(jsonify(response_data), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
                         logger.info("✅ AI hair transformation successful!")
-                        return response
-                    else:
+                    return response
+                else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
-                
-                except req.exceptions.Timeout:
+            
+            except req.exceptions.Timeout:
                     logger.error("Download timeout after 60 seconds")
                     raise Exception("Result download timed out")
                 except Exception as download_error:
@@ -2313,7 +2313,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     try:
                         font = ImageFont.truetype(font_path, 28)
                         logger.info(f"Loaded font: {font_path}")
-                        break
+                    break
                     except:
                         continue
                 
@@ -2359,20 +2359,20 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
             original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
             
             # Return success response
-            response_data = {
-                "success": True,
+                response_data = {
+                    "success": True,
                 "message": f"✨ Style preview created: {style_description}",
                 "originalImage": original_base64,
                 "resultImage": result_base64,
-                "styleApplied": style_description,
+                    "styleApplied": style_description,
                 "poweredBy": "LineUp Preview Mode",
                 "note": "This is a preview mode. Works immediately with no setup!"
-            }
+                }
                 
-            response = make_response(jsonify(response_data), 200)
-            response.headers['Access-Control-Allow-Origin'] = '*'
+                response = make_response(jsonify(response_data), 200)
+                response.headers['Access-Control-Allow-Origin'] = '*'
             logger.info("✅ Preview mode response sent successfully")
-            return response
+                return response
             
         except Exception as e:
             logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")
@@ -2404,8 +2404,21 @@ def handle_reviews(barber_id):
     if request.method == 'GET':
         # Check if barber_id is a Google place_id (Google place_ids are typically 27 characters)
         # Try to fetch Google Reviews first
-        if GOOGLE_PLACES_API_KEY and len(barber_id) >= 27:
+        # Google place_ids are typically 27+ characters and start with 'Ch' or other patterns
+        is_google_place_id = len(barber_id) >= 20 and (barber_id.startswith('Ch') or barber_id.startswith('Ei') or barber_id.startswith('Gh'))
+        
+        if GOOGLE_PLACES_API_KEY and is_google_place_id:
             try:
+                # Import requests if not already imported
+                try:
+                    import requests
+                except ImportError:
+                    requests = None
+                
+                if not requests:
+                    logger.error("requests module not available for fetching Google Reviews")
+                    raise Exception("requests module not available")
+                
                 details_url = f"https://maps.googleapis.com/maps/api/place/details/json"
                 details_params = {
                     'place_id': barber_id,
@@ -2413,28 +2426,45 @@ def handle_reviews(barber_id):
                     'key': GOOGLE_PLACES_API_KEY
                 }
                 
-                details_response = requests.get(details_url, params=details_params)
+                logger.info(f"Fetching Google Reviews for place_id: {barber_id}")
+                details_response = requests.get(details_url, params=details_params, timeout=10)
                 details_data = details_response.json()
                 
-                if details_data['status'] == 'OK' and 'result' in details_data:
+                logger.info(f"Google Reviews API response status: {details_data.get('status')}")
+                
+                if details_data.get('status') == 'OK' and 'result' in details_data:
                     result = details_data['result']
                     reviews = result.get('reviews', [])
                     
+                    logger.info(f"Found {len(reviews)} reviews from Google")
+                    
                     google_reviews = []
                     for review in reviews[:10]:  # Limit to 10 reviews
-                        google_reviews.append({
-                            'id': review.get('author_name', '') + '_' + str(review.get('time', 0)),
-                            'username': review.get('author_name', 'Anonymous'),
-                            'rating': review.get('rating', 5),
-                            'text': review.get('text', ''),
-                            'date': datetime.fromtimestamp(review.get('time', 0)).strftime('%Y-%m-%d') if review.get('time') else 'Recent',
-                            'profile_photo': review.get('profile_photo_url', ''),
-                            'relative_time': review.get('relative_time_description', '')
-                        })
+                        try:
+                            review_date = 'Recent'
+                            if review.get('time'):
+                                try:
+                                    review_date = datetime.fromtimestamp(review.get('time')).strftime('%Y-%m-%d')
+                                except:
+                                    review_date = 'Recent'
+                            
+                            google_reviews.append({
+                                'id': review.get('author_name', '') + '_' + str(review.get('time', 0)),
+                                'username': review.get('author_name', 'Anonymous'),
+                                'rating': review.get('rating', 5),
+                                'text': review.get('text', ''),
+                                'date': review_date,
+                                'profile_photo': review.get('profile_photo_url', ''),
+                                'relative_time': review.get('relative_time_description', '')
+                            })
+                        except Exception as review_error:
+                            logger.error(f"Error processing review: {str(review_error)}")
+                            continue
                     
                     avg_rating = result.get('rating', 0)
                     total_reviews = result.get('user_ratings_total', 0)
                     
+                    logger.info(f"Returning {len(google_reviews)} Google reviews")
                     response = make_response(jsonify({
                         'reviews': google_reviews,
                         'average_rating': avg_rating,
@@ -2443,8 +2473,12 @@ def handle_reviews(barber_id):
                     }), 200)
                     response.headers['Access-Control-Allow-Origin'] = '*'
                     return response
+                else:
+                    logger.warning(f"Google Reviews API returned status: {details_data.get('status')}, error: {details_data.get('error_message', 'Unknown error')}")
             except Exception as e:
                 logger.error(f"Error fetching Google Reviews: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
                 # Fall through to mock reviews
         
         # Fallback to mock reviews

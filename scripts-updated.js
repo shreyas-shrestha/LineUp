@@ -1629,117 +1629,98 @@ function renderBarberAppointments() {
   
   barberAppointments.forEach(appointment => {
     const appointmentElement = document.createElement('div');
-    appointmentElement.className = 'bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-2xl p-5 card-hover transition-all duration-200 hover:border-sky-500/50 hover:shadow-lg hover:shadow-sky-500/10';
+    appointmentElement.className = 'bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition-all';
+    appointmentElement.dataset.appointmentId = appointment.id;
     
-    const appointmentDate = new Date(`${appointment.date}T${appointment.time}`);
-    const now = new Date();
-    const isToday = appointmentDate.toDateString() === now.toDateString();
-    const isPast = appointmentDate < now;
-    const timeUntil = getTimeUntil(appointmentDate);
-    
-    const statusColors = {
-      'pending': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-      'confirmed': 'bg-green-500/20 text-green-400 border-green-500/30',
-      'completed': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      'cancelled': 'bg-red-500/20 text-red-400 border-red-500/30',
-      'rejected': 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-      'rescheduled': 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-    };
-    
-    const statusColor = statusColors[appointment.status] || statusColors.pending;
-    
+    try {
+      const appointmentDate = new Date(`${appointment.date}T${appointment.time || '12:00'}`);
+      const now = new Date();
+      const isToday = appointmentDate.toDateString() === now.toDateString();
+      const isUpcoming = appointmentDate > now;
+      
+      const statusConfig = {
+        'pending': { color: 'yellow', icon: '⏳' },
+        'confirmed': { color: 'green', icon: '✓' },
+        'completed': { color: 'blue', icon: '✓' },
+        'cancelled': { color: 'red', icon: '✕' },
+        'rejected': { color: 'gray', icon: '✕' },
+        'rescheduled': { color: 'purple', icon: '↻' }
+      };
+      
+      const status = appointment.status || 'pending';
+      const statusInfo = statusConfig[status] || statusConfig.pending;
+      const statusColor = statusInfo.color;
+      
     appointmentElement.innerHTML = `
-      <!-- Header with Status Badge & Time -->
-      <div class="flex justify-between items-start mb-4">
-        <div class="flex-1">
-          <div class="flex items-center gap-3 mb-2">
-            <div class="w-12 h-12 bg-gradient-to-br from-sky-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+        <!-- Compact Header -->
+        <div class="flex items-start justify-between mb-4">
+          <div class="flex items-center gap-3 flex-1">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
               ${(appointment.clientName || 'U').charAt(0).toUpperCase()}
+        </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-base font-bold text-white truncate">${appointment.clientName || 'Unknown Client'}</h3>
+              <p class="text-gray-400 text-sm truncate">${appointment.service || 'Service'}</p>
             </div>
-        <div>
-              <h3 class="text-lg font-bold text-white">${appointment.clientName || 'Unknown Client'}</h3>
-              <p class="text-gray-400 text-sm">${appointment.service || 'Service'}</p>
-        </div>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            ${isToday ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">Today</span>' : ''}
-            ${isPast && appointment.status !== 'completed' && appointment.status !== 'cancelled' ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30">Past Due</span>' : ''}
-          </div>
-        </div>
-        <div class="text-right">
-          <span class="px-3 py-1.5 rounded-full text-xs font-semibold border ${statusColor}">
-            ${appointment.status ? appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1) : 'Pending'}
+          <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-${statusColor}-500/20 text-${statusColor}-400 border border-${statusColor}-500/30 whitespace-nowrap">
+            ${statusInfo.icon} ${status.charAt(0).toUpperCase() + status.slice(1)}
           </span>
         </div>
+        
+        <!-- Date, Time, Price Row -->
+        <div class="flex items-center gap-4 mb-4 text-sm">
+          <div class="flex items-center gap-1.5 text-gray-300">
+            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <span>${formatDate(appointment.date)}</span>
       </div>
-      
-      <!-- Date & Time with Icon -->
-      <div class="flex items-center gap-4 mb-4 p-3 bg-gray-800/50 rounded-lg">
-        <div class="flex items-center gap-2 flex-1">
-          <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-          </svg>
-          <span class="text-white font-medium text-sm">${formatDate(appointment.date)}</span>
+          <div class="flex items-center gap-1.5 text-gray-300">
+            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>${appointment.time || 'N/A'}</span>
       </div>
-        <div class="flex items-center gap-2 flex-1">
-          <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <span class="text-white font-medium text-sm">${appointment.time || 'N/A'}</span>
+          <div class="ml-auto text-base font-bold text-white">${appointment.price || '$0'}</div>
         </div>
-        <div class="ml-auto">
-          <span class="text-lg font-bold text-white">${appointment.price || '$0'}</span>
-        </div>
-      </div>
-      
-      ${timeUntil && !isPast ? `
-        <div class="mb-4 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-          <p class="text-xs text-blue-400">⏰ ${timeUntil}</p>
-        </div>
-      ` : ''}
-      
-      ${appointment.notes && appointment.notes !== 'No special requests' ? `
-        <div class="mb-4 p-3 bg-gray-800/30 rounded-lg border-l-2 border-sky-500">
-          <p class="text-xs text-gray-400 mb-1 uppercase tracking-wide">Client Notes</p>
-          <p class="text-sm text-gray-300">${appointment.notes}</p>
-        </div>
-      ` : ''}
-      
-      ${appointment.barberNotes && appointment.barberNotes.length > 0 ? `
-        <div class="mb-4 p-3 bg-gray-800/30 rounded-lg border-l-2 border-purple-500">
-          <p class="text-xs text-gray-400 mb-1 uppercase tracking-wide">Your Notes</p>
-          ${appointment.barberNotes.map(note => `
-            <p class="text-sm text-gray-300 mb-1">${note.note || note}</p>
-          `).join('')}
-        </div>
-      ` : ''}
-      
-      <!-- Action Buttons -->
-      <div class="flex gap-2 pt-4 border-t border-gray-800 flex-wrap">
-        ${appointment.status === 'pending' ? `
-          <button onclick="quickAccept('${appointment.id}')" class="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-all shadow-lg shadow-green-500/20">
-            ✓ Accept
-          </button>
-          <button onclick="quickReject('${appointment.id}')" class="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-all">
-            ✕ Reject
-          </button>
+        
+        ${appointment.notes && appointment.notes !== 'No special requests' ? `
+          <div class="mb-4 p-2.5 bg-gray-800/50 rounded-lg">
+            <p class="text-xs text-gray-400 mb-1">Note</p>
+            <p class="text-sm text-gray-300">${appointment.notes}</p>
+          </div>
         ` : ''}
-        ${appointment.status === 'confirmed' || appointment.status === 'pending' ? `
-          <button onclick="rescheduleAppointment('${appointment.id}')" class="px-4 py-2.5 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium text-sm transition-all">
-            Reschedule
+        
+        <!-- Action Buttons - Simple & Clean -->
+        <div class="flex gap-2 pt-4 border-t border-gray-800">
+          ${status === 'pending' ? `
+            <button onclick="quickAccept('${appointment.id}')" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+              Accept
+            </button>
+            <button onclick="quickReject('${appointment.id}')" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+              Reject
+            </button>
+          ` : ''}
+          ${status === 'confirmed' || status === 'pending' ? `
+            <button onclick="rescheduleAppointment('${appointment.id}')" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors">
+              Reschedule
+            </button>
+          ` : ''}
+          <button onclick="viewClientHistory('${appointment.clientId || ''}')" class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors">
+            View
           </button>
-          <button onclick="cancelAppointment('${appointment.id}')" class="px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm transition-all">
-            Cancel
-          </button>
-        ` : ''}
-        <button onclick="viewClientHistory('${appointment.clientId}')" class="px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-lg font-medium text-sm transition-all">
-          History
-        </button>
-        <button onclick="addAppointmentNote('${appointment.id}')" class="px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium text-sm transition-all">
-          Note
-        </button>
-      </div>
-    `;
+        </div>
+      `;
+    } catch (error) {
+      console.error('Error rendering appointment:', error, appointment);
+      appointmentElement.innerHTML = `
+        <div class="p-4 text-center text-gray-400">
+          <p>Error displaying appointment</p>
+        </div>
+      `;
+    }
+    
     barberAppointmentsContainer.appendChild(appointmentElement);
   });
   
@@ -1785,12 +1766,81 @@ function formatDate(dateString) {
   }
 }
 
-function quickAccept(appointmentId) {
-  acceptAppointment(appointmentId);
+async function quickAccept(appointmentId) {
+  // Update UI immediately for better UX
+  const appointmentElement = barberAppointmentsContainer.querySelector(`[data-appointment-id="${appointmentId}"]`);
+  if (appointmentElement) {
+    const statusBadge = appointmentElement.querySelector('span[class*="bg-"]');
+    if (statusBadge) {
+      statusBadge.className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30 whitespace-nowrap';
+      statusBadge.textContent = '✓ Confirmed';
+    }
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/appointments/${appointmentId}/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      // Update local data
+      const appointment = appointments.find(apt => String(apt.id) === String(appointmentId));
+  if (appointment) {
+    appointment.status = 'confirmed';
+      }
+      await loadBarberAppointments();
+    updateDashboardStats();
+    } else {
+      // Revert on error
+      await loadBarberAppointments();
+      alert('Failed to accept appointment');
+    }
+  } catch (error) {
+    console.error('Error accepting appointment:', error);
+    await loadBarberAppointments();
+    alert('Error accepting appointment');
+  }
 }
 
-function quickReject(appointmentId) {
-  rejectAppointment(appointmentId);
+async function quickReject(appointmentId) {
+  // Update UI immediately
+  const appointmentElement = barberAppointmentsContainer.querySelector(`[data-appointment-id="${appointmentId}"]`);
+  if (appointmentElement) {
+    const statusBadge = appointmentElement.querySelector('span[class*="bg-"]');
+    if (statusBadge) {
+      statusBadge.className = 'px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-400 border border-red-500/30 whitespace-nowrap';
+      statusBadge.textContent = '✕ Rejected';
+    }
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/appointments/${appointmentId}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: 'Rejected by barber' })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      // Update local data
+      const appointment = appointments.find(apt => String(apt.id) === String(appointmentId));
+      if (appointment) {
+        appointment.status = 'rejected';
+      }
+      await loadBarberAppointments();
+      updateDashboardStats();
+    } else {
+      // Revert on error
+      await loadBarberAppointments();
+      alert('Failed to reject appointment');
+    }
+  } catch (error) {
+    console.error('Error rejecting appointment:', error);
+    await loadBarberAppointments();
+    alert('Error rejecting appointment');
+  }
 }
 
 function applyAppointmentFilters() {
@@ -1831,6 +1881,14 @@ function applyAppointmentFilters() {
 }
 
 async function acceptAppointment(appointmentId) {
+  // Update local data immediately for better UX
+  const appointment = appointments.find(apt => String(apt.id) === String(appointmentId));
+  if (appointment) {
+    appointment.status = 'confirmed';
+    renderBarberAppointments();
+    updateDashboardStats();
+  }
+  
   try {
     const response = await fetch(`${API_URL}/appointments/${appointmentId}/accept`, {
       method: 'POST',
@@ -1840,36 +1898,53 @@ async function acceptAppointment(appointmentId) {
     const data = await response.json();
     if (data.success) {
       await loadBarberAppointments();
-    updateDashboardStats();
-      alert('Appointment accepted! ✅');
+      updateDashboardStats();
     } else {
+      // Revert on error
+      if (appointment) appointment.status = 'pending';
+      await loadBarberAppointments();
       alert('Failed to accept appointment');
     }
   } catch (error) {
     console.error('Error accepting appointment:', error);
+    // Revert on error
+    if (appointment) appointment.status = 'pending';
+    await loadBarberAppointments();
     alert('Error accepting appointment');
   }
 }
 
 async function rejectAppointment(appointmentId) {
-  const reason = prompt('Reason for rejection (optional):');
+  // Update local data immediately
+  const appointment = appointments.find(apt => String(apt.id) === String(appointmentId));
+  if (appointment) {
+    appointment.status = 'rejected';
+    renderBarberAppointments();
+    updateDashboardStats();
+  }
+  
   try {
     const response = await fetch(`${API_URL}/appointments/${appointmentId}/reject`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason: reason || 'No reason provided' })
+      body: JSON.stringify({ reason: 'Rejected by barber' })
     });
     
     const data = await response.json();
     if (data.success) {
       await loadBarberAppointments();
       updateDashboardStats();
-      alert('Appointment rejected');
     } else {
+      // Revert on error
+      if (appointment) appointment.status = 'pending';
+      await loadBarberAppointments();
       alert('Failed to reject appointment');
     }
   } catch (error) {
     console.error('Error rejecting appointment:', error);
+    // Revert on error
+    if (appointment) appointment.status = 'pending';
+    await loadBarberAppointments();
     alert('Error rejecting appointment');
   }
 }

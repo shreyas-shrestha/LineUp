@@ -363,46 +363,25 @@
 
         <!-- Schedule Tab (Clients / Bookings) -->
         <div id="barber-schedule-tab-content" class="tab-content hidden px-4 py-8">
-          <!-- Header with View Toggle -->
+          <!-- Simple Header -->
           <div class="mb-6">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-              <div>
-                <h2 class="text-3xl font-bold text-white mb-2">Bookings</h2>
-                <p class="text-gray-400 text-sm">Manage your appointments</p>
-              </div>
-              <!-- View Toggle -->
-              <div class="flex gap-2 bg-gray-900 rounded-lg p-1 border border-gray-800">
-                <button id="list-view-btn" class="px-4 py-2 rounded-md bg-white text-black text-sm font-medium transition-all">List</button>
-                <button id="calendar-view-btn" class="px-4 py-2 rounded-md text-gray-400 hover:text-white text-sm font-medium transition-all">Calendar</button>
-              </div>
-            </div>
-            
-            <!-- Filters Bar -->
-            <div class="flex flex-wrap gap-3 mb-4 p-4 bg-gray-900/50 rounded-xl border border-gray-800">
-              <select id="status-filter" class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:border-sky-500 focus:outline-none">
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              <input type="date" id="date-filter-start" class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:border-sky-500 focus:outline-none">
-              <input type="date" id="date-filter-end" class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:border-sky-500 focus:outline-none">
-              <button id="clear-filters" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white text-sm transition-all">Clear Filters</button>
-            </div>
+            <h2 class="text-2xl font-bold text-white mb-1">Bookings</h2>
+            <p class="text-gray-400 text-sm">Manage your appointments</p>
           </div>
           
-          <!-- List View -->
-          <div id="bookings-list-view" class="space-y-3">
-            <div id="barber-appointments-container" class="space-y-3"></div>
+          <!-- Simple Filters -->
+          <div class="flex gap-3 mb-6">
+            <select id="status-filter" class="bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-white text-sm focus:border-gray-700 focus:outline-none">
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+            </select>
+            <button id="clear-filters" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white text-sm transition-colors">Clear</button>
           </div>
           
-          <!-- Calendar View (Hidden initially) -->
-          <div id="bookings-calendar-view" class="hidden">
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <p class="text-gray-400 text-center py-8">Calendar view coming soon...</p>
-            </div>
-          </div>
+          <!-- Appointments List -->
+          <div id="barber-appointments-container" class="space-y-3"></div>
         </div>
 
         <!-- Barber Profile / Shop Settings -->

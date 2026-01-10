@@ -1,7 +1,37 @@
 // scripts-updated.js - Frontend JavaScript for LineUp Two-Sided Platform
 
 // --- Configuration ---
-const API_URL = 'https://lineup-fjpn.onrender.com';
+// Use centralized config from config.js (LINEUP_CONFIG) with fallbacks
+const API_URL = (window.LINEUP_CONFIG && window.LINEUP_CONFIG.API_URL) || 
+                (window.LineUpConfig && window.LineUpConfig.apiUrl) || 
+                'http://localhost:5000';
+
+// Feature flags and UI config
+const CONFIG = window.LINEUP_CONFIG || {
+  FEATURES: { 
+    virtualTryOn: true, 
+    socialFeed: true, 
+    subscriptionPackages: true,
+    googlePlacesSearch: true,
+    contentModeration: true
+  },
+  UI: { 
+    defaultLocation: 'Atlanta, GA', 
+    maxImageSizeMB: 5,
+    supportedImageTypes: ['image/jpeg', 'image/png', 'image/webp']
+  },
+  DEBUG: false,
+  MOCK_MODE: false
+};
+
+// Log configuration status
+if (window.LINEUP_CONFIG) {
+  console.log('✅ LineUp Config loaded:', { apiUrl: API_URL, debug: CONFIG.DEBUG });
+} else if (window.LineUpConfig) {
+  console.log('✅ Using legacy LineUpConfig:', { apiUrl: API_URL });
+} else {
+  console.warn('⚠️ No config loaded, using defaults. API:', API_URL);
+}
 
 // --- DOM Elements ---
 const fileInput = document.getElementById('file-input');

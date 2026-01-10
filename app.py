@@ -13,6 +13,8 @@ from io import BytesIO
 from datetime import datetime, timedelta
 import uuid
 import time
+import statistics
+from lineup_backend.metrics import metrics, track_performance
 # Firebase import will be conditional
 
 # Set up logging FIRST
@@ -66,9 +68,25 @@ limiter = Limiter(
     strategy="moving-window"
 )
 
-# Configure CORS
+# Configure CORS - SECURITY: Tightened origins for production
+# Get allowed origins from environment or use defaults
+ALLOWED_ORIGINS = os.environ.get("LINEUP_ALLOWED_ORIGINS", "").split(",")
+if not ALLOWED_ORIGINS or ALLOWED_ORIGINS == [""]:
+    # Default allowed origins
+    ALLOWED_ORIGINS = [
+        "https://lineupai.onrender.com",
+        "https://lineup-fjpn.onrender.com",
+        "http://localhost:5000",
+        "http://localhost:3000",
+        "http://127.0.0.1:5000",
+        "http://127.0.0.1:3000"
+    ]
+    # In development, allow all origins
+    if os.environ.get("FLASK_ENV") == "development":
+        ALLOWED_ORIGINS = ["*"]
+
 CORS(app, 
-     origins=["https://lineupai.onrender.com", "http://localhost:*", "*"],
+     origins=ALLOWED_ORIGINS,
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
      allow_headers=["Content-Type", "Accept", "Authorization"],
      supports_credentials=False)
@@ -723,6 +741,54 @@ def cache_stats():
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
 
+@app.route('/metrics', methods=['GET', 'OPTIONS'])
+@limiter.limit("10 per hour")  # Limit access to metrics
+def get_metrics():
+    """Get real-time performance metrics."""
+    if request.method == 'OPTIONS':
+        response = make_response('')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        return response, 200
+    
+    all_metrics = metrics.get_all_metrics()
+    
+    # Add summary stats
+    total_requests = sum(m["request_count"] for m in all_metrics["endpoints"].values())
+    total_errors = sum(m["error_count"] for m in all_metrics["endpoints"].values())
+    
+    summary = {
+        "total_requests": total_requests,
+        "total_errors": total_errors,
+        "overall_success_rate": 0.0,
+        "avg_response_time_p95": 0.0,
+    }
+    
+    # Cache savings summary
+    cache_summary = {}
+    for cache_name, cache_data in all_metrics["cache"].items():
+        cache_summary[cache_name] = {
+            "hit_rate": cache_data.get("hit_rate", 0.0),
+            "total_time_saved_seconds": cache_data.get("total_time_saved_seconds", 0.0),
+            "api_calls_avoided": cache_data.get("api_calls_avoided", 0),
+            "speedup_factor": cache_data.get("speedup_factor", 0.0)
+        }
+    
+    if total_requests > 0:
+        summary["overall_success_rate"] = ((total_requests - total_errors) / total_requests) * 100.0
+        
+        # Average p95 across all endpoints
+        p95_times = [m["response_time"]["p95"] for m in all_metrics["endpoints"].values() if m["response_time"]["p95"] > 0]
+        if p95_times:
+            summary["avg_response_time_p95"] = statistics.mean(p95_times)
+    
+    all_metrics["summary"] = summary
+    all_metrics["cache_summary"] = cache_summary
+    
+    response = make_response(jsonify(all_metrics), 200)
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
+
 @app.route('/health', methods=['GET'])
 @limiter.limit("200 per minute")
 def health():
@@ -750,7 +816,7 @@ def health():
         }
     })
 
-# Configuration endpoint
+# Configuration endpoint - SECURITY: Never expose API keys to frontend
 @app.route('/config', methods=['GET', 'OPTIONS'])
 @limiter.limit("100 per minute")
 def get_config():
@@ -761,10 +827,20 @@ def get_config():
         response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
         return response, 200
     
+    # SECURITY: Only expose capability flags, NEVER expose actual API keys
     response = make_response(jsonify({
-        "placesApiKey": os.environ.get("GOOGLE_PLACES_API_KEY", ""),
         "hasPlacesApi": bool(os.environ.get("GOOGLE_PLACES_API_KEY")),
+        "hasGeminiApi": model is not None,
+        "hasCloudinary": cloudinary_config is not None,
+        "hasFirebase": db is not None,
         "backendVersion": "2.0",
+        "features": {
+            "aiAnalysis": model is not None,
+            "barberSearch": bool(os.environ.get("GOOGLE_PLACES_API_KEY")),
+            "virtualTryOn": bool(os.environ.get("REPLICATE_API_TOKEN")),
+            "imageStorage": cloudinary_config is not None or storage_bucket is not None,
+            "contentModeration": model is not None
+        },
         "rateLimits": {
             "places_api_remaining": max(0, 100 - api_usage_tracker['places_api_calls']),
             "gemini_api_remaining": max(0, 50 - api_usage_tracker['gemini_api_calls'])
@@ -1456,6 +1532,7 @@ def add_appointment_notes(appointment_id):
 # Barber discovery endpoint with REAL Google Places API integration
 @app.route('/barbers', methods=['GET', 'OPTIONS'])
 @limiter.limit("50 per hour")  # Moderate limit since this calls external APIs
+@track_performance("barbers")
 def get_barbers():
     if request.method == 'OPTIONS':
         response = make_response('')
@@ -1477,14 +1554,24 @@ def get_barbers():
     if cache_key in places_api_cache:
         cached_data = places_api_cache[cache_key]
         if current_time - cached_data['timestamp'] < CACHE_DURATION:
+            # Track cache hit with response time
+            cache_hit_start = time.time()
             logger.info(f"Returning cached barber data for {location}")
             response = make_response(jsonify({
                 "barbers": cached_data['data'], 
                 "location": location,
                 "cached": True
             }), 200)
+            cache_hit_time_ms = (time.time() - cache_hit_start) * 1000
+            metrics.record_cache_hit("places_api", response_time_ms=cache_hit_time_ms)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
+    
+    # If we get here, it's a cache miss
+    metrics.record_cache_miss("places_api")
+    
+    # Track API call time for cache savings calculation
+    api_call_start = time.time()
     
     # Get Google Places API key
     GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY")
@@ -1524,7 +1611,11 @@ def get_barbers():
             'key': GOOGLE_PLACES_API_KEY
         }
         
+        geocode_start = time.time()
         geocode_response = requests.get(geocode_url, params=geocode_params)
+        geocode_latency = (time.time() - geocode_start) * 1000
+        metrics.record_api_latency("google_geocode", geocode_latency)
+        
         geocode_data = geocode_response.json()
         
         if geocode_data['status'] != 'OK' or not geocode_data['results']:
@@ -1543,7 +1634,11 @@ def get_barbers():
             'key': GOOGLE_PLACES_API_KEY
         }
         
+        places_start = time.time()
         places_response = requests.get(places_url, params=places_params)
+        places_latency = (time.time() - places_start) * 1000
+        metrics.record_api_latency("google_places_search", places_latency)
+        
         places_data = places_response.json()
         
         if places_data['status'] != 'OK':
@@ -1561,7 +1656,11 @@ def get_barbers():
             }
             
             try:
+                details_start = time.time()
                 details_response = requests.get(details_url, params=details_params)
+                details_latency = (time.time() - details_start) * 1000
+                metrics.record_api_latency("google_places_details", details_latency)
+                
                 details_data = details_response.json()
                 
                 if details_data['status'] == 'OK':
@@ -1673,6 +1772,10 @@ def get_barbers():
         
         # Sort by rating and number of reviews
         real_barbers.sort(key=lambda x: (x['rating'] * (min(x['user_ratings_total'], 100) / 100)), reverse=True)
+        
+        # Track API call duration for cache savings calculation
+        api_call_duration_ms = (time.time() - api_call_start) * 1000
+        metrics.record_api_call_time("places_api", api_call_duration_ms)
         
         # Cache the results
         places_api_cache[cache_key] = {
@@ -2203,26 +2306,26 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         # Also include original image for before/after comparison
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
-                        response_data = {
-                            "success": True,
+                    response_data = {
+                        "success": True,
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "originalImage": original_base64,
                             "resultImage": result_base64,
-                            "styleApplied": style_description,
+                        "styleApplied": style_description,
                             "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
-                        }
+                    }
                     
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
+                    response = make_response(jsonify(response_data), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
                         logger.info("✅ AI hair transformation successful!")
-                        return response
-                    else:
+                    return response
+                else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
-                
-                except req.exceptions.Timeout:
+            
+            except req.exceptions.Timeout:
                     logger.error("Download timeout after 60 seconds")
                     raise Exception("Result download timed out")
                 except Exception as download_error:
@@ -2313,7 +2416,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     try:
                         font = ImageFont.truetype(font_path, 28)
                         logger.info(f"Loaded font: {font_path}")
-                        break
+                    break
                     except:
                         continue
                 
@@ -2359,20 +2462,20 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
             original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
             
             # Return success response
-            response_data = {
-                "success": True,
+                response_data = {
+                    "success": True,
                 "message": f"✨ Style preview created: {style_description}",
                 "originalImage": original_base64,
                 "resultImage": result_base64,
-                "styleApplied": style_description,
+                    "styleApplied": style_description,
                 "poweredBy": "LineUp Preview Mode",
                 "note": "This is a preview mode. Works immediately with no setup!"
-            }
-            
-            response = make_response(jsonify(response_data), 200)
-            response.headers['Access-Control-Allow-Origin'] = '*'
+                }
+                
+                response = make_response(jsonify(response_data), 200)
+                response.headers['Access-Control-Allow-Origin'] = '*'
             logger.info("✅ Preview mode response sent successfully")
-            return response
+                return response
             
         except Exception as e:
             logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")

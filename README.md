@@ -35,6 +35,8 @@ python -m http.server 8000
 
 Required for full functionality:
 
+- See `ENVIRONMENT_SETUP.md` for a full checklist and rate-limit overrides.
+
 - `GEMINI_API_KEY`: Google Gemini API key for AI hair analysis (required)
 - `GOOGLE_PLACES_API_KEY`: Google Places API key for real barber shop data (optional)
 - `FIREBASE_CREDENTIALS`: Firebase service account JSON for persistent storage (optional)

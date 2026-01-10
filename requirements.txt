@@ -1,11 +1,33 @@
+# LineUp Backend Dependencies
+# Production-ready package list
+
+# Web Framework
 Flask==2.3.3
 Flask-Cors==4.0.0
 Flask-Limiter==3.5.0
 gunicorn==21.2.0
+
+# Data Validation
+pydantic[email]==2.5.3
+
+# AI Services
 google-generativeai==0.3.2
+replicate==0.22.0
+
+# Storage & Database
 firebase-admin==6.4.0
 cloudinary==1.38.0
+
+# Image Processing
 Pillow==10.1.0
+
+# Utilities
 python-dotenv==1.0.0
 requests==2.31.0
-replicate==0.22.0
+
+# Security (for JWT tokens if using custom auth)
+PyJWT==2.8.0
+
+# Testing (optional, for development)
+pytest==7.4.3
+pytest-cov==4.1.0

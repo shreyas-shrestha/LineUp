@@ -53,7 +53,8 @@ Required for full functionality:
 - Receive personalized haircut recommendations based on face shape, hair texture, and features
 - Virtual try-on with preview mode (works immediately, no setup required)
 - Find barbershops by location with real-time data from Google Places API
-- Search for barbers specializing in specific haircut styles
+- **AI-powered barber matching**: Find barbers who specialize in your recommended haircut styles
+- Intelligent ranking based on review analysis and style expertise
 - View barber reviews and ratings
 - Book appointments
 - Browse social feed with posts, likes, comments, and shares
@@ -89,7 +90,7 @@ Flask REST API with the following components:
 - `GET /config` - Configuration and API availability status
 - `POST /analyze` - AI haircut analysis (10 requests/hour limit)
 - `POST /virtual-tryon` - Virtual hair try-on with preview mode (20 requests/hour limit)
-- `GET /barbers?location=...` - Search barbershops by location via Google Places API
+- `GET /barbers?location=...&styles=...` - AI-powered barber search with style matching
 - `GET /social` - Get all social posts
 - `POST /social` - Create new social post
 - `POST /social/<post_id>/like` - Like/unlike a post

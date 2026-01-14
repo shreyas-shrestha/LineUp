@@ -15,6 +15,7 @@ import uuid
 import time
 import statistics
 from lineup_backend.metrics import metrics, track_performance
+from lineup_backend.services.barber_matcher import BarberMatcher
 # Firebase import will be conditional
 
 # Set up logging FIRST
@@ -1542,7 +1543,13 @@ def get_barbers():
         return response, 200
     
     location = request.args.get('location', 'Atlanta, GA')
-    recommended_styles = request.args.get('styles', '').split(',')  # Get recommended styles
+    styles_param = request.args.get('styles', '')
+    recommended_styles = [s.strip() for s in styles_param.split(',') if s.strip()] if styles_param else []
+    
+    logger.info(f"Barber search: location={location}, styles={recommended_styles}")
+    
+    # Initialize barber matcher
+    matcher = BarberMatcher(gemini_model=model)
     
     # Clean cache before checking
     clean_cache()
@@ -1624,13 +1631,16 @@ def get_barbers():
         lat = geocode_data['results'][0]['geometry']['location']['lat']
         lng = geocode_data['results'][0]['geometry']['location']['lng']
         
-        # Search for barbershops using Places API
+        # Search for barbershops using Places API with style-specific keywords
         places_url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+        search_keywords = matcher.build_search_keywords(recommended_styles)
+        logger.info(f"Places API search keywords: {search_keywords}")
+        
         places_params = {
             'location': f"{lat},{lng}",
             'radius': 10000,  # 10km radius
             'type': 'hair_care',
-            'keyword': 'barber barbershop mens haircut',
+            'keyword': search_keywords,
             'key': GOOGLE_PLACES_API_KEY
         }
         
@@ -1667,7 +1677,8 @@ def get_barbers():
                     details = details_data['result']
                 else:
                     details = {}
-            except:
+            except Exception as e:
+                logger.warning(f"Failed to fetch place details: {e}")
                 details = {}
             
             # Determine specialties based on name and recommended styles
@@ -1765,34 +1776,46 @@ def get_barbers():
                 },
                 'recommended_for_styles': recommended_styles if recommended_styles else [],
                 'place_id': place['place_id'],  # Store place_id for reviews
-                'google_reviews': google_reviews  # Include reviews in barber data
+                'google_reviews': google_reviews,  # Include reviews in barber data
+                'reviews': google_reviews  # Also store as 'reviews' for matcher
             }
             
             real_barbers.append(barber_info)
         
-        # Sort by rating and number of reviews
-        real_barbers.sort(key=lambda x: (x['rating'] * (min(x['user_ratings_total'], 100) / 100)), reverse=True)
+        # Use AI-powered matching to rank barbers by style relevance
+        if recommended_styles:
+            logger.info(f"Ranking {len(real_barbers)} barbers for styles: {recommended_styles}")
+            real_barbers = matcher.rank_barbers(
+                real_barbers, 
+                recommended_styles,
+                use_ai_analysis=True  # Enable AI review analysis
+            )
+        else:
+            # No specific styles - just sort by rating
+            real_barbers.sort(key=lambda x: (x['rating'] * (min(x['user_ratings_total'], 100) / 100)), reverse=True)
         
         # Track API call duration for cache savings calculation
         api_call_duration_ms = (time.time() - api_call_start) * 1000
         metrics.record_api_call_time("places_api", api_call_duration_ms)
         
-        # Cache the results
+        # Cache the results (top 10)
+        top_barbers = real_barbers[:10]
         places_api_cache[cache_key] = {
-            'data': real_barbers[:10],  # Cache top 10
+            'data': top_barbers,
             'timestamp': current_time
         }
         
         # Increment API usage
         increment_places_api_usage()
         
-        logger.info(f"Found {len(real_barbers)} real barbershops in {location}")
+        logger.info(f"Found {len(real_barbers)} real barbershops in {location}, returning top {len(top_barbers)}")
         
         response = make_response(jsonify({
-            "barbers": real_barbers[:10],  # Return top 10
+            "barbers": top_barbers,
             "location": location,
             "real_data": True,
-            "total_found": len(real_barbers)
+            "total_found": len(real_barbers),
+            "ranked_by_style": bool(recommended_styles)
         }), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
@@ -2417,7 +2440,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         font = ImageFont.truetype(font_path, 28)
                         logger.info(f"Loaded font: {font_path}")
                         break
-                    except:
+                    except Exception:
                         continue
                 
                 if not font:
@@ -2429,8 +2452,8 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                 try:
                     bbox = draw.textbbox((0, 0), text, font=font)
                     text_width = bbox[2] - bbox[0]
-                except:
-                    # Fallback if textbbox not available
+                except AttributeError:
+                    # Fallback if textbbox not available (older PIL versions)
                     text_width = len(text) * 15
                 
                 text_x = max(10, (img.size[0] - text_width) // 2)
@@ -2548,7 +2571,7 @@ def handle_reviews(barber_id):
                             if review.get('time'):
                                 try:
                                     review_date = datetime.fromtimestamp(review.get('time')).strftime('%Y-%m-%d')
-                                except:
+                                except (ValueError, TypeError, OSError):
                                     review_date = 'Recent'
                             
                             google_reviews.append({
@@ -3056,7 +3079,7 @@ def get_clients(barber_id):
             try:
                 price = float(price_str)
                 clients_dict[client_id]["totalSpent"] += price
-            except:
+            except (ValueError, TypeError):
                 pass
         
         # Sort by last visit

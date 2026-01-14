@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class GeminiService:
     """Service for interacting with Google's Gemini AI API."""
-    
+
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key
         self.model = None
@@ -30,12 +30,12 @@ class GeminiService:
                 logger.info("Gemini API configured successfully")
             except Exception as e:
                 logger.error(f"Failed to configure Gemini: {e}")
-    
+
     @property
     def is_configured(self) -> bool:
         """Check if Gemini is properly configured."""
         return self.model is not None
-    
+
     def can_make_call(self) -> bool:
         """Check if we can make an API call (within daily limit)."""
         return self._usage_count < self._daily_limit
@@ -65,8 +65,8 @@ class GeminiService:
         if not self.can_make_call():
             logger.warning("Gemini daily limit reached, returning mock data")
             return self._get_mock_analysis()
-        
-        prompt = """You are an expert hairstylist and facial analysis AI. Analyze this person's face and hair in the photo and provide personalized haircut recommendations.
+            
+            prompt = """You are an expert hairstylist and facial analysis AI. Analyze this person's face and hair in the photo and provide personalized haircut recommendations.
 
 IMPORTANT: Return ONLY a valid JSON response with NO additional text, NO markdown formatting, NO code blocks.
 
@@ -89,7 +89,7 @@ Return this EXACT JSON structure:
 }
 
 Provide exactly 6 haircut recommendations that would work best for this person's features."""
-        
+
         try:
             self._increment_usage()
             response = self.model.generate_content([prompt, image])
@@ -113,7 +113,7 @@ Provide exactly 6 haircut recommendations that would work best for this person's
         except Exception as e:
             logger.error(f"Gemini API error: {e}")
             return self._get_mock_analysis()
-    
+
     def moderate_image(self, image_bytes: bytes) -> Tuple[bool, Optional[str]]:
         """
         Moderate image content for explicit or inappropriate content.
@@ -127,7 +127,7 @@ Provide exactly 6 haircut recommendations that would work best for this person's
         if not self.is_configured:
             logger.warning("Gemini not available, skipping moderation (permissive mode)")
             return (True, None)
-        
+
         try:
             image = Image.open(BytesIO(image_bytes))
             
@@ -144,7 +144,7 @@ Respond with ONLY a JSON object in this exact format (no markdown, no explanatio
 
 If explicit_content is true, the image must be rejected.
 If hair_related is false, the image must be rejected as it's not relevant to a hair/barber community."""
-            
+
             self._increment_usage()
             response = self.model.generate_content([moderation_prompt, image])
             response_text = self._clean_json_response(response.text.strip())
@@ -169,7 +169,7 @@ If hair_related is false, the image must be rejected as it's not relevant to a h
             logger.error(f"Error in content moderation: {e}")
             # Permissive fallback
             return (True, None)
-    
+
     def match_haircut_style(self, style_description: str, allowed_styles: list) -> str:
         """
         Use Gemini to match a style description to an allowed style name.
@@ -183,8 +183,8 @@ If hair_related is false, the image must be rejected as it's not relevant to a h
         """
         if not self.is_configured:
             return "Random"
-        
-        prompt = f"""You are a professional hairstylist matching haircut descriptions to specific style names.
+
+            prompt = f"""You are a professional hairstylist matching haircut descriptions to specific style names.
 
 TASK: Match this haircut description to the BEST option from the allowed list below.
 
@@ -194,7 +194,7 @@ ALLOWED STYLES (choose ONE exact match):
 {', '.join(allowed_styles)}
 
 CRITICAL: Return ONLY the exact name from the list above. No explanations, no quotes, just the exact name."""
-        
+
         try:
             response = self.model.generate_content(prompt)
             gemini_match = response.text.strip().strip('"').strip("'").strip('`')
@@ -215,7 +215,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
         except Exception as e:
             logger.warning(f"Gemini matching failed: {e}")
             return "Random"
-    
+
     @staticmethod
     def _clean_json_response(text: str) -> str:
         """Remove markdown formatting from JSON response."""

@@ -326,10 +326,16 @@ def get_config():
         response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
         return response, 200
     
+    # SECURITY: Never expose API keys to frontend
     response = make_response(jsonify({
-        "placesApiKey": os.environ.get("GOOGLE_PLACES_API_KEY", ""),
         "hasPlacesApi": bool(os.environ.get("GOOGLE_PLACES_API_KEY")),
+        "hasGeminiApi": bool(os.environ.get("GEMINI_API_KEY")),
         "backendVersion": "2.0",
+        "features": {
+            "aiAnalysis": bool(os.environ.get("GEMINI_API_KEY")),
+            "barberSearch": bool(os.environ.get("GOOGLE_PLACES_API_KEY")),
+            "virtualTryOn": bool(os.environ.get("REPLICATE_API_TOKEN"))
+        },
         "rateLimits": {
             "places_api_remaining": max(0, 100 - api_usage_tracker['places_api_calls']),
             "gemini_api_remaining": max(0, 50 - api_usage_tracker['gemini_api_calls'])

@@ -367,6 +367,31 @@ function setupEventListeners() {
     document.getElementById('save-availability').addEventListener('click', saveAvailabilitySettings);
   }
   
+  // Zipcode modal handlers
+  const zipcodeModal = document.getElementById('zipcode-modal');
+  if (document.getElementById('confirm-zipcode')) {
+    document.getElementById('confirm-zipcode').addEventListener('click', confirmZipcodeSearch);
+  }
+  if (document.getElementById('cancel-zipcode')) {
+    document.getElementById('cancel-zipcode').addEventListener('click', cancelZipcodeSearch);
+  }
+  // Allow Enter key to confirm
+  if (document.getElementById('zipcode-input')) {
+    document.getElementById('zipcode-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        confirmZipcodeSearch();
+      }
+    });
+  }
+  // Close modal on outside click
+  if (zipcodeModal) {
+    zipcodeModal.addEventListener('click', (e) => {
+      if (e.target === zipcodeModal) {
+        cancelZipcodeSearch();
+      }
+    });
+  }
+  
   // Services modal handlers
   if (document.getElementById('manage-services-btn')) {
     document.getElementById('manage-services-btn').addEventListener('click', () => {
@@ -911,15 +936,49 @@ function findMatchingBarbers() {
 }
 
 function findBarbersForStyle(styleName) {
-  // Prompt for zipcode
-  const zipcode = prompt('Enter your ZIP code or city to find barbers specializing in ' + styleName + ':', '');
+  // Store the style name for the confirm button
+  window.currentSearchStyle = styleName;
   
-  if (!zipcode || zipcode.trim() === '') {
-    // User cancelled or entered nothing
+  // Get modal elements
+  const zipcodeModal = document.getElementById('zipcode-modal');
+  const zipcodeInput = document.getElementById('zipcode-input');
+  const zipcodeModalSubtitle = document.getElementById('zipcode-modal-subtitle');
+  
+  // Update modal subtitle with style name
+  if (zipcodeModalSubtitle) {
+    zipcodeModalSubtitle.textContent = `Enter your ZIP code or city to find barbers specializing in ${styleName}.`;
+  }
+  
+  // Clear input and show modal
+  if (zipcodeInput) {
+    zipcodeInput.value = '';
+    zipcodeInput.focus();
+  }
+  if (zipcodeModal) {
+    zipcodeModal.classList.remove('hidden');
+  }
+}
+
+// Add function to handle zipcode confirmation
+function confirmZipcodeSearch() {
+  const zipcodeModal = document.getElementById('zipcode-modal');
+  const zipcodeInput = document.getElementById('zipcode-input');
+  const styleName = window.currentSearchStyle;
+  const barberIntro = document.getElementById('barber-intro');
+  
+  if (!zipcodeInput || !styleName) return;
+  
+  const location = zipcodeInput.value.trim();
+  
+  if (!location) {
+    // No input provided
     return;
   }
   
-  const location = zipcode.trim();
+  // Hide modal
+  if (zipcodeModal) {
+    zipcodeModal.classList.add('hidden');
+  }
   
   // Update UI message
   if (barberIntro) {
@@ -941,6 +1000,18 @@ function findBarbersForStyle(styleName) {
   
   // Then load barbers with the entered location
   loadNearbyBarbers(location, [styleName]);
+  
+  // Clear stored style
+  window.currentSearchStyle = null;
+}
+
+// Add function to cancel zipcode search
+function cancelZipcodeSearch() {
+  const zipcodeModal = document.getElementById('zipcode-modal');
+  if (zipcodeModal) {
+    zipcodeModal.classList.add('hidden');
+  }
+  window.currentSearchStyle = null;
 }
 
 let searchTimeout;
@@ -2891,6 +2962,8 @@ window.toggleLike = toggleLike;
 window.openBookingModal = openBookingModal;
 window.confirmAppointment = confirmAppointment;
 window.findBarbersForStyle = findBarbersForStyle;
+window.confirmZipcodeSearch = confirmZipcodeSearch;
+window.cancelZipcodeSearch = cancelZipcodeSearch;
 window.tryOnStyle = tryOnStyle;
 window.deletePackage = deletePackage;
 window.downloadTryOnImage = downloadTryOnImage;

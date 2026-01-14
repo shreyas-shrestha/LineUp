@@ -662,6 +662,19 @@
     </div>
   </div>
 
+  <!-- Zipcode Input Modal -->
+  <div id="zipcode-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-md">
+      <h3 class="text-2xl font-bold mb-4" id="zipcode-modal-title">Enter Location</h3>
+      <p class="text-gray-400 mb-4" id="zipcode-modal-subtitle">Enter your ZIP code or city to find barbers specializing in this style.</p>
+      <input type="text" id="zipcode-input" placeholder="ZIP code or city (e.g., 30308 or Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none mb-4">
+      <div class="flex gap-3">
+        <button id="cancel-zipcode" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
+        <button id="confirm-zipcode" class="flex-1 btn-primary py-3 rounded-lg font-medium">Find Barbers</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Services Management Modal -->
   <div id="services-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
     <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">

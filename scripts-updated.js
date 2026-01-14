@@ -911,8 +911,17 @@ function findMatchingBarbers() {
 }
 
 function findBarbersForStyle(styleName) {
-  const location = locationSearch.value || 'Atlanta, GA';
+  // Prompt for zipcode
+  const zipcode = prompt('Enter your ZIP code or city to find barbers specializing in ' + styleName + ':', '');
   
+  if (!zipcode || zipcode.trim() === '') {
+    // User cancelled or entered nothing
+    return;
+  }
+  
+  const location = zipcode.trim();
+  
+  // Update UI message
   if (barberIntro) {
     barberIntro.innerHTML = `
       <div class="text-center mb-4">
@@ -927,8 +936,11 @@ function findBarbersForStyle(styleName) {
     `;
   }
   
-  loadNearbyBarbers(location, [styleName]);
+  // Switch to barbers tab first
   switchTab('barbers');
+  
+  // Then load barbers with the entered location
+  loadNearbyBarbers(location, [styleName]);
 }
 
 let searchTimeout;

@@ -4,6 +4,7 @@ import logging
 import time
 from typing import Dict, List, Any, Optional
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger(__name__)
 
@@ -243,16 +244,33 @@ Rules:
         
         logger.info(f"Ranking {len(barbers)} barbers for styles: {recommended_styles}")
         
+        # Use parallel processing for AI analysis to reduce latency
+        if use_ai_analysis and self.model:
+            # Process barbers in parallel with ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                futures = {}
+                for barber in barbers:
+                    if barber.get('reviews'):
+                        future = executor.submit(
+                            self.analyze_barber_reviews,
+                            barber.get('name', ''),
+                            barber.get('reviews', []),
+                            recommended_styles
+                        )
+                        futures[future] = barber
+                
+                # Collect results as they complete
+                for future in as_completed(futures):
+                    barber = futures[future]
+                    try:
+                        barber['style_analysis'] = future.result(timeout=5)
+                    except Exception as e:
+                        logger.error(f"Analysis failed for {barber.get('name')}: {e}")
+                        barber['style_analysis'] = {}
+        
         # Calculate relevance for each barber
         for barber in barbers:
-            style_analysis = {}
-            
-            if use_ai_analysis and self.model and barber.get('reviews'):
-                style_analysis = self.analyze_barber_reviews(
-                    barber.get('name', ''),
-                    barber.get('reviews', []),
-                    recommended_styles
-                )
+            style_analysis = barber.get('style_analysis', {})
             
             relevance = self.calculate_style_relevance(
                 barber,
@@ -261,7 +279,6 @@ Rules:
             )
             
             barber['style_relevance_score'] = relevance
-            barber['style_analysis'] = style_analysis
             
             # Calculate composite score (70% relevance, 30% rating)
             rating_score = barber.get('rating', 0) * min(barber.get('user_ratings_total', 0), 100) / 100

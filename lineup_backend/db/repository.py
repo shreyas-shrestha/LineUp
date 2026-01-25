@@ -88,7 +88,14 @@ class BaseRepository(ABC, Generic[T]):
             data["id"] = doc.id
             return data
         except Exception as e:
-            logger.error(f"Error getting document {self.collection_name}/{document_id}: {str(e)}")
+            error_str = str(e)
+            if "SERVICE_DISABLED" in error_str or "has not been used" in error_str or "is disabled" in error_str:
+                logger.warning(
+                    f"Cloud Firestore API not enabled. "
+                    f"Enable it at: https://console.developers.google.com/apis/api/firestore.googleapis.com/overview"
+                )
+            else:
+                logger.error(f"Error getting document {self.collection_name}/{document_id}: {str(e)}")
             return None
     
     def update(self, document_id: str, data: Dict[str, Any], merge: bool = True) -> Optional[Dict[str, Any]]:
@@ -255,7 +262,15 @@ class BaseRepository(ABC, Generic[T]):
             
             return results
         except Exception as e:
-            logger.error(f"Error querying {self.collection_name}: {str(e)}")
+            error_str = str(e)
+            # Check for API not enabled error
+            if "SERVICE_DISABLED" in error_str or "has not been used" in error_str or "is disabled" in error_str:
+                logger.warning(
+                    f"Cloud Firestore API not enabled. "
+                    f"Enable it at: https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=finallineup-117a0"
+                )
+            else:
+                logger.error(f"Error querying {self.collection_name}: {str(e)}")
             return []
     
     def count(self, filters: Optional[List[tuple]] = None) -> int:

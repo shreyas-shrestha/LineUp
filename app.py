@@ -425,7 +425,14 @@ def db_get_all(collection_name):
         docs = get_collection(collection_name).stream()
         return [{**doc.to_dict(), 'id': doc.id} for doc in docs]
     except Exception as e:
-        logger.error(f"Error getting all from {collection_name}: {str(e)}")
+        error_str = str(e)
+        if "does not exist" in error_str or "database" in error_str.lower():
+            logger.warning(
+                f"Firestore database not created yet. "
+                f"Create it at: https://console.cloud.google.com/datastore/setup?project=finallineup-117a0"
+            )
+        else:
+            logger.error(f"Error getting all from {collection_name}: {str(e)}")
         return None
 
 def db_get_doc(collection_name, doc_id):
@@ -438,7 +445,14 @@ def db_get_doc(collection_name, doc_id):
             return {**doc.to_dict(), 'id': doc.id}
         return None
     except Exception as e:
-        logger.error(f"Error getting doc from {collection_name}: {str(e)}")
+        error_str = str(e)
+        if "does not exist" in error_str or "database" in error_str.lower():
+            logger.warning(
+                f"Firestore database not created yet. "
+                f"Create it at: https://console.cloud.google.com/datastore/setup?project=finallineup-117a0"
+            )
+        else:
+            logger.error(f"Error getting doc from {collection_name}: {str(e)}")
         return None
 
 def db_add_doc(collection_name, data, doc_id=None):
@@ -453,7 +467,14 @@ def db_add_doc(collection_name, data, doc_id=None):
             doc_ref = get_collection(collection_name).add(data)[1]
             return {**data, 'id': doc_ref.id}
     except Exception as e:
-        logger.error(f"Error adding doc to {collection_name}: {str(e)}")
+        error_str = str(e)
+        if "does not exist" in error_str or "database" in error_str.lower():
+            logger.warning(
+                f"Firestore database not created yet. "
+                f"Create it at: https://console.cloud.google.com/datastore/setup?project=finallineup-117a0"
+            )
+        else:
+            logger.error(f"Error adding doc to {collection_name}: {str(e)}")
         return None
 
 def db_update_doc(collection_name, doc_id, data):
@@ -1825,7 +1846,7 @@ def get_barbers():
             )
         else:
             # No specific styles - just sort by rating
-            real_barbers.sort(key=lambda x: (x['rating'] * (min(x['user_ratings_total'], 100) / 100)), reverse=True)
+        real_barbers.sort(key=lambda x: (x['rating'] * (min(x['user_ratings_total'], 100) / 100)), reverse=True)
         
         # Track API call duration for cache savings calculation
         api_call_duration_ms = (time.time() - api_call_start) * 1000
@@ -2362,26 +2383,26 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                         # Also include original image for before/after comparison
                         original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
                         
-                        response_data = {
-                            "success": True,
+                    response_data = {
+                        "success": True,
                             "message": f"✨ Real AI hair transformation complete: {style_description}",
                             "originalImage": original_base64,
                             "resultImage": result_base64,
-                            "styleApplied": style_description,
+                        "styleApplied": style_description,
                             "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
                             "note": "This is a real AI transformation!"
-                        }
-                        
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
+                    }
+                    
+                    response = make_response(jsonify(response_data), 200)
+                    response.headers['Access-Control-Allow-Origin'] = '*'
                         logger.info("✅ AI hair transformation successful!")
-                        return response
-                    else:
+                    return response
+                else:
                         logger.error(f"Failed to download result: HTTP {result_response.status_code}")
                         logger.error(f"Response: {result_response.text[:500]}")
                         raise Exception(f"Failed to download result: {result_response.status_code}")
             
-                except req.exceptions.Timeout:
+            except req.exceptions.Timeout:
                     logger.error("Download timeout after 60 seconds")
                     raise Exception("Result download timed out")
                 except Exception as download_error:
@@ -2472,7 +2493,7 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                     try:
                         font = ImageFont.truetype(font_path, 28)
                         logger.info(f"Loaded font: {font_path}")
-                        break
+                    break
                     except Exception:
                         continue
                 
@@ -2518,20 +2539,20 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
             original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
             
             # Return success response
-            response_data = {
-                "success": True,
+                response_data = {
+                    "success": True,
                 "message": f"✨ Style preview created: {style_description}",
                 "originalImage": original_base64,
                 "resultImage": result_base64,
-                "styleApplied": style_description,
+                    "styleApplied": style_description,
                 "poweredBy": "LineUp Preview Mode",
                 "note": "This is a preview mode. Works immediately with no setup!"
-            }
-            
-            response = make_response(jsonify(response_data), 200)
-            response.headers['Access-Control-Allow-Origin'] = '*'
+                }
+                
+                response = make_response(jsonify(response_data), 200)
+                response.headers['Access-Control-Allow-Origin'] = '*'
             logger.info("✅ Preview mode response sent successfully")
-            return response
+                return response
             
         except Exception as e:
             logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")

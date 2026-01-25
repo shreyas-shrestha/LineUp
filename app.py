@@ -146,32 +146,48 @@ else:
         logger.info("Cloudinary credentials not set. Will use base64 storage.")
 
 # Configure Firebase/Firestore (for database only, not storage)
+# Note: FirestoreClient will handle initialization, but we initialize here for backward compatibility
 db = None
 storage_bucket = None
 if FIREBASE_AVAILABLE:
     try:
-        # Check for Firebase credentials
-        FIREBASE_CREDENTIALS = os.environ.get("FIREBASE_CREDENTIALS")
-        
-        if FIREBASE_CREDENTIALS:
-            # Initialize with credentials from environment variable
-            cred_dict = json.loads(FIREBASE_CREDENTIALS)
-            cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred)
+        # Check if Firebase app is already initialized (by FirestoreClient)
+        try:
+            default_app = firebase_admin.get_app()
             db = firestore.client()
-            # Initialize Firebase Storage bucket
-            try:
-                project_id = cred_dict.get('project_id')
-                if project_id:
-                    bucket_name = f"{project_id}.appspot.com"
-                    storage_bucket = storage.bucket(bucket_name)
-                    logger.info(f"Firebase Storage initialized: {bucket_name}")
-            except Exception as e:
-                logger.warning(f"Firebase Storage initialization failed: {str(e)}")
-                storage_bucket = None
-            logger.info("Firebase initialized with credentials from environment")
-        else:
-            logger.warning("FIREBASE_CREDENTIALS not found - will use in-memory storage")
+            logger.info("Using existing Firebase app instance")
+        except ValueError:
+            # No app exists yet, initialize it
+            FIREBASE_CREDENTIALS = os.environ.get("FIREBASE_CREDENTIALS")
+            
+            if FIREBASE_CREDENTIALS:
+                # Initialize with credentials from environment variable
+                cred_dict = json.loads(FIREBASE_CREDENTIALS)
+                cred = credentials.Certificate(cred_dict)
+                try:
+                    firebase_admin.initialize_app(cred)
+                    logger.info("Firebase initialized with credentials from environment")
+                except ValueError as e:
+                    # App already initialized (shouldn't happen, but handle gracefully)
+                    if "already exists" in str(e).lower():
+                        logger.info("Firebase app already initialized, using existing instance")
+                    else:
+                        raise
+                
+                db = firestore.client()
+                
+                # Initialize Firebase Storage bucket
+                try:
+                    project_id = cred_dict.get('project_id')
+                    if project_id:
+                        bucket_name = f"{project_id}.appspot.com"
+                        storage_bucket = storage.bucket(bucket_name)
+                        logger.info(f"Firebase Storage initialized: {bucket_name}")
+                except Exception as e:
+                    logger.warning(f"Firebase Storage initialization failed: {str(e)}")
+                    storage_bucket = None
+            else:
+                logger.warning("FIREBASE_CREDENTIALS not found - will use in-memory storage")
     except Exception as e:
         logger.error(f"Firebase initialization failed: {str(e)}")
         db = None

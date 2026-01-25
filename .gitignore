@@ -57,6 +57,7 @@ firebase-simple.js.backup
 *-firebase-adminsdk*.json
 firebase-credentials.json
 firebase-admin*.json
+COPY_THIS_FOR_RENDER.txt
 
 # Testing
 .coverage

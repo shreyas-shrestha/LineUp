@@ -1,170 +1,158 @@
-"""AI Analysis endpoints."""
+"""Endpoints for saving and retrieving haircut analysis results."""
 
-import base64
-import json
+from __future__ import annotations
+
 import logging
-from io import BytesIO
+from typing import Dict, Any, Optional
 
 from flask import Blueprint, request
-from PIL import Image
 
-from lineup_backend.utils import cors_response, handle_options, api_response
+from lineup_backend.middleware.auth import require_auth, get_current_user
+from lineup_backend.middleware.error_handler import AuthenticationError
+from lineup_backend.utils import cors_response, handle_options, api_response, safe_get_json
+from lineup_backend.db.repositories import SavedAnalysisRepository
 
 logger = logging.getLogger(__name__)
 
 analyze_bp = Blueprint('analyze', __name__)
+analysis_repo = SavedAnalysisRepository()
 
 
-def get_mock_analysis_data():
-    """Return mock analysis data when AI is unavailable."""
-    return {
-        "analysis": {
-            "faceShape": "oval",
-            "hairTexture": "wavy",
-            "hairColor": "brown",
-            "estimatedGender": "male",
-            "estimatedAge": "25-30"
-        },
-        "recommendations": [
-            {
-                "styleName": "Modern Fade",
-                "description": "A contemporary take on the classic fade with textured top",
-                "reason": "Complements oval face shapes perfectly"
-            },
-            {
-                "styleName": "Textured Quiff",
-                "description": "Voluminous style swept upward for a bold look",
-                "reason": "Works beautifully with wavy hair texture"
-            },
-            {
-                "styleName": "Classic Side Part",
-                "description": "Timeless and professional with clean lines",
-                "reason": "Enhances facial features and adds sophistication"
-            },
-            {
-                "styleName": "Messy Crop",
-                "description": "Effortlessly cool with natural texture",
-                "reason": "Low maintenance yet stylish option"
-            },
-            {
-                "styleName": "Short Buzz",
-                "description": "Clean, minimal, and masculine",
-                "reason": "Highlights facial structure beautifully"
-            }
-        ]
-    }
-
-
-@analyze_bp.route('/analyze', methods=['POST', 'OPTIONS'])
+@analyze_bp.route('/analyze/save', methods=['POST', 'OPTIONS'])
 @handle_options("POST, OPTIONS")
-def analyze():
+@require_auth
+def save_analysis():
     """
-    Analyze uploaded photo and provide haircut recommendations.
-    Uses Gemini AI when available, falls back to mock data.
+    Save haircut analysis results.
+    Requires authentication.
     """
-    import os
-    
-    logger.info("ANALYZE endpoint called")
-    
-    # Try to import and use Gemini
-    model = None
     try:
-        import google.generativeai as genai
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if api_key:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-2.0-flash')
+        user = get_current_user()
+        if not user:
+            raise AuthenticationError("Authentication required to save analysis")
+        
+        data = safe_get_json()
+        
+        # Validate required fields
+        if not data.get("recommendations") and not data.get("analysisData"):
+            return api_response(
+                error="Analysis data or recommendations required",
+                status=400
+            )
+        
+        # Save analysis
+        saved_analysis = analysis_repo.save_analysis(
+            user_id=user.uid,
+            image_url=data.get("imageUrl"),
+            image_base64=data.get("imageBase64"),
+            recommendations=data.get("recommendations", []),
+            face_shape=data.get("faceShape"),
+            hair_texture=data.get("hairTexture"),
+            analysis_data=data.get("analysisData", {})
+        )
+        
+        if not saved_analysis:
+            return api_response(error="Failed to save analysis", status=500)
+        
+        logger.info(f"Analysis saved: {saved_analysis.get('id')} for user {user.uid}")
+        
+        return api_response(
+            data={"analysis": saved_analysis},
+            message="Analysis saved successfully",
+            status=201
+        )
+        
+    except AuthenticationError as e:
+        return api_response(error=str(e), status=401)
     except Exception as e:
-        logger.warning(f"Gemini not available: {e}")
-    
-    if not model:
-        logger.info("Using mock data (Gemini not configured)")
-        return cors_response(get_mock_analysis_data())
-    
+        logger.error(f"Error saving analysis: {str(e)}")
+        return api_response(error="Failed to save analysis", status=500)
+
+
+@analyze_bp.route('/analyze/history', methods=['GET', 'OPTIONS'])
+@handle_options("GET, OPTIONS")
+@require_auth
+def get_analysis_history():
+    """
+    Get saved analysis history for current user.
+    Requires authentication.
+    """
     try:
-        data = request.get_json(force=True)
+        user = get_current_user()
+        if not user:
+            raise AuthenticationError("Authentication required")
         
-        # Extract image data from request
-        try:
-            payload = data.get("payload", {})
-            contents = payload.get("contents", [{}])[0]
-            parts = contents.get("parts", [])
-            
-            if len(parts) < 2:
-                raise ValueError("No image data provided")
-            
-            image_data = parts[1].get("inlineData", {})
-            base64_image = image_data.get("data", "")
-            
-            if not base64_image:
-                raise ValueError("Empty image data")
-            
-        except (KeyError, IndexError) as e:
-            raise ValueError(f"Invalid request format: {str(e)}")
+        limit = request.args.get('limit', type=int)
+        if limit and limit > 100:
+            limit = 100
         
-        # Decode and validate image
-        try:
-            image_bytes = base64.b64decode(base64_image)
-            image = Image.open(BytesIO(image_bytes))
-        except Exception as e:
-            raise ValueError(f"Invalid image data: {str(e)}")
+        analyses = analysis_repo.get_user_analyses(user.uid, limit=limit)
         
-        # Create analysis prompt
-        prompt = """You are an expert hairstylist and facial analysis AI. Analyze this person's face and hair in the photo and provide personalized haircut recommendations.
-
-IMPORTANT: Return ONLY a valid JSON response with NO additional text, NO markdown formatting, NO code blocks.
-
-Return this EXACT JSON structure:
-{
-    "analysis": {
-        "faceShape": "[one of: oval, round, square, heart, oblong, diamond, triangle]",
-        "hairTexture": "[one of: straight, wavy, curly, coily, kinky]",
-        "hairColor": "[one of: black, dark-brown, brown, light-brown, blonde, red, gray, white, other]",
-        "estimatedGender": "[one of: male, female, non-binary]",
-        "estimatedAge": "[one of: under-20, 20-25, 25-30, 30-35, 35-40, 40-45, 45-50, 50-55, 55-60, over-60]"
-    },
-    "recommendations": [
-        {
-            "styleName": "[Specific haircut name]",
-            "description": "[2-3 sentence description of the haircut style and how it's achieved]",
-            "reason": "[1-2 sentences explaining why this works for their specific face shape, hair texture, and features]"
-        }
-    ]
-}
-
-Provide exactly 6 haircut recommendations that would work best for this person's features."""
-
-        # Call Gemini API
-        try:
-            response = model.generate_content([prompt, image])
-            response_text = response.text.strip()
-        except Exception as e:
-            logger.error(f"Gemini API error: {str(e)}")
-            return cors_response(get_mock_analysis_data())
+        return api_response(data={"analyses": analyses})
         
-        # Clean and parse response
-        if "```json" in response_text:
-            start = response_text.find("```json") + 7
-            end = response_text.rfind("```")
-            if end > start:
-                response_text = response_text[start:end].strip()
-        
-        try:
-            analysis_data = json.loads(response_text)
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse Gemini response, using mock data")
-            return cors_response(get_mock_analysis_data())
-        
-        # Validate response structure
-        if "analysis" not in analysis_data or "recommendations" not in analysis_data:
-            return cors_response(get_mock_analysis_data())
-        
-        return cors_response(analysis_data)
-        
-    except ValueError as e:
-        logger.error(f"Validation error: {str(e)}")
-        return api_response(error=str(e), status=400)
+    except AuthenticationError as e:
+        return api_response(error=str(e), status=401)
     except Exception as e:
-        logger.error(f"Error in analyze endpoint: {str(e)}")
-        return cors_response(get_mock_analysis_data())
+        logger.error(f"Error getting analysis history: {str(e)}")
+        return api_response(error="Failed to get analysis history", status=500)
 
+
+@analyze_bp.route('/analyze/<analysis_id>', methods=['GET', 'OPTIONS'])
+@handle_options("GET, OPTIONS")
+@require_auth
+def get_analysis(analysis_id: str):
+    """
+    Get a specific saved analysis.
+    Requires authentication and ownership.
+    """
+    try:
+        user = get_current_user()
+        if not user:
+            raise AuthenticationError("Authentication required")
+        
+        analysis = analysis_repo.get_analysis(analysis_id)
+        
+        if not analysis:
+            return api_response(error="Analysis not found", status=404)
+        
+        # Check ownership
+        if analysis.get("userId") != user.uid:
+            from lineup_backend.middleware.error_handler import AuthorizationError
+            raise AuthorizationError("You can only access your own analyses")
+        
+        return api_response(data={"analysis": analysis})
+        
+    except AuthenticationError as e:
+        return api_response(error=str(e), status=401)
+    except Exception as e:
+        logger.error(f"Error getting analysis: {str(e)}")
+        return api_response(error="Failed to get analysis", status=500)
+
+
+@analyze_bp.route('/analyze/<analysis_id>', methods=['DELETE', 'OPTIONS'])
+@handle_options("DELETE, OPTIONS")
+@require_auth
+def delete_analysis(analysis_id: str):
+    """
+    Delete a saved analysis.
+    Requires authentication and ownership.
+    """
+    try:
+        user = get_current_user()
+        if not user:
+            raise AuthenticationError("Authentication required")
+        
+        success = analysis_repo.delete_analysis(analysis_id, user.uid)
+        
+        if not success:
+            return api_response(error="Analysis not found or unauthorized", status=404)
+        
+        logger.info(f"Analysis deleted: {analysis_id} by user {user.uid}")
+        
+        return api_response(message="Analysis deleted successfully")
+        
+    except AuthenticationError as e:
+        return api_response(error=str(e), status=401)
+    except Exception as e:
+        logger.error(f"Error deleting analysis: {str(e)}")
+        return api_response(error="Failed to delete analysis", status=500)

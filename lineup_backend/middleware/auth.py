@@ -64,13 +64,28 @@ class User:
     
     @classmethod
     def from_firebase_token(cls, decoded_token: Dict[str, Any]) -> "User":
-        """Create a User from a decoded Firebase token."""
+        """Create a User from a decoded Firebase token, fetching role from database."""
+        uid = decoded_token.get("uid", "")
         custom_claims = decoded_token.get("custom_claims", {})
+        
+        # Try to get role from database first
+        role = "client"  # default
+        try:
+            from lineup_backend.db.repositories import UserRepository
+            user_repo = UserRepository()
+            user_profile = user_repo.get_user(uid)
+            if user_profile:
+                role = user_profile.get("role", custom_claims.get("role", "client"))
+        except Exception as e:
+            logger.warning(f"Could not fetch user role from database: {str(e)}")
+            # Fallback to custom claims
+            role = custom_claims.get("role", "client")
+        
         return cls(
-            uid=decoded_token.get("uid", ""),
+            uid=uid,
             email=decoded_token.get("email"),
             display_name=decoded_token.get("name"),
-            role=custom_claims.get("role", "client"),
+            role=role,
             email_verified=decoded_token.get("email_verified", False),
             custom_claims=custom_claims
         )
@@ -215,7 +230,7 @@ def require_role(role: str) -> Callable:
             
             if not user:
                 from .error_handler import AuthenticationError
-                raise AuthenticationError()
+                raise AuthenticationError("Authentication required")
             
             if user.role != role and not user.is_admin:
                 from .error_handler import AuthorizationError
@@ -225,6 +240,61 @@ def require_role(role: str) -> Callable:
         
         return wrapper
     return decorator
+
+
+def require_barber_auth(func: Callable) -> Callable:
+    """
+    Decorator to require authentication AND barber role.
+    This is a convenience decorator combining @require_auth and @require_role('barber').
+    
+    Usage:
+        @app.route('/barber/dashboard')
+        @require_barber_auth
+        def barber_dashboard():
+            return jsonify({"message": "Welcome, barber!"})
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # Check if auth is disabled (development mode)
+        from lineup_backend.config import AppConfig
+        import os
+        config = AppConfig.from_env()
+        
+        if config.flask_env == "development" and os.environ.get("LINEUP_DISABLE_AUTH") == "true":
+            # Create a mock barber user for development
+            g.current_user = User(
+                uid="dev_barber",
+                email="barber@lineup.com",
+                display_name="Development Barber",
+                role="barber"
+            )
+            return func(*args, **kwargs)
+        
+        # Extract and verify token
+        token = _extract_token_from_header()
+        
+        if not token:
+            from .error_handler import AuthenticationError
+            raise AuthenticationError("Authentication required for barber features")
+        
+        decoded_token = _verify_firebase_token(token)
+        
+        if not decoded_token:
+            from .error_handler import AuthenticationError
+            raise AuthenticationError("Invalid or expired authentication token")
+        
+        # Set the current user in the request context
+        user = User.from_firebase_token(decoded_token)
+        g.current_user = user
+        
+        # Check if user is a barber
+        if not user.is_barber and not user.is_admin:
+            from .error_handler import AuthorizationError
+            raise AuthorizationError("This feature requires barber role")
+        
+        return func(*args, **kwargs)
+    
+    return wrapper
 
 
 def require_owner_or_admin(get_owner_id: Callable) -> Callable:

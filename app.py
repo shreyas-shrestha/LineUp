@@ -92,6 +92,23 @@ CORS(app,
      allow_headers=["Content-Type", "Accept", "Authorization"],
      supports_credentials=False)
 
+# Register error handlers
+try:
+    from lineup_backend.middleware.error_handler import register_error_handlers
+    register_error_handlers(app)
+    logger.info("Error handlers registered successfully")
+except Exception as e:
+    logger.warning(f"Could not register error handlers: {str(e)}")
+
+# Register v2 blueprints
+try:
+    from lineup_backend.routes import auth_bp, analyze_bp
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(analyze_bp)
+    logger.info("v2 blueprints (auth, analyze) registered successfully")
+except Exception as e:
+    logger.warning(f"Could not register v2 blueprints: {str(e)}")
+
 # Configure Gemini API
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_API_KEY:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -49,8 +50,6 @@ class FirestoreClient:
             return
         
         try:
-            import os
-            
             # Check if Firebase app is already initialized
             try:
                 self._client = firestore.client()

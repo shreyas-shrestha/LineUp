@@ -54,6 +54,9 @@ logs/
 # Firebase
 firebase-simple.js.backup
 *backup*
+*-firebase-adminsdk*.json
+firebase-credentials.json
+firebase-admin*.json
 
 # Testing
 .coverage

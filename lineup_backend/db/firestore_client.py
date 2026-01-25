@@ -50,13 +50,15 @@ class FirestoreClient:
             return
         
         try:
-            # Check if Firebase app is already initialized
+            # Check if Firebase app is already initialized (app.py initializes it first)
             try:
+                # Try to get default app - if it exists, use it
+                default_app = firebase_admin.get_app()
                 self._client = firestore.client()
-                logger.info("Using existing Firebase app instance")
+                logger.info("Using existing Firebase app instance (initialized by app.py)")
                 return
             except ValueError:
-                # App not initialized, need to initialize
+                # No default app exists, need to initialize
                 pass
             
             # Get credentials from environment
@@ -70,11 +72,27 @@ class FirestoreClient:
             cred_dict = json.loads(firebase_credentials)
             cred = credentials.Certificate(cred_dict)
             
-            # Initialize Firebase app
-            firebase_admin.initialize_app(cred)
-            self._client = firestore.client()
+            # Initialize Firebase app only if not already initialized
+            try:
+                firebase_admin.initialize_app(cred)
+                logger.info("Firebase Firestore initialized successfully")
+            except ValueError as e:
+                # App already initialized - this can happen if app.py initialized it
+                error_msg = str(e).lower()
+                if "already exists" in error_msg or "default app" in error_msg:
+                    logger.info("Firebase app already initialized, using existing instance")
+                    # Try to get the client anyway
+                    try:
+                        self._client = firestore.client()
+                        return
+                    except Exception as client_error:
+                        logger.error(f"Failed to get Firestore client: {client_error}")
+                        self._client = None
+                        return
+                else:
+                    raise
             
-            logger.info("Firebase Firestore initialized successfully")
+            self._client = firestore.client()
             
         except Exception as e:
             logger.error(f"Failed to initialize Firestore: {str(e)}")

@@ -2091,61 +2091,35 @@ def virtual_tryon():
                     try:
                         logger.info("Using Gemini to find best matching haircut...")
                         
-                        # Create a more structured prompt with context
-                        prompt = f"""You are a professional hairstylist matching haircut descriptions to specific style names.
+                        # SIMPLIFIED prompt - just ask Gemini to match directly
+                        prompt = f"""Match this haircut description to the BEST option from this exact list:
 
-TASK: Match this haircut description to the BEST option from the allowed list below.
+DESCRIPTION: "{style_description}"
 
-HAIRCUT DESCRIPTION: "{style_description}"
-
-ALLOWED STYLES (choose ONE exact match):
+ALLOWED OPTIONS (choose ONE exact match):
 {', '.join(ALLOWED_HAIRCUTS)}
 
-MATCHING RULES:
-1. **Fade styles** → "Mohawk Fade" (for any fade: classic fade, modern fade, taper fade, etc.)
-2. **Parted styles** → "Side-Parted" (for side part, side part with volume, side-swept, etc.) OR "Center-Parted" (for center part, middle part)
-3. **Slicked/Quiff/Pompadour** → "Slicked Back" (for quiff, pompadour, slick back, swept back, etc.)
-4. **Short/Buzz** → "Crew Cut" (for buzz cut, crew cut, short cut, military cut)
-5. **Undercut** → "Undercut" (for undercut, disconnected undercut)
-6. **Mohawk** → "Mohawk" (for mohawk, faux hawk) OR "Mohawk Fade" (if it mentions fade)
-7. **Long hair** → "Half-Up, Half-Down" (for long hair, shoulder length, etc.)
-8. **Curly/Afro** → "Curly" (for curly, afro, natural curls)
-9. **Wavy** → "Wavy" (for wavy, soft waves) OR "Soft Waves" (if specifically soft)
-10. **Straight** → "Straight" (for straight, straightened)
-11. **Textured/Messy** → "Tousled" (for textured, messy, tousled, messy crop)
-12. **Bob styles** → "Bob" (for bob, classic bob) OR "Lob" (for long bob)
-13. **Pixie** → "Pixie Cut" (for pixie, pixie cut, bowl cut)
-14. **Bun/Top Knot** → "Top Knot" (for man bun, top knot, bun) OR "Messy Bun" (if messy)
-15. **Layered** → "Layered" (for layered, layers, layered cut)
-16. **Dreadlocks** → "Dreadlocks" (for dreadlocks, dreads)
+Return ONLY the exact name from the list above. No explanations."""
 
-EXAMPLES:
-- "Side Part with Volume" → "Side-Parted"
-- "Classic Fade" → "Mohawk Fade"
-- "Textured Quiff" → "Slicked Back"
-- "Modern Fade" → "Mohawk Fade"
-- "Messy Crop" → "Tousled"
-- "Buzz Cut" → "Crew Cut"
-- "Undercut" → "Undercut"
-
-CRITICAL: Return ONLY the exact name from the list above. No explanations, no quotes, just the exact name."""
-                        
                         gemini_response = model.generate_content(prompt)
                         gemini_match = gemini_response.text.strip().strip('"').strip("'").strip('`')
                         
                         # Clean up common Gemini response patterns
-                        gemini_match = gemini_match.split('\n')[0].strip()  # Take first line only
-                        gemini_match = gemini_match.replace('**', '').replace('*', '')  # Remove markdown
+                        gemini_match = gemini_match.split('\n')[0].strip()
+                        gemini_match = gemini_match.replace('**', '').replace('*', '').replace('`', '')
                         
                         # Verify it's in the allowed list
                         if gemini_match in ALLOWED_HAIRCUTS:
                             haircut_name = gemini_match
                             logger.info(f"Gemini matched '{style_description}' to '{haircut_name}'")
                         else:
-                            # Try fuzzy matching - check if any allowed style contains the match or vice versa
+                            # Try fuzzy matching
                             gemini_lower = gemini_match.lower()
                             for allowed in ALLOWED_HAIRCUTS:
-                                if gemini_lower == allowed.lower() or gemini_lower in allowed.lower() or allowed.lower() in gemini_lower:
+                                allowed_lower = allowed.lower()
+                                if (gemini_lower == allowed_lower or 
+                                    gemini_lower in allowed_lower or 
+                                    allowed_lower in gemini_lower):
                                     haircut_name = allowed
                                     logger.info(f"Gemini fuzzy matched '{style_description}' to '{haircut_name}' (via '{gemini_match}')")
                                     break
@@ -2158,103 +2132,90 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
                 # Fallback: Use keyword-based mapping if Gemini not available or failed
                 if not haircut_name:
                     logger.info("Using keyword-based fallback mapping...")
+                    
+                    # COMPREHENSIVE mapping - LONGEST phrases FIRST to avoid false matches
                     style_map = {
-                    # Fade styles
-                    "fade": "Mohawk Fade",
-                    "modern fade": "Mohawk Fade",
-                    "fade with": "Mohawk Fade",
-                    
-                    # Short styles
-                    "buzz": "Crew Cut",
-                    "buzz cut": "Crew Cut",
-                    "crew cut": "Crew Cut",
-                    "crewcut": "Crew Cut",
-                    "short": "Crew Cut",
-                    
-                    # Slicked/Quiff/Pompadour
-                    "quiff": "Slicked Back",
-                    "pompadour": "Slicked Back",
-                    "slick back": "Slicked Back",
-                    "slicked back": "Slicked Back",
-                    "slickback": "Slicked Back",
-                    
-                    # Parted styles - MUST be "Side-Parted" with hyphen
-                    "side part": "Side-Parted",
-                    "side-part": "Side-Parted",
-                    "sidepart": "Side-Parted",
-                    "side parted": "Side-Parted",
-                    "parted": "Side-Parted",
-                    "volume": "Side-Parted",  # For "Side Part with Volume"
-                    "with volume": "Side-Parted",
-                    
-                    # Undercut
-                    "undercut": "Undercut",
-                    
-                    # Mohawk
-                    "mohawk": "Mohawk",
-                    
-                    # Long styles
-                    "long": "Half-Up, Half-Down",
-                    "long hair": "Half-Up, Half-Down",
-                    
-                    # Texture/Curly
-                    "curly": "Curly",
-                    "textured": "Tousled",
-                    "messy": "Tousled",
-                    "tousled": "Tousled",
-                    "afro": "Curly",
-                    
-                    # Wavy/Straight
-                    "wavy": "Wavy",
-                    "waves": "Wavy",
-                    "soft waves": "Soft Waves",
-                    "straight": "Straight",
-                    "straightened": "Straightened",
-                    
-                    # Bob styles
-                    "bob": "Bob",
-                    "lob": "Lob",
-                    "a-line bob": "A-Line Bob",
-                    
-                    # Pixie
-                    "pixie": "Pixie Cut",
-                    "pixie cut": "Pixie Cut",
-                    "bowl cut": "Pixie Cut",
-                    
-                    # Bun/Top Knot
-                    "man bun": "Top Knot",
-                    "bun": "Top Knot",
-                    "top knot": "Top Knot",
-                    "messy bun": "Messy Bun",
-                    
-                    # Layered
-                    "layered": "Layered",
-                    "layers": "Layered",
-                    
-                    # Dreadlocks
-                    "dreadlocks": "Dreadlocks",
-                    "dreads": "Dreadlocks",
-                    
-                    # Center part
-                    "center part": "Center-Parted",
-                    "center-part": "Center-Parted",
-                    "centerpart": "Center-Parted"
+                        # Multi-word combinations FIRST (most specific)
+                        "long layers with bangs": "Layered",
+                        "layered with bangs": "Layered",
+                        "layers with bangs": "Layered",
+                        "side part with volume": "Side-Parted",
+                        "side-swept bangs": "Side-Swept Bangs",
+                        "blunt bangs": "Blunt Bangs",
+                        "modern fade": "Mohawk Fade",
+                        "taper fade": "Mohawk Fade",
+                        "classic fade": "Mohawk Fade",
+                        "buzz cut": "Crew Cut",
+                        "crew cut": "Crew Cut",
+                        "slick back": "Slicked Back",
+                        "slicked back": "Slicked Back",
+                        "side part": "Side-Parted",
+                        "side-part": "Side-Parted",
+                        "center part": "Center-Parted",
+                        "center-part": "Center-Parted",
+                        "soft waves": "Soft Waves",
+                        "messy bun": "Messy Bun",
+                        "pixie cut": "Pixie Cut",
+                        "a-line bob": "A-Line Bob",
+                        "long hair": "Half-Up, Half-Down",
+                        "long layers": "Layered",
+                        "side swept": "Side-Swept Bangs",
+                        "fade with": "Mohawk Fade",
+                        
+                        # Single words (less specific, checked AFTER multi-word)
+                        "fade": "Mohawk Fade",
+                        "buzz": "Crew Cut",
+                        "crewcut": "Crew Cut",
+                        "short": "Crew Cut",
+                        "quiff": "Slicked Back",
+                        "pompadour": "Slicked Back",
+                        "slickback": "Slicked Back",
+                        "sidepart": "Side-Parted",
+                        "sideparted": "Side-Parted",
+                        "parted": "Side-Parted",
+                        "undercut": "Undercut",
+                        "mohawk": "Mohawk",
+                        "curly": "Curly",
+                        "textured": "Tousled",
+                        "messy": "Tousled",
+                        "tousled": "Tousled",
+                        "afro": "Curly",
+                        "wavy": "Wavy",
+                        "waves": "Wavy",
+                        "straight": "Straight",
+                        "straightened": "Straightened",
+                        "bob": "Bob",
+                        "lob": "Lob",
+                        "pixie": "Pixie Cut",
+                        "bowl": "Pixie Cut",
+                        "bun": "Top Knot",
+                        "top knot": "Top Knot",
+                        "layered": "Layered",
+                        "layers": "Layered",
+                        "bangs": "Blunt Bangs",
+                        "dreadlocks": "Dreadlocks",
+                        "dreads": "Dreadlocks",
+                        "centerpart": "Center-Parted",
+                        "long": "Half-Up, Half-Down",  # Generic "long" - check this LAST
                     }
                     
-                    # Get the best matching haircut name from the model's allowed list
+                    # Get the best matching haircut name
                     style_lower = style_description.lower().strip()
-                    if not haircut_name:
-                        haircut_name = "Random"  # Default fallback - model accepts this
                     
-                    # Check for exact keyword matches first (longest matches first)
-                    # Sort by key length descending to match longer phrases first
+                    # CRITICAL: Sort by key length DESCENDING to match longest/most specific phrases FIRST
                     sorted_keys = sorted(style_map.keys(), key=len, reverse=True)
+                    
+                    # Check each key in order (longest first)
                     for key in sorted_keys:
                         if key in style_lower:
                             haircut_name = style_map[key]
+                            logger.info(f"Fallback mapping matched '{style_description}' to '{haircut_name}' (matched key: '{key}')")
                             break
                     
-                    logger.info(f"Fallback mapping matched '{style_description}' to '{haircut_name}'")
+                    # Only use "Random" if NO match found at all
+                    if not haircut_name:
+                        haircut_name = "Random"
+                        logger.warning(f"No mapping found for '{style_description}', using 'Random'")
                 
                 logger.info(f"Using haircut style: {haircut_name} (from description: {style_description})")
                 

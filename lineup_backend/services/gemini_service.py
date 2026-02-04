@@ -184,22 +184,22 @@ If hair_related is false, the image must be rejected as it's not relevant to a h
         if not self.is_configured:
             return "Random"
 
-            prompt = f"""You are a professional hairstylist matching haircut descriptions to specific style names.
+        # SIMPLIFIED prompt - let Gemini do the matching without complex rules
+        prompt = f"""Match this haircut description to the BEST option from this exact list:
 
-TASK: Match this haircut description to the BEST option from the allowed list below.
+DESCRIPTION: "{style_description}"
 
-HAIRCUT DESCRIPTION: "{style_description}"
-
-ALLOWED STYLES (choose ONE exact match):
+ALLOWED OPTIONS:
 {', '.join(allowed_styles)}
 
-CRITICAL: Return ONLY the exact name from the list above. No explanations, no quotes, just the exact name."""
+Return ONLY the exact name from the list above. No explanations, no quotes."""
 
         try:
+            self._increment_usage()
             response = self.model.generate_content(prompt)
             gemini_match = response.text.strip().strip('"').strip("'").strip('`')
             gemini_match = gemini_match.split('\n')[0].strip()
-            gemini_match = gemini_match.replace('**', '').replace('*', '')
+            gemini_match = gemini_match.replace('**', '').replace('*', '').replace('`', '')
             
             if gemini_match in allowed_styles:
                 return gemini_match
@@ -207,7 +207,10 @@ CRITICAL: Return ONLY the exact name from the list above. No explanations, no qu
             # Fuzzy matching fallback
             gemini_lower = gemini_match.lower()
             for allowed in allowed_styles:
-                if gemini_lower == allowed.lower() or gemini_lower in allowed.lower():
+                allowed_lower = allowed.lower()
+                if (gemini_lower == allowed_lower or 
+                    gemini_lower in allowed_lower or 
+                    allowed_lower in gemini_lower):
                     return allowed
             
             return "Random"

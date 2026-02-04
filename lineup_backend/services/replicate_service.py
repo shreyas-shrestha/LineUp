@@ -34,31 +34,56 @@ class ReplicateService(BaseService):
     ]
 
     STYLE_MAPPINGS = {
-        "fade": "Mohawk Fade",
+        # Multi-word combinations FIRST (most specific)
+        "long layers with bangs": "Layered",
+        "layered with bangs": "Layered",
+        "layers with bangs": "Layered",
+        "side-swept bangs": "Side-Swept Bangs",
+        "blunt bangs": "Blunt Bangs",
         "modern fade": "Mohawk Fade",
-        "buzz": "Crew Cut",
+        "taper fade": "Mohawk Fade",
+        "classic fade": "Mohawk Fade",
         "buzz cut": "Crew Cut",
         "crew cut": "Crew Cut",
+        "slick back": "Slicked Back",
+        "slicked back": "Slicked Back",
+        "side part": "Side-Parted",
+        "center part": "Center-Parted",
+        "soft waves": "Soft Waves",
+        "messy bun": "Messy Bun",
+        "pixie cut": "Pixie Cut",
+        "a-line bob": "A-Line Bob",
+        "long hair": "Half-Up, Half-Down",
+        "long layers": "Layered",
+        
+        # Single words (less specific)
+        "fade": "Mohawk Fade",
+        "buzz": "Crew Cut",
         "short": "Crew Cut",
         "quiff": "Slicked Back",
         "pompadour": "Slicked Back",
-        "slick back": "Slicked Back",
-        "side part": "Side-Parted",
         "parted": "Side-Parted",
         "undercut": "Undercut",
         "mohawk": "Mohawk",
         "curly": "Curly",
         "textured": "Tousled",
         "messy": "Tousled",
+        "tousled": "Tousled",
+        "afro": "Curly",
         "wavy": "Wavy",
+        "waves": "Wavy",
         "straight": "Straight",
+        "straightened": "Straightened",
         "bob": "Bob",
         "lob": "Lob",
         "pixie": "Pixie Cut",
         "bun": "Top Knot",
         "layered": "Layered",
+        "layers": "Layered",
+        "bangs": "Blunt Bangs",
         "dreadlocks": "Dreadlocks",
-        "center part": "Center-Parted",
+        "dreads": "Dreadlocks",
+        "long": "Half-Up, Half-Down",  # Generic - check last
     }
 
     def __init__(self, api_token: Optional[str] = None):
@@ -197,6 +222,7 @@ class ReplicateService(BaseService):
                     style_description, self.ALLOWED_HAIRCUTS
                 )
                 if matched in self.ALLOWED_HAIRCUTS:
+                    logger.info(f"Gemini matched '{style_description}' to '{matched}'")
                     return matched
             except Exception as e:
                 logger.warning(f"Gemini matching failed: {e}")
@@ -204,12 +230,15 @@ class ReplicateService(BaseService):
         # Fallback to keyword matching
         style_lower = style_description.lower().strip()
         
-        # Check longer phrases first
+        # Check longer phrases first (most specific matches first)
         sorted_keys = sorted(self.STYLE_MAPPINGS.keys(), key=len, reverse=True)
         for key in sorted_keys:
             if key in style_lower:
-                return self.STYLE_MAPPINGS[key]
+                matched = self.STYLE_MAPPINGS[key]
+                logger.info(f"Keyword matched '{style_description}' to '{matched}' (key: '{key}')")
+                return matched
 
+        logger.warning(f"No match found for '{style_description}', using 'Random'")
         return "Random"
 
     def _extract_result_url(self, output: Any) -> Optional[str]:

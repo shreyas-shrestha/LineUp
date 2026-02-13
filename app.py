@@ -580,29 +580,34 @@ def get_mock_data():
         },
         "recommendations": [
             {
-                "styleName": "Modern Fade",
-                "description": "A contemporary take on the classic fade with textured top",
-                "reason": "Complements oval face shapes perfectly"
+                "styleName": "Crew Cut",
+                "description": "A clean, short cut tapered on the sides with slightly more length on top. Low maintenance and always looks sharp.",
+                "reason": "Complements oval face shapes and works well with wavy hair texture."
             },
             {
-                "styleName": "Textured Quiff",
-                "description": "Voluminous style swept upward for a bold look",
-                "reason": "Works beautifully with wavy hair texture"
+                "styleName": "Faux Hawk",
+                "description": "Shorter sides with a longer strip of hair on top styled upward. A modern, edgy look without full commitment to a mohawk.",
+                "reason": "Adds height and definition to facial features while being versatile enough for professional settings."
             },
             {
-                "styleName": "Classic Side Part",
-                "description": "Timeless and professional with clean lines",
-                "reason": "Enhances facial features and adds sophistication"
+                "styleName": "Side-Parted",
+                "description": "A timeless style with a clean side part creating a polished, professional appearance.",
+                "reason": "Enhances facial symmetry and adds sophistication to oval and square face shapes."
             },
             {
-                "styleName": "Messy Crop",
-                "description": "Effortlessly cool with natural texture",
-                "reason": "Low maintenance yet stylish option"
+                "styleName": "Tousled",
+                "description": "A relaxed, effortlessly messy style with natural texture and movement throughout.",
+                "reason": "Takes advantage of wavy hair's natural texture for an easy, low-maintenance look."
             },
             {
-                "styleName": "Short Buzz",
-                "description": "Clean, minimal, and masculine",
-                "reason": "Highlights facial structure beautifully"
+                "styleName": "Slicked Back",
+                "description": "Hair swept back from the forehead for a sleek, polished finish. Works great with medium-length hair.",
+                "reason": "Opens up the face and highlights strong facial features."
+            },
+            {
+                "styleName": "Layered",
+                "description": "Multiple layers of varying lengths create volume and dimension throughout the hair.",
+                "reason": "Adds movement to wavy hair and frames the face beautifully."
             }
         ]
     }
@@ -616,7 +621,7 @@ def getMockBarbersForLocation(location):
             "specialties": ["Fade", "Taper", "Modern Cuts"],
             "rating": 4.9,
             "user_ratings_total": 127,
-            "avgCost": 45,
+            "priceTier": "$$",
             "address": f"Downtown {location.split(',')[0]}",
             "photo": "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400&h=300&fit=crop",
             "phone": "(555) 123-4567",
@@ -631,7 +636,7 @@ def getMockBarbersForLocation(location):
             "specialties": ["Pompadour", "Buzz Cut", "Beard Trim"],
             "rating": 4.8,
             "user_ratings_total": 89,
-            "avgCost": 55,
+            "priceTier": "$$",
             "address": f"Uptown {location.split(',')[0]}",
             "photo": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400&h=300&fit=crop",
             "phone": "(555) 123-4568",
@@ -646,7 +651,7 @@ def getMockBarbersForLocation(location):
             "specialties": ["Modern Fade", "Beard Trim", "Styling"],
             "rating": 4.9,
             "user_ratings_total": 156,
-            "avgCost": 65,
+            "priceTier": "$$$",
             "address": f"Midtown {location.split(',')[0]}",
             "photo": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop",
             "phone": "(555) 123-4569",
@@ -906,10 +911,19 @@ def analyze():
         except Exception as e:
             raise ValueError(f"Invalid image data: {str(e)}")
         
-        # Create Gemini prompt
+        # Create Gemini prompt - constrain styleName to ALLOWED_HAIRCUTS for FLUX compatibility
         prompt = """You are an expert hairstylist and facial analysis AI. Analyze this person's face and hair in the photo and provide personalized haircut recommendations.
 
 IMPORTANT: Return ONLY a valid JSON response with NO additional text, NO markdown formatting, NO code blocks.
+
+CRITICAL RULE: The "styleName" field MUST be chosen from this EXACT list (copy the name exactly):
+Straight, Wavy, Curly, Bob, Pixie Cut, Layered, Undercut, Mohawk, Crew Cut, Faux Hawk,
+Slicked Back, Side-Parted, Center-Parted, Blunt Bangs, Side-Swept Bangs, Shag, Lob,
+Angled Bob, A-Line Bob, Asymmetrical Bob, Layered Shag, Choppy Layers, Soft Waves,
+Tousled, Feathered, Cornrows, Box Braids, Dreadlocks, Perm, Top Knot, French Braid,
+High Ponytail, Mohawk Fade, Space Buns, Messy Bun, Braided Ponytail
+
+DO NOT invent style names. DO NOT use names like "Modern Fade", "Textured Quiff", "Short Buzz", "Classic Taper" -- these are NOT in the allowed list. Pick the closest match from the list above.
 
 Return this EXACT JSON structure:
 {
@@ -922,14 +936,14 @@ Return this EXACT JSON structure:
     },
     "recommendations": [
         {
-            "styleName": "[Specific haircut name]",
-            "description": "[2-3 sentence description of the haircut style and how it's achieved]",
-            "reason": "[1-2 sentences explaining why this works for their specific face shape, hair texture, and features]"
+            "styleName": "[MUST be from the allowed list above]",
+            "description": "[2-3 sentence description of the haircut style and how it would look on this person]",
+            "reason": "[1-2 sentences explaining why this suits their face shape, hair texture, and features]"
         }
     ]
 }
 
-Provide exactly 6 haircut recommendations that would work best for this person's features."""
+Provide exactly 6 diverse haircut recommendations. Choose styles that genuinely suit this person's face shape and hair texture. Each recommendation should be a different style from the allowed list."""
 
         # Call Gemini API
         try:
@@ -1631,18 +1645,34 @@ def get_barbers():
         lat = geocode_data['results'][0]['geometry']['location']['lat']
         lng = geocode_data['results'][0]['geometry']['location']['lng']
         
-        # Search for barbershops using Places API with style-specific keywords
-        places_url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-        search_keywords = matcher.build_search_keywords(recommended_styles)
-        logger.info(f"Places API search keywords: {search_keywords}")
-        
-        places_params = {
-            'location': f"{lat},{lng}",
-            'radius': 10000,  # 10km radius
-            'type': 'hair_care',
-            'keyword': search_keywords,
-            'key': GOOGLE_PLACES_API_KEY
-        }
+        # Search for barbershops - use Text Search for style-specific queries
+        if recommended_styles:
+            # Text Search: better for finding specialists (e.g., "best fade barber near 30308")
+            places_url = f"https://maps.googleapis.com/maps/api/place/textsearch/json"
+            style_terms = ' '.join(recommended_styles[:2])  # Use first 2 styles
+            search_query = f"barber {style_terms} near {location}"
+            logger.info(f"Text Search query: {search_query}")
+            
+            places_params = {
+                'query': search_query,
+                'location': f"{lat},{lng}",
+                'radius': 8000,  # 8km radius
+                'type': 'hair_care',
+                'key': GOOGLE_PLACES_API_KEY
+            }
+        else:
+            # Nearby Search: good for general barber discovery
+            places_url = f"https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+            search_keywords = matcher.build_search_keywords(recommended_styles)
+            logger.info(f"Nearby Search keywords: {search_keywords}")
+            
+            places_params = {
+                'location': f"{lat},{lng}",
+                'radius': 10000,  # 10km radius
+                'type': 'hair_care',
+                'keyword': search_keywords,
+                'key': GOOGLE_PLACES_API_KEY
+            }
         
         places_start = time.time()
         places_response = requests.get(places_url, params=places_params)
@@ -1681,36 +1711,14 @@ def get_barbers():
                 logger.warning(f"Failed to fetch place details: {e}")
                 details = {}
             
-            # Determine specialties based on name and recommended styles
-            specialties = []
+            # Specialties will be set after AI review analysis (see rank_barbers)
+            # For now, set basic defaults based on what we know
+            specialties = ['Haircut', 'Styling']
             name_lower = place['name'].lower()
-            
-            # Match specialties based on barbershop name or type
-            if 'fade' in name_lower or 'fades' in name_lower:
-                specialties.append('Fade Specialist')
-            if 'classic' in name_lower or 'traditional' in name_lower:
-                specialties.append('Classic Cuts')
-            if 'modern' in name_lower or 'style' in name_lower:
-                specialties.append('Modern Styles')
             if 'beard' in name_lower:
                 specialties.append('Beard Trim')
-            
-            # Add specialties based on recommended styles
-            if recommended_styles:
-                for style in recommended_styles:
-                    if style and 'fade' in style.lower():
-                        specialties.append('Fade Expert')
-                    elif style and 'classic' in style.lower():
-                        specialties.append('Classic Styles')
-                    elif style and 'modern' in style.lower():
-                        specialties.append('Contemporary Cuts')
-            
-            # Default specialties if none detected
-            if not specialties:
+            if 'barber' in name_lower:
                 specialties = ['Haircut', 'Styling', 'Beard Trim']
-            
-            # Remove duplicates
-            specialties = list(set(specialties))[:3]
             
             # Get photo URL if available
             photo_url = None
@@ -1760,8 +1768,8 @@ def get_barbers():
                 'address': details.get('formatted_address', place.get('vicinity', 'Address not available')),
                 'rating': place.get('rating', 0),
                 'user_ratings_total': place.get('user_ratings_total', 0),
-                'price_level': place.get('price_level', 2),
-                'avgCost': 25 + (place.get('price_level', 2) * 15),  # Estimate cost
+                'price_level': place.get('price_level', None),
+                'priceTier': '$' * place.get('price_level', 2) if place.get('price_level') else None,
                 'phone': details.get('formatted_phone_number', 'Call for info'),
                 'website': details.get('website', ''),
                 'bookingUrl': booking_url,  # External booking URL
@@ -2017,7 +2025,7 @@ def test():
         "features_active": True
     })
 
-# Virtual Try-On endpoint using Replicate (FREE tier available!)
+# Virtual Try-On endpoint - uses centralized ReplicateService
 @app.route('/virtual-tryon', methods=['POST', 'OPTIONS'])
 @limiter.limit("20 per hour")  # Reasonable limit for GPU processing
 def virtual_tryon():
@@ -2033,7 +2041,7 @@ def virtual_tryon():
         
         # Get user photo (base64 encoded)
         user_photo_base64 = data.get('userPhoto', '')
-        # Text description of desired hairstyle
+        # Text description of desired hairstyle  
         style_description = data.get('styleDescription', '')
         
         if not user_photo_base64:
@@ -2042,430 +2050,33 @@ def virtual_tryon():
         if not style_description:
             return jsonify({"error": "Style description required"}), 400
         
-        logger.info(f"🎨 Starting hair transformation: {style_description}")
+        logger.info(f"Starting hair transformation: {style_description}")
         
-        # Try Replicate first, then fallback to preview mode
+        # Use centralized ReplicateService for transformation
+        from lineup_backend.services.replicate_service import ReplicateService
+        from lineup_backend.services.gemini_service import GeminiService
+        
         REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN")
+        replicate_service = ReplicateService(api_token=REPLICATE_API_TOKEN)
         
-        # Option 1: Replicate (Paid but better quality)
-        # Using flux-kontext-apps/change-haircut - FLUX.1 Kontext model for hair transformations
-        if REPLICATE_API_TOKEN and replicate:
-            logger.info("Using Replicate API for REAL hair style transformation")
-            
-            # Set the API token for replicate
-            os.environ["REPLICATE_API_TOKEN"] = REPLICATE_API_TOKEN
-            
-            try:
-                # Convert base64 to data URI for Replicate
-                img_data_raw = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
-                face_data_uri = f"data:image/jpeg;base64,{img_data_raw}"
-                
-                logger.info(f"Starting hair style transformation: {style_description}")
-                
-                # List of ALL allowed haircut values from the Replicate model
-                ALLOWED_HAIRCUTS = [
-                    "No change", "Random", "Straight", "Wavy", "Curly", "Bob", "Pixie Cut",
-                    "Layered", "Messy Bun", "High Ponytail", "Low Ponytail", "Braided Ponytail",
-                    "French Braid", "Dutch Braid", "Fishtail Braid", "Space Buns", "Top Knot",
-                    "Undercut", "Mohawk", "Crew Cut", "Faux Hawk", "Slicked Back", "Side-Parted",
-                    "Center-Parted", "Blunt Bangs", "Side-Swept Bangs", "Shag", "Lob",
-                    "Angled Bob", "A-Line Bob", "Asymmetrical Bob", "Graduated Bob", "Inverted Bob",
-                    "Layered Shag", "Choppy Layers", "Razor Cut", "Perm", "Ombré", "Straightened",
-                    "Soft Waves", "Glamorous Waves", "Hollywood Waves", "Finger Waves", "Tousled",
-                    "Feathered", "Pageboy", "Pigtails", "Pin Curls", "Rollerset", "Twist Out",
-                    "Bantu Knots", "Dreadlocks", "Cornrows", "Box Braids", "Crochet Braids",
-                    "Double Dutch Braids", "French Fishtail Braid", "Waterfall Braid", "Rope Braid",
-                    "Heart Braid", "Halo Braid", "Crown Braid", "Braided Crown", "Bubble Braid",
-                    "Bubble Ponytail", "Ballerina Braids", "Milkmaid Braids", "Bohemian Braids",
-                    "Flat Twist", "Crown Twist", "Twisted Bun", "Twisted Half-Updo", "Twist and Pin Updo",
-                    "Chignon", "Simple Chignon", "Messy Chignon", "French Twist", "French Twist Updo",
-                    "French Roll", "Updo", "Messy Updo", "Knotted Updo", "Ballerina Bun",
-                    "Banana Clip Updo", "Beehive", "Bouffant", "Hair Bow", "Half-Up Top Knot",
-                    "Half-Up, Half-Down", "Messy Bun with a Headband", "Messy Bun with a Scarf",
-                    "Messy Fishtail Braid", "Sideswept Pixie", "Mohawk Fade", "Zig-Zag Part", "Victory Rolls"
-                ]
-                
-                # Try to use Gemini to find the best match
-                haircut_name = None
-                if model:
-                    try:
-                        logger.info("Using Gemini to find best matching haircut...")
-                        
-                        # SIMPLIFIED prompt - just ask Gemini to match directly
-                        prompt = f"""Match this haircut description to the BEST option from this exact list:
-
-DESCRIPTION: "{style_description}"
-
-ALLOWED OPTIONS (choose ONE exact match):
-{', '.join(ALLOWED_HAIRCUTS)}
-
-Return ONLY the exact name from the list above. No explanations."""
-
-                        gemini_response = model.generate_content(prompt)
-                        gemini_match = gemini_response.text.strip().strip('"').strip("'").strip('`')
-                        
-                        # Clean up common Gemini response patterns
-                        gemini_match = gemini_match.split('\n')[0].strip()
-                        gemini_match = gemini_match.replace('**', '').replace('*', '').replace('`', '')
-                        
-                        # Verify it's in the allowed list
-                        if gemini_match in ALLOWED_HAIRCUTS:
-                            haircut_name = gemini_match
-                            logger.info(f"Gemini matched '{style_description}' to '{haircut_name}'")
-                        else:
-                            # Try fuzzy matching
-                            gemini_lower = gemini_match.lower()
-                            for allowed in ALLOWED_HAIRCUTS:
-                                allowed_lower = allowed.lower()
-                                if (gemini_lower == allowed_lower or 
-                                    gemini_lower in allowed_lower or 
-                                    allowed_lower in gemini_lower):
-                                    haircut_name = allowed
-                                    logger.info(f"Gemini fuzzy matched '{style_description}' to '{haircut_name}' (via '{gemini_match}')")
-                                    break
-                            
-                            if not haircut_name:
-                                logger.warning(f"Gemini returned '{gemini_match}' which is not in allowed list, using fallback")
-                    except Exception as gemini_error:
-                        logger.warning(f"Gemini matching failed: {str(gemini_error)}, using fallback mapping")
-                
-                # Fallback: Use keyword-based mapping if Gemini not available or failed
-                if not haircut_name:
-                    logger.info("Using keyword-based fallback mapping...")
-                    
-                    # COMPREHENSIVE mapping - LONGEST phrases FIRST to avoid false matches
-                    style_map = {
-                        # Multi-word combinations FIRST (most specific)
-                        "long layers with bangs": "Layered",
-                        "layered with bangs": "Layered",
-                        "layers with bangs": "Layered",
-                        "side part with volume": "Side-Parted",
-                        "side-swept bangs": "Side-Swept Bangs",
-                        "blunt bangs": "Blunt Bangs",
-                        "modern fade": "Mohawk Fade",
-                        "taper fade": "Mohawk Fade",
-                        "classic fade": "Mohawk Fade",
-                        "buzz cut": "Crew Cut",
-                        "crew cut": "Crew Cut",
-                        "slick back": "Slicked Back",
-                        "slicked back": "Slicked Back",
-                        "side part": "Side-Parted",
-                        "side-part": "Side-Parted",
-                        "center part": "Center-Parted",
-                        "center-part": "Center-Parted",
-                        "soft waves": "Soft Waves",
-                        "messy bun": "Messy Bun",
-                        "pixie cut": "Pixie Cut",
-                        "a-line bob": "A-Line Bob",
-                        "long hair": "Half-Up, Half-Down",
-                        "long layers": "Layered",
-                        "side swept": "Side-Swept Bangs",
-                        "fade with": "Mohawk Fade",
-                        
-                        # Single words (less specific, checked AFTER multi-word)
-                        "fade": "Mohawk Fade",
-                        "buzz": "Crew Cut",
-                        "crewcut": "Crew Cut",
-                        "short": "Crew Cut",
-                        "quiff": "Slicked Back",
-                        "pompadour": "Slicked Back",
-                        "slickback": "Slicked Back",
-                        "sidepart": "Side-Parted",
-                        "sideparted": "Side-Parted",
-                        "parted": "Side-Parted",
-                        "undercut": "Undercut",
-                        "mohawk": "Mohawk",
-                        "curly": "Curly",
-                        "textured": "Tousled",
-                        "messy": "Tousled",
-                        "tousled": "Tousled",
-                        "afro": "Curly",
-                        "wavy": "Wavy",
-                        "waves": "Wavy",
-                        "straight": "Straight",
-                        "straightened": "Straightened",
-                        "bob": "Bob",
-                        "lob": "Lob",
-                        "pixie": "Pixie Cut",
-                        "bowl": "Pixie Cut",
-                        "bun": "Top Knot",
-                        "top knot": "Top Knot",
-                        "layered": "Layered",
-                        "layers": "Layered",
-                        "bangs": "Blunt Bangs",
-                        "dreadlocks": "Dreadlocks",
-                        "dreads": "Dreadlocks",
-                        "centerpart": "Center-Parted",
-                        "long": "Half-Up, Half-Down",  # Generic "long" - check this LAST
-                    }
-                    
-                    # Get the best matching haircut name
-                    style_lower = style_description.lower().strip()
-                    
-                    # CRITICAL: Sort by key length DESCENDING to match longest/most specific phrases FIRST
-                    sorted_keys = sorted(style_map.keys(), key=len, reverse=True)
-                    
-                    # Check each key in order (longest first)
-                    for key in sorted_keys:
-                        if key in style_lower:
-                            haircut_name = style_map[key]
-                            logger.info(f"Fallback mapping matched '{style_description}' to '{haircut_name}' (matched key: '{key}')")
-                            break
-                    
-                    # Only use "Random" if NO match found at all
-                    if not haircut_name:
-                        haircut_name = "Random"
-                        logger.warning(f"No mapping found for '{style_description}', using 'Random'")
-                
-                logger.info(f"Using haircut style: {haircut_name} (from description: {style_description})")
-                
-                # Use flux-kontext-apps/change-haircut model
-                # This model uses FLUX.1 Kontext for text-guided hair editing
-                # Version: 48f03523665cabe9a2e832ea9cc2d7c30ad5079cb5f1c1f07890d40596fe1f87
-                # Use replicate.run() - it handles polling internally
-                # Note: If it takes >30 seconds, the Gunicorn worker will timeout
-                # In that case, it will fall back to preview mode automatically
-                logger.info("Calling Replicate API (this may take 10-30 seconds)...")
-                output = replicate.run(
-                    "flux-kontext-apps/change-haircut:48f03523665cabe9a2e832ea9cc2d7c30ad5079cb5f1c1f07890d40596fe1f87",
-                    input={
-                        "input_image": face_data_uri,
-                        "haircut": haircut_name,
-                        "aspect_ratio": "match_input_image",
-                        "output_format": "png",
-                        "safety_tolerance": 2
-                    }
-                )
-                
-                logger.info(f"Replicate API call completed")
-                logger.info(f"Output type: {type(output)}")
-                
-                # Handle different output types from Replicate prediction
-                result_url = None
-                
-                if output:
-                    # Try multiple ways to extract the URL
-                    if isinstance(output, str):
-                        result_url = output
-                        logger.info(f"Output is string URL: {result_url}")
-                    elif isinstance(output, list) and len(output) > 0:
-                        result_url = output[0]  # First element in list
-                        logger.info(f"Output is list, first item: {result_url}")
-                    elif hasattr(output, '__iter__') and not isinstance(output, str):
-                        try:
-                            output_list = list(output)
-                            if output_list and len(output_list) > 0:
-                                result_url = output_list[0]
-                                logger.info(f"Output is iterator, first item: {result_url}")
-                        except Exception as iter_error:
-                            logger.error(f"Error iterating output: {str(iter_error)}")
-                    else:
-                        result_url = str(output)
-                        logger.info(f"Output converted to string: {result_url}")
-                
-                if not result_url:
-                    logger.error(f"No result URL found in output. Output type: {type(output)}, Output: {output}")
-                    raise Exception("Model produced no output URL")
-                
-                # Download and verify the result
-                logger.info(f"Downloading result from: {result_url}")
-                import requests as req
-                
-                try:
-                    result_response = req.get(result_url, timeout=60)  # Longer timeout for large images
-                    logger.info(f"Download response status: {result_response.status_code}")
-                    
-                    if result_response.status_code == 200:
-                        # Verify it's an image
-                        content_type = result_response.headers.get('content-type', '')
-                        logger.info(f"Content type: {content_type}")
-                        
-                        if 'image' not in content_type.lower() and len(result_response.content) < 1000:
-                            logger.error(f"Downloaded content doesn't appear to be an image: {result_response.content[:200]}")
-                            raise Exception("Invalid image data from model")
-                        
-                        result_base64 = base64.b64encode(result_response.content).decode('utf-8')
-                        logger.info(f"Image converted to base64: {len(result_base64)} chars")
-                        
-                        # Also include original image for before/after comparison
-                        original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
-                        
-                        response_data = {
-                            "success": True,
-                            "message": f"✨ Real AI hair transformation complete: {style_description}",
-                            "originalImage": original_base64,
-                            "resultImage": result_base64,
-                            "styleApplied": style_description,
-                            "poweredBy": "Replicate FLUX.1 Kontext (Change-Haircut AI)",
-                            "note": "This is a real AI transformation!"
-                        }
-                        
-                        response = make_response(jsonify(response_data), 200)
-                        response.headers['Access-Control-Allow-Origin'] = '*'
-                        logger.info("✅ AI hair transformation successful!")
-                        return response
-                    else:
-                        logger.error(f"Failed to download result: HTTP {result_response.status_code}")
-                        logger.error(f"Response: {result_response.text[:500]}")
-                        raise Exception(f"Failed to download result: {result_response.status_code}")
-            
-                except req.exceptions.Timeout:
-                    logger.error("Download timeout after 60 seconds")
-                    raise Exception("Result download timed out")
-                except Exception as download_error:
-                    logger.error(f"Download error: {str(download_error)}")
-                    raise
-                    
-            except Exception as e:
-                logger.error(f"Replicate hair style transfer error: {str(e)}")
-                import traceback
-                logger.error(traceback.format_exc())
-                # Continue to fallback preview mode
+        # Create GeminiService wrapper if Gemini model is available
+        gemini_service = None
+        if model:
+            gemini_service = GeminiService(model=model)
         
-        # PREVIEW MODE: Return user photo with text overlay
-        logger.info("Using preview mode - user photo with text overlay - GUARANTEED TO WORK")
+        result = replicate_service.transform_hair(
+            user_photo_base64=user_photo_base64,
+            style_description=style_description,
+            gemini_service=gemini_service
+        )
         
-        try:
-            # Decode image - handle both formats
-            try:
-                # Remove data URI prefix if present
-                if ',' in user_photo_base64:
-                    img_data = base64.b64decode(user_photo_base64.split(',')[1])
-                else:
-                    img_data = base64.b64decode(user_photo_base64)
-                
-                logger.info(f"Decoded {len(img_data)} bytes of image data")
-            except Exception as decode_error:
-                logger.error(f"Base64 decode error: {str(decode_error)}")
-                raise Exception(f"Invalid image data: {str(decode_error)}")
-            
-            # Open image
-            try:
-                img = Image.open(BytesIO(img_data))
-                logger.info(f"Image opened: {img.size}, mode: {img.mode}")
-                
-                # Convert to RGB if needed
-                if img.mode not in ('RGB', 'RGBA'):
-                    img = img.convert('RGB')
-                    logger.info(f"Converted image to RGB")
-                    
-            except Exception as img_error:
-                logger.error(f"Image open error: {str(img_error)}")
-                raise Exception(f"Cannot process image: {str(img_error)}")
-            
-            # Add overlay with text
-            try:
-                # Convert to RGBA for overlay
-                if img.mode == 'RGB':
-                    img = img.convert('RGBA')
-                
-                # Create overlay
-                overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
-                overlay_draw = ImageDraw.Draw(overlay)
-                
-                # Draw semi-transparent rectangle at bottom
-                height = img.size[1]
-                width = img.size[0]
-                overlay_draw.rectangle([(0, height-70), (width, height)], fill=(0, 0, 0, 200))
-                
-                # Composite overlay onto image
-                img = Image.alpha_composite(img, overlay)
-                
-                # Convert back to RGB for JPEG
-                img = img.convert('RGB')
-                
-                logger.info("Overlay added successfully")
-                
-            except Exception as overlay_error:
-                logger.error(f"Overlay error: {str(overlay_error)}")
-                # Continue without overlay
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-            
-            # Add text
-            try:
-                draw = ImageDraw.Draw(img)
-                text = f"Preview: {style_description}"
-                
-                # Try multiple font paths
-                font = None
-                font_paths = [
-                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-                    "/System/Library/Fonts/Helvetica.ttc",
-                    "arial.ttf"
-                ]
-                
-                for font_path in font_paths:
-                    try:
-                        font = ImageFont.truetype(font_path, 28)
-                        logger.info(f"Loaded font: {font_path}")
-                        break
-                    except Exception:
-                        continue
-                
-                if not font:
-                    # Use default font as last resort
-                    font = ImageFont.load_default()
-                    logger.info("Using default font")
-                
-                # Calculate text position (centered)
-                try:
-                    bbox = draw.textbbox((0, 0), text, font=font)
-                    text_width = bbox[2] - bbox[0]
-                except AttributeError:
-                    # Fallback if textbbox not available (older PIL versions)
-                    text_width = len(text) * 15
-                
-                text_x = max(10, (img.size[0] - text_width) // 2)
-                text_y = max(10, height - 50)
-                
-                # Add text with shadow for better visibility
-                draw.text((text_x+2, text_y+2), text, fill=(0, 0, 0), font=font)  # Shadow
-                draw.text((text_x, text_y), text, fill=(255, 255, 255), font=font)  # Text
-                
-                logger.info(f"Text added at position ({text_x}, {text_y})")
-                
-            except Exception as text_error:
-                logger.error(f"Text error: {str(text_error)}")
-                # Continue without text - image is still valid
-            
-            # Convert to base64
-            try:
-                buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=90, optimize=True)
-                result_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-                
-                logger.info(f"Image converted to base64: {len(result_base64)} chars")
-                
-            except Exception as save_error:
-                logger.error(f"Save error: {str(save_error)}")
-                raise Exception(f"Cannot save image: {str(save_error)}")
-            
-            # Also include original image for before/after comparison
-            original_base64 = user_photo_base64.split(',')[1] if ',' in user_photo_base64 else user_photo_base64
-            
-            # Return success response
-            response_data = {
-                "success": True,
-                "message": f"✨ Style preview created: {style_description}",
-                "originalImage": original_base64,
-                "resultImage": result_base64,
-                "styleApplied": style_description,
-                "poweredBy": "LineUp Preview Mode",
-                "note": "This is a preview mode. Works immediately with no setup!"
-            }
-            
-            response = make_response(jsonify(response_data), 200)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            logger.info("✅ Preview mode response sent successfully")
-            return response
-            
-        except Exception as e:
-            logger.error(f"CRITICAL: Fallback processing failed: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            raise Exception(f"Image processing failed: {str(e)}")
+        if result.get("success"):
+            response = make_response(jsonify(result), 200)
+        else:
+            response = make_response(jsonify(result), 400)
+        
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
     
     except Exception as e:
         logger.error(f"Error in virtual try-on endpoint: {str(e)}")

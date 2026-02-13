@@ -268,7 +268,7 @@ Rules:
                         logger.error(f"Analysis failed for {barber.get('name')}: {e}")
                         barber['style_analysis'] = {}
         
-        # Calculate relevance for each barber
+        # Calculate relevance for each barber and enrich with match evidence
         for barber in barbers:
             style_analysis = barber.get('style_analysis', {})
             
@@ -279,6 +279,20 @@ Rules:
             )
             
             barber['style_relevance_score'] = relevance
+            
+            # Extract match evidence for display
+            matches = style_analysis.get('matches', [])
+            if matches:
+                # Update specialties with AI-detected specializations
+                ai_specialties = [m.get('style', '') for m in matches if m.get('confidence', 0) > 0.3]
+                if ai_specialties:
+                    barber['specialties'] = ai_specialties[:3]
+                
+                # Add match evidence (review excerpts mentioning the style)
+                evidence_list = [m.get('evidence', '') for m in matches if m.get('evidence')]
+                barber['match_evidence'] = evidence_list[:2]  # Top 2 evidence snippets
+            else:
+                barber['match_evidence'] = []
             
             # Calculate composite score (70% relevance, 30% rating)
             rating_score = barber.get('rating', 0) * min(barber.get('user_ratings_total', 0), 100) / 100

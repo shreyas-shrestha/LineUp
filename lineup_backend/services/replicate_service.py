@@ -35,32 +35,51 @@ class ReplicateService(BaseService):
 
     STYLE_MAPPINGS = {
         # Multi-word combinations FIRST (most specific)
+        "short bob": "Bob",
+        "long bob": "Lob",
+        "angled bob": "Angled Bob",
+        "asymmetrical bob": "Asymmetrical Bob",
+        "a-line bob": "A-Line Bob",
         "long layers with bangs": "Layered",
         "layered with bangs": "Layered",
         "layers with bangs": "Layered",
+        "choppy layers": "Choppy Layers",
+        "layered shag": "Layered Shag",
         "side-swept bangs": "Side-Swept Bangs",
+        "side swept bangs": "Side-Swept Bangs",
         "blunt bangs": "Blunt Bangs",
-        "modern fade": "Mohawk Fade",
-        "taper fade": "Mohawk Fade",
-        "classic fade": "Mohawk Fade",
+        "textured crop": "Crew Cut",
         "buzz cut": "Crew Cut",
         "crew cut": "Crew Cut",
+        "faux hawk": "Faux Hawk",
+        "mohawk fade": "Mohawk Fade",
+        "taper fade": "Faux Hawk",
+        "classic fade": "Crew Cut",
+        "modern fade": "Faux Hawk",
+        "skin fade": "Crew Cut",
         "slick back": "Slicked Back",
         "slicked back": "Slicked Back",
         "side part": "Side-Parted",
+        "side-part": "Side-Parted",
         "center part": "Center-Parted",
+        "center-part": "Center-Parted",
         "soft waves": "Soft Waves",
         "messy bun": "Messy Bun",
         "pixie cut": "Pixie Cut",
-        "a-line bob": "A-Line Bob",
-        "long hair": "Half-Up, Half-Down",
+        "top knot": "Top Knot",
+        "french braid": "French Braid",
+        "box braids": "Box Braids",
+        "high ponytail": "High Ponytail",
+        "braided ponytail": "Braided Ponytail",
+        "space buns": "Space Buns",
         "long layers": "Layered",
+        "long hair": "Layered",
         
-        # Single words (less specific)
-        "fade": "Mohawk Fade",
+        # Single words (less specific, checked AFTER multi-word)
+        "fade": "Crew Cut",
         "buzz": "Crew Cut",
         "short": "Crew Cut",
-        "quiff": "Slicked Back",
+        "quiff": "Faux Hawk",
         "pompadour": "Slicked Back",
         "parted": "Side-Parted",
         "undercut": "Undercut",
@@ -76,6 +95,7 @@ class ReplicateService(BaseService):
         "straightened": "Straightened",
         "bob": "Bob",
         "lob": "Lob",
+        "shag": "Shag",
         "pixie": "Pixie Cut",
         "bun": "Top Knot",
         "layered": "Layered",
@@ -83,7 +103,11 @@ class ReplicateService(BaseService):
         "bangs": "Blunt Bangs",
         "dreadlocks": "Dreadlocks",
         "dreads": "Dreadlocks",
-        "long": "Half-Up, Half-Down",  # Generic - check last
+        "cornrows": "Cornrows",
+        "braids": "Box Braids",
+        "perm": "Perm",
+        "feathered": "Feathered",
+        "long": "Layered",
     }
 
     def __init__(self, api_token: Optional[str] = None):
@@ -214,8 +238,29 @@ class ReplicateService(BaseService):
         style_description: str,
         gemini_service: Optional[Any],
     ) -> str:
-        """Match style description to allowed haircut name."""
-        # Try Gemini matching first
+        """Match style description to allowed haircut name.
+        
+        Priority order:
+        1. Exact match against ALLOWED_HAIRCUTS (styleName from Gemini is already valid)
+        2. Gemini AI matching
+        3. Keyword fallback map
+        4. Default to "Random"
+        """
+        style_stripped = style_description.strip()
+        
+        # Step 1: Check if styleName is already a valid ALLOWED_HAIRCUTS value (direct pass-through)
+        if style_stripped in self.ALLOWED_HAIRCUTS:
+            logger.info(f"Direct match: '{style_stripped}' is in ALLOWED_HAIRCUTS")
+            return style_stripped
+        
+        # Case-insensitive exact match
+        style_lower = style_stripped.lower()
+        for allowed in self.ALLOWED_HAIRCUTS:
+            if style_lower == allowed.lower():
+                logger.info(f"Case-insensitive match: '{style_description}' -> '{allowed}'")
+                return allowed
+        
+        # Step 2: Try Gemini matching 
         if gemini_service and gemini_service.can_make_call():
             try:
                 matched = gemini_service.match_haircut_style(
@@ -227,10 +272,7 @@ class ReplicateService(BaseService):
             except Exception as e:
                 logger.warning(f"Gemini matching failed: {e}")
 
-        # Fallback to keyword matching
-        style_lower = style_description.lower().strip()
-        
-        # Check longer phrases first (most specific matches first)
+        # Step 3: Keyword fallback - check longer phrases first
         sorted_keys = sorted(self.STYLE_MAPPINGS.keys(), key=len, reverse=True)
         for key in sorted_keys:
             if key in style_lower:

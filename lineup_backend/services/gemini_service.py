@@ -16,13 +16,15 @@ logger = logging.getLogger(__name__)
 class GeminiService:
     """Service for interacting with Google's Gemini AI API."""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model=None):
         self.api_key = api_key
-        self.model = None
+        self.model = model  # Accept pre-configured model
         self._usage_count = 0
         self._daily_limit = 50
         
-        if api_key:
+        if model:
+            logger.info("GeminiService initialized with existing model")
+        elif api_key:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=api_key)

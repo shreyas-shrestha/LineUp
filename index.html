@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LineUp - AI Haircut Analysis & Barber Platform</title>
+  <title>LineUp - AI Haircut Recommendations</title>
   <link rel="icon" type="image/png" href="images/logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,13 +19,53 @@
     .modal { backdrop-filter: blur(12px); }
     .card-hover { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
     .card-hover:hover { transform: translateY(-2px); }
-    .btn-primary { background: #fff; color: #000; transition: all 0.2s; font-weight: 500; }
+    .btn-primary { background: #fff; color: #000; transition: all 0.15s; font-weight: 500; }
     .btn-primary:hover { background: #f0f0f0; }
-    .btn-secondary { background: #1f1f1f; color: #fff; border: 1px solid #333; transition: all 0.2s; }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-secondary { background: #1f1f1f; color: #fff; border: 1px solid #333; transition: all 0.15s; }
     .btn-secondary:hover { background: #2a2a2a; }
+    .btn-secondary:active { transform: scale(0.97); }
+
+    /* Toast notifications */
+    .toast-container { position: fixed; top: 80px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { pointer-events: auto; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 500; max-width: 360px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); backdrop-filter: blur(12px); transform: translateX(120%); opacity: 0; transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+    .toast.show { transform: translateX(0); opacity: 1; }
+    .toast.hide { transform: translateX(120%); opacity: 0; }
+    .toast-success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: #86efac; }
+    .toast-error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+    .toast-info { background: rgba(56,189,248,0.15); border: 1px solid rgba(56,189,248,0.3); color: #7dd3fc; }
+
+    /* Tab content transitions */
+    .tab-content { transition: opacity 0.2s ease, transform 0.2s ease; }
+    .tab-content.hidden { opacity: 0; transform: translateY(8px); display: none; }
+
+    /* Modal animations */
+    .modal .modal-panel { transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); transform: scale(0.95); opacity: 0; }
+    .modal:not(.hidden) .modal-panel { transform: scale(1); opacity: 1; }
+
+    /* Skeleton loading */
+    .skeleton { background: linear-gradient(90deg, #1f1f1f 25%, #2a2a2a 50%, #1f1f1f 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Staggered fade in */
+    .fade-in-up { opacity: 0; transform: translateY(12px); animation: fadeInUp 0.4s ease forwards; }
+    @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+
+    /* Drag and drop */
+    .drag-over { border-color: #38bdf8 !important; background: rgba(56,189,248,0.05) !important; }
+
+    /* Safe area for notched phones */
+    .bottom-nav-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+    /* Processing overlay for try-on */
+    .tryon-processing { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); border-radius: 8px; z-index: 10; }
+    .tryon-processing .progress-ring { width: 48px; height: 48px; border: 3px solid #333; border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite; }
   </style>
 </head>
 <body class="bg-black text-white min-h-screen">
+  <!-- Toast notification container -->
+  <div id="toast-container" class="toast-container"></div>
+
   <div id="app" class="container mx-auto max-w-4xl pb-24">
     <!-- Sticky Header -->
     <header class="sticky top-0 z-50 bg-black p-4 md:p-6 border-b border-gray-800 backdrop-blur-sm bg-opacity-95">
@@ -38,11 +78,8 @@
           <h1 class="text-2xl font-bold text-white">LineUp</h1>
         </div>
         
-        <!-- Role Switcher -->
-        <div class="bg-gray-900 rounded-full p-0.5 flex">
-          <button id="client-mode" class="role-button px-5 py-1.5 rounded-full transition-all text-sm font-medium bg-white text-black shadow-sm">Client</button>
-          <button id="barber-mode" class="role-button px-5 py-1.5 rounded-full transition-all text-sm font-medium text-gray-400 hover:text-white">Barber</button>
-        </div>
+        <!-- Tagline -->
+        <span class="text-sm text-gray-400 hidden md:inline">AI Haircut Recommendations</span>
       </div>
     </header>
 
@@ -58,13 +95,14 @@
             </div>
             
             <div id="image-upload-area" class="border-2 border-dashed border-gray-700 rounded-xl p-12 cursor-pointer hover:border-gray-500 hover:bg-gray-900 transition-all text-center">
-              <input type="file" id="file-input" class="hidden" accept="image/*">
+              <input type="file" id="file-input" class="hidden" accept="image/jpeg,image/png,image/webp" capture="user">
               <div class="flex flex-col items-center">
                 <svg class="w-12 h-12 text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                 </svg>
-                <p class="font-medium text-white mb-1">Upload your photo</p>
-                <p class="text-sm text-gray-500">Best results with clear, front-facing photos</p>
+                <p class="font-medium text-white mb-1">Upload or take a photo</p>
+                <p class="text-sm text-gray-500">Drag & drop, click to browse, or use your camera</p>
+                <p class="text-xs text-gray-600 mt-1">JPEG, PNG, or WebP up to 5MB</p>
               </div>
             </div>
             
@@ -91,18 +129,22 @@
             </div>
             
             <!-- Recommendations -->
-            <div class="mb-6">
-              <h2 class="text-2xl font-bold mb-2 text-white">Recommended for you</h2>
-              <p class="text-gray-400 text-sm">AI-powered haircut suggestions based on your face shape and features</p>
+            <div class="flex items-center justify-between mb-6">
+              <div>
+                <h2 class="text-2xl font-bold mb-1 text-white">Recommended for you</h2>
+                <p class="text-gray-400 text-sm">AI-powered haircut suggestions based on your face shape and features</p>
+              </div>
+              <button id="start-over-button" class="text-gray-400 hover:text-white text-sm font-medium px-4 py-2 rounded-lg border border-gray-700 hover:border-gray-500 transition-all whitespace-nowrap">Start Over</button>
+            </div>
+            <!-- Mock data banner (hidden by default) -->
+            <div id="mock-data-banner" class="hidden mb-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3 text-center">
+              <p class="text-yellow-400 text-sm">Could not reach AI -- showing sample results for demo purposes</p>
             </div>
             <div id="recommendations-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
             <div class="text-center mt-8 border-t border-gray-700 pt-8">
               <p class="text-lg mb-4">Ready for the perfect cut?</p>
               <button id="find-barber-button" class="bg-green-500 text-white font-bold py-3 px-8 rounded-full hover:bg-green-600 transition-all">Find Real Barbershops Near You</button>
-            </div>
-            <div class="text-center mt-12">
-              <button id="start-over-button" class="bg-gray-700 text-white font-semibold py-3 px-8 rounded-full hover:bg-gray-600">Start Over</button>
             </div>
           </section>
         </div>
@@ -124,9 +166,13 @@
         <div id="appointments-tab-content" class="tab-content hidden px-4 py-8">
           <h2 class="text-3xl font-bold text-center mb-6">My Bookings</h2>
           <div id="client-appointments-container" class="space-y-4"></div>
-          <div id="no-appointments" class="text-center py-12 text-gray-400">
-            <p>No appointments scheduled.</p>
-            <p class="text-sm mt-2">Book with a barber to get started!</p>
+          <div id="no-appointments" class="text-center py-16 text-gray-400">
+            <svg class="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <p class="text-lg font-medium text-gray-300 mb-2">No appointments yet</p>
+            <p class="text-sm mb-6">Get AI recommendations first, then book with a barber near you.</p>
+            <button onclick="switchTab('ai')" class="btn-primary px-6 py-2.5 rounded-lg text-sm font-medium">Get Recommendations</button>
           </div>
         </div>
 
@@ -140,10 +186,12 @@
           <!-- Personal Info -->
           <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
             <div class="flex items-center gap-4">
-              <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face" alt="You" class="w-16 h-16 rounded-full object-cover">
+              <div class="w-16 h-16 rounded-full bg-gradient-to-br from-sky-500 to-purple-500 flex items-center justify-center text-2xl font-bold">
+                U
+              </div>
               <div>
-                <p class="text-xl font-semibold">Current User</p>
-                <p class="text-gray-400 text-sm">Member since 2024</p>
+                <p class="text-xl font-semibold">Guest User</p>
+                <p class="text-gray-400 text-sm">Sign in to save your history and preferences</p>
               </div>
             </div>
           </div>
@@ -198,291 +246,6 @@
         </div>
       </div>
 
-      <!-- BARBER SIDE -->
-      <div id="barber-content" class="hidden">
-        <!-- Dashboard Tab (Home) -->
-        <div id="barber-dashboard-tab-content" class="tab-content px-4 py-8">
-          <div class="mb-6">
-            <h2 class="text-3xl font-bold text-white mb-2">Dashboard</h2>
-            <p class="text-gray-400 text-sm">Manage your shop and track performance</p>
-          </div>
-          
-          <!-- Key Metrics Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <!-- Revenue Card -->
-            <div class="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Revenue</h3>
-                <div class="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="total-revenue">$0</p>
-              <p class="text-xs text-green-400" id="revenue-change">+0% vs last month</p>
-            </div>
-            
-            <!-- Appointments Card -->
-            <div class="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Appointments</h3>
-                <div class="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="total-appointments">0</p>
-              <p class="text-xs text-blue-400" id="appointments-change">This month</p>
-            </div>
-            
-            <!-- Clients Card -->
-            <div class="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Clients</h3>
-                <div class="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="total-clients">0</p>
-              <p class="text-xs text-purple-400" id="new-clients">+0 new this month</p>
-            </div>
-            
-            <!-- Utilization Card -->
-            <div class="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Utilization</h3>
-                <div class="w-10 h-10 bg-orange-500/20 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="utilization-rate">0%</p>
-              <p class="text-xs text-orange-400">Booking rate</p>
-            </div>
-          </div>
-          
-          <!-- Additional Stats (Today, This Week, Portfolio) -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Today</h3>
-                <div class="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="today-appointments">0</p>
-              <p class="text-sm text-gray-400">Appointments</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">This Week</h3>
-                <div class="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="week-appointments">0</p>
-              <p class="text-sm text-gray-400">Appointments</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Portfolio</h3>
-                <div class="w-10 h-10 bg-purple-500/10 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="portfolio-count">0</p>
-              <p class="text-sm text-gray-400">Photos</p>
-            </div>
-          </div>
-
-          <!-- Analytics Section -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <!-- Popular Services -->
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h3 class="text-xl font-bold text-white mb-4">Popular Services</h3>
-              <div id="services-analytics" class="space-y-3">
-                <p class="text-gray-400 text-sm text-center py-4">Loading service analytics...</p>
-              </div>
-            </div>
-            
-            <!-- Peak Times -->
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h3 class="text-xl font-bold text-white mb-4">Peak Booking Times</h3>
-              <div id="peak-times" class="space-y-2">
-                <p class="text-gray-400 text-sm text-center py-4">Loading peak times...</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
-            <h3 class="text-xl font-bold text-white mb-4">Quick Actions</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button id="add-portfolio-btn" class="btn-primary py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
-                Add Portfolio Photo
-              </button>
-              <button id="view-schedule-btn" class="btn-secondary py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-                View Schedule
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Portfolio Tab -->
-        <div id="barber-portfolio-tab-content" class="tab-content hidden px-4 py-8">
-          <div class="flex justify-between items-center mb-6">
-            <div>
-              <h2 class="text-3xl font-bold text-white mb-2">My Portfolio</h2>
-              <p class="text-gray-400 text-sm">Showcase your best work</p>
-            </div>
-            <button id="upload-work-button" class="btn-primary px-6 py-3 rounded-lg font-medium flex items-center gap-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-              </svg>
-              Upload Work
-            </button>
-          </div>
-          <div id="barber-portfolio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-        </div>
-
-        <!-- Schedule Tab (Clients / Bookings) -->
-        <div id="barber-schedule-tab-content" class="tab-content hidden px-4 py-8">
-          <!-- Simple Header -->
-          <div class="mb-6">
-            <h2 class="text-2xl font-bold text-white mb-1">Bookings</h2>
-            <p class="text-gray-400 text-sm">Manage your appointments</p>
-          </div>
-          
-          <!-- Simple Filters -->
-          <div class="flex gap-3 mb-6">
-            <select id="status-filter" class="bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-white text-sm focus:border-gray-700 focus:outline-none">
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="completed">Completed</option>
-            </select>
-            <button id="clear-filters" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white text-sm transition-colors">Clear</button>
-          </div>
-          
-          <!-- Appointments List -->
-          <div id="barber-appointments-container" class="space-y-3"></div>
-        </div>
-
-        <!-- Barber Profile / Shop Settings -->
-        <div id="barber-profile-tab-content" class="tab-content hidden px-4 py-8">
-          <div class="mb-6">
-            <h2 class="text-3xl font-bold text-white mb-2">Shop Settings</h2>
-            <p class="text-gray-400 text-sm">Manage your business profile and preferences</p>
-          </div>
-          
-          <!-- Business Info -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
-            <h3 class="text-xl font-bold text-white mb-4">Business Information</h3>
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-400 mb-2">Shop Name</label>
-                <input placeholder="Your Barber Shop" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-400 focus:outline-none" value="Your Barber Shop">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-400 mb-2">Phone Number</label>
-                <input placeholder="(555) 123-4567" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-400 focus:outline-none" value="(555) 123-4567">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-400 mb-2">Address</label>
-                <input placeholder="123 Main St, Atlanta, GA" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-400 focus:outline-none" value="123 Main St, Atlanta, GA">
-              </div>
-            </div>
-          </div>
-          
-          <!-- Payments -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <h3 class="text-xl font-bold text-white mb-1">Payment Processing</h3>
-                <p class="text-gray-400 text-sm">Connect Stripe to accept online payments</p>
-              </div>
-              <button class="btn-primary px-6 py-3 rounded-lg font-medium">Connect Stripe</button>
-            </div>
-          </div>
-          
-          <!-- Working Hours & Availability -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="text-xl font-bold text-white mb-1">Working Hours & Availability</h3>
-                <p class="text-gray-400 text-sm">Set your schedule and manage availability</p>
-              </div>
-              <button id="manage-availability-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">Manage Hours</button>
-            </div>
-            <div id="availability-preview" class="text-gray-400 text-sm">
-              <!-- Availability preview will be loaded here -->
-            </div>
-          </div>
-          
-          <!-- Services & Pricing -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="text-xl font-bold text-white mb-1">Services & Pricing</h3>
-                <p class="text-gray-400 text-sm">Manage your service offerings and prices</p>
-              </div>
-              <button id="manage-services-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">Manage Services</button>
-            </div>
-            <div id="services-preview" class="text-gray-400 text-sm">
-              <!-- Services preview will be loaded here -->
-            </div>
-          </div>
-          
-          <!-- Client Management -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="text-xl font-bold text-white mb-1">Client Management</h3>
-                <p class="text-gray-400 text-sm">View and manage your clients</p>
-              </div>
-              <button id="view-clients-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">View Clients</button>
-            </div>
-            <div id="clients-preview" class="text-gray-400 text-sm">
-              <!-- Clients preview will be loaded here -->
-            </div>
-          </div>
-          
-          <!-- Subscription Packages -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="text-xl font-bold text-white mb-1">Subscription Packages</h3>
-                <p class="text-gray-400 text-sm">Offer monthly deals to boost customer retention</p>
-              </div>
-              <button id="create-package-btn" class="btn-primary px-6 py-3 rounded-lg font-medium flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
-                Create Package
-              </button>
-            </div>
-            <div id="subscription-packages-list" class="space-y-3 mt-4">
-              <!-- Packages will be loaded here -->
-            </div>
-          </div>
-        </div>
-      </div>
     </main>
 
     <!-- Shared Community Tab Content -->
@@ -495,7 +258,7 @@
     </div>
 
     <!-- Dynamic Bottom Tab Nav (Rendered by JS) -->
-    <nav id="bottom-nav" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-gray-900 border border-gray-800 rounded-full shadow-lg">
+    <nav id="bottom-nav" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-gray-900 border border-gray-800 rounded-full shadow-lg bottom-nav-safe">
       <!-- Buttons will be injected by scripts-updated.js -->
     </nav>
   </div>
@@ -504,7 +267,7 @@
   
   <!-- Add Post Modal -->
   <div id="add-post-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+    <div class="modal-panel bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
       <h3 class="text-2xl font-bold mb-4">Share Your Look</h3>
       <input type="file" id="post-image-input" accept="image/*" class="hidden">
       <div id="post-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
@@ -519,27 +282,9 @@
     </div>
   </div>
 
-  <!-- Upload Work Modal -->
-  <div id="upload-work-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
-      <h3 class="text-2xl font-bold mb-4">Upload Client Work</h3>
-      <input type="file" id="work-image-input" accept="image/*" class="hidden">
-      <div id="work-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
-        <p class="text-gray-400">Click to add photo</p>
-      </div>
-      <img id="work-image-preview" class="hidden w-full h-48 object-cover rounded-lg mb-4">
-      <input type="text" id="work-style-name" placeholder="Style name (e.g., Modern Fade)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 mb-3 focus:border-sky-400 focus:outline-none">
-      <textarea id="work-description" placeholder="Describe the cut and technique..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-24 focus:border-sky-400 focus:outline-none"></textarea>
-      <div class="flex gap-3 mt-4">
-        <button id="cancel-work" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
-        <button id="submit-work" class="flex-1 btn-primary py-3 rounded-lg font-medium">Upload</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Book Appointment Modal -->
   <div id="book-appointment-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
+    <div class="modal-panel bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
       <h3 class="text-2xl font-bold mb-4">Book Appointment</h3>
       <div id="booking-barber-info" class="mb-4"></div>
       <div class="grid grid-cols-2 gap-4 mb-4">
@@ -568,106 +313,16 @@
     </div>
   </div>
 
-  <!-- Create Subscription Package Modal -->
-  <div id="create-package-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
-      <h3 class="text-2xl font-bold mb-4">Create Subscription Package</h3>
-      <input type="text" id="package-title" placeholder="Package Title (e.g., Monthly Haircuts)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 mb-3 focus:border-sky-400 focus:outline-none">
-      <textarea id="package-description" placeholder="Description (e.g., 2 haircuts per month at discounted rate)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 mb-3 focus:border-sky-400 focus:outline-none"></textarea>
-      <div class="grid grid-cols-2 gap-4 mb-3">
-        <input type="number" id="package-num-cuts" placeholder="Number of cuts" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-        <input type="number" id="package-duration" placeholder="Duration (months)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-      </div>
-      <div class="grid grid-cols-2 gap-4 mb-3">
-        <input type="text" id="package-price" placeholder="Price (e.g., $80)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-        <input type="text" id="package-discount" placeholder="Discount (e.g., 25% off)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-      </div>
-      <div class="flex gap-3 mt-4">
-        <button id="cancel-package" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
-        <button id="submit-package" class="flex-1 btn-primary py-3 rounded-lg font-medium">Create Package</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Virtual Try-On Modal -->
-  <div id="virtual-tryon-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-2xl font-bold">Virtual Try-On</h3>
-        <button id="close-tryon-modal" class="text-gray-400 hover:text-white">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      
-      <!-- Virtual Try-On Interface -->
-      <div class="virtual-tryon-container mx-auto mb-6" style="width: 640px; height: 480px; position: relative; border-radius: 1rem; overflow: hidden; background: #1a1a1a;">
-        <video id="virtual-tryon-video" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;" autoplay muted playsinline></video>
-        <img id="virtual-tryon-photo" alt="Try-on photo" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none;" />
-        <div id="virtual-tryon-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: auto;"></div>
-        
-        <!-- Loading overlay -->
-        <div id="tryon-loading" class="absolute inset-0 bg-black/80 flex items-center justify-center hidden">
-          <div class="text-center">
-            <div class="loader mx-auto mb-4"></div>
-            <p class="text-white">Initializing Virtual Try-On...</p>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Controls -->
-      <div class="flex justify-center gap-4 mb-6">
-        <button id="start-tryon" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
-          Start Try-On
-        </button>
-        <button id="stop-tryon" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition-colors hidden">
-          Stop Try-On
-        </button>
-        <button id="take-screenshot" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors hidden">
-          📸 Take Screenshot & Share
-        </button>
-      </div>
-      
-      <!-- Style info -->
-      <div id="current-tryon-style" class="text-center text-gray-400 mb-4"></div>
-    </div>
-  </div>
-
-  <!-- MediaPipe Face Detection for Virtual Try-On -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4/face_detection.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js" crossorigin="anonymous"></script>
-  
   <!-- Firebase Integration -->
   <script type="module" src="firebase-simple.js"></script>
   
-  <!-- Availability Management Modal -->
-  <div id="availability-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-2xl font-bold">Working Hours & Availability</h3>
-        <button id="close-availability-modal" class="text-gray-400 hover:text-white">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      <div id="availability-form" class="space-y-4">
-        <!-- Form will be populated by JavaScript -->
-      </div>
-      <div class="flex gap-3 mt-6">
-        <button id="cancel-availability" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
-        <button id="save-availability" class="flex-1 btn-primary py-3 rounded-lg font-medium">Save Hours</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Zipcode Input Modal -->
   <div id="zipcode-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-md">
+    <div class="modal-panel bg-gray-900 rounded-2xl p-6 w-full max-w-md">
       <h3 class="text-2xl font-bold mb-4" id="zipcode-modal-title">Enter Location</h3>
       <p class="text-gray-400 mb-4" id="zipcode-modal-subtitle">Enter your ZIP code or city to find barbers specializing in this style.</p>
-      <input type="text" id="zipcode-input" placeholder="ZIP code or city (e.g., 30308 or Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none mb-4">
+      <input type="text" id="zipcode-input" placeholder="ZIP code or city (e.g., 30308 or Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none mb-1">
+      <p id="zipcode-error" class="text-red-400 text-xs mb-3 hidden">Please enter a location to search.</p>
       <div class="flex gap-3">
         <button id="cancel-zipcode" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
         <button id="confirm-zipcode" class="flex-1 btn-primary py-3 rounded-lg font-medium">Find Barbers</button>
@@ -675,60 +330,6 @@
     </div>
   </div>
 
-  <!-- Services Management Modal -->
-  <div id="services-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-2xl font-bold">Services & Pricing</h3>
-        <button id="close-services-modal" class="text-gray-400 hover:text-white">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      <div id="services-list" class="space-y-4 mb-4">
-        <!-- Services list will be populated by JavaScript -->
-      </div>
-      <button id="add-service-btn" class="w-full btn-secondary py-3 rounded-lg font-medium mb-4">+ Add New Service</button>
-      <div id="add-service-form" class="hidden space-y-4 p-4 bg-gray-800 rounded-lg">
-        <input type="text" id="service-name" placeholder="Service name" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-        <div class="grid grid-cols-2 gap-4">
-          <input type="number" id="service-price" placeholder="Price ($)" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-          <input type="number" id="service-duration" placeholder="Duration (minutes)" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-        </div>
-        <input type="text" id="service-category" placeholder="Category" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-        <textarea id="service-description" placeholder="Description" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 focus:border-sky-400 focus:outline-none"></textarea>
-        <div class="flex gap-3">
-          <button id="cancel-service" class="flex-1 btn-secondary py-2 rounded-lg font-medium">Cancel</button>
-          <button id="save-service" class="flex-1 btn-primary py-2 rounded-lg font-medium">Add Service</button>
-        </div>
-      </div>
-      <div class="flex gap-3 mt-4">
-        <button id="close-services" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Clients Management Modal -->
-  <div id="clients-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-3xl max-h-screen overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-2xl font-bold">Client Management</h3>
-        <button id="close-clients-modal" class="text-gray-400 hover:text-white">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      <div id="clients-list" class="space-y-4">
-        <!-- Clients list will be populated by JavaScript -->
-      </div>
-    </div>
-  </div>
-
-  <!-- Configuration (must load before main script) -->
-  <script src="config.js"></script>
-  
   <!-- Configuration (must load before main script) -->
   <script src="config.js"></script>
   

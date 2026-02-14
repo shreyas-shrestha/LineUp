@@ -161,16 +161,8 @@ if FIREBASE_AVAILABLE:
         storage_bucket = None
 
 # In-memory storage (fallback when database not available)
-social_posts = []
-barber_portfolios = {}
 appointments = []
-barber_profiles = {}
-subscription_packages = []  # Barber subscription packages
-client_subscriptions = []   # Client active subscriptions
-barber_reviews = {}  # Reviews for barbers: {barber_id: [reviews]}
-post_comments = {}  # Comments on posts: {post_id: [comments]}
-user_follows = {}  # Follow relationships: {user_id: [followed_user_ids]}
-hair_trends = {}  # AI insights on trending styles
+user_reviews = {}  # barber_id -> list of user-submitted reviews
 
 # Rate limiting cache for Google Places API
 places_api_cache = {}
@@ -460,209 +452,6 @@ def db_query(collection_name, field, operator, value):
 # END DATABASE FUNCTIONS
 # ========================================
 
-# Initialize with mock data
-def initialize_mock_data():
-    global social_posts, barber_portfolios, appointments, barber_profiles, barber_reviews, post_comments, user_follows, hair_trends
-    
-    # Mock social posts with hashtags and engagement metrics
-    social_posts = [
-        {
-            "id": "1",
-            "username": "mike_style",
-            "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-            "image": "https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop",
-            "caption": "Fresh fade from @atlanta_cuts 🔥 #fade #haircut",
-            "likes": 23,
-            "shares": 5,
-            "comments": 8,
-            "timeAgo": "2h",
-            "liked": False,
-            "timestamp": datetime.now().isoformat(),
-            "hashtags": ["fade", "haircut", "barberlife"]
-        },
-        {
-            "id": "2", 
-            "username": "sarah_hair",
-            "avatar": "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face",
-            "image": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=400&fit=crop",
-            "caption": "New bob cut! Love how it frames my face ✨ #bob #hairstyle",
-            "likes": 45,
-            "shares": 12,
-            "comments": 15,
-            "timeAgo": "4h",
-            "liked": True,
-            "timestamp": (datetime.now() - timedelta(hours=4)).isoformat(),
-            "hashtags": ["bob", "hairstyle", "freshcut"]
-        }
-    ]
-    
-    # Mock reviews for barbers
-    barber_reviews = {
-        "barber_1": [
-            {"id": "r1", "username": "john_doe", "rating": 5, "text": "Best fade I've ever had! Mike is a true artist.", "date": "2024-01-18"},
-            {"id": "r2", "username": "jane_smith", "rating": 5, "text": "Professional service, clean cuts every time.", "date": "2024-01-15"},
-            {"id": "r3", "username": "alex_taylor", "rating": 4, "text": "Great barber, just sometimes a bit crowded on weekends.", "date": "2024-01-10"}
-        ],
-        "barber_2": [
-            {"id": "r4", "username": "sam_jones", "rating": 4, "text": "Good quality work, friendly staff.", "date": "2024-01-17"}
-        ]
-    }
-    
-    # Mock comments on posts
-    post_comments = {
-        "1": [
-            {"id": "c1", "username": "alex_taylor", "text": "Looking sharp! 🔥", "timeAgo": "1h"},
-            {"id": "c2", "username": "john_doe", "text": "What's the fade number?", "timeAgo": "30m"}
-        ],
-        "2": [
-            {"id": "c3", "username": "mike_style", "text": "Beautiful cut!", "timeAgo": "3h"}
-        ]
-    }
-    
-    # Mock follow relationships
-    user_follows = {
-        "current_user": ["mike_style", "sarah_hair"],
-        "mike_style": ["sarah_hair", "jason_cuts"]
-    }
-    
-    # Mock hair trends/insights
-    hair_trends = {
-        "trending_styles": ["textured crop", "modern fade", "curtain bangs", "buzz cut", "pompadour"],
-        "trending_hashtags": ["#fade", "#haircut", "#barberlife", "#freshcut", "#hairstyle"],
-        "popular_colors": ["natural", "blonde highlights", "dark brown", "black"],
-        "seasonal_tips": "This winter, textured crops and fades are trending. Consider volume on top with short sides for a modern look."
-    }
-    
-    # Mock barber portfolios
-    barber_portfolios = {
-        "barber_1": [
-            {
-                "id": "1",
-                "styleName": "Modern Fade",
-                "image": "https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop",
-                "description": "Clean fade with textured top. Perfect for professionals.",
-                "likes": 12,
-                "date": "2024-01-15",
-                "barberId": "barber_1"
-            }
-        ]
-    }
-    
-    # Mock appointments
-    appointments = [
-        {
-            "id": str(uuid.uuid4()),
-            "clientName": "Alex Johnson",
-            "clientId": "client_1", 
-            "barberName": "Mike's Cuts",
-            "barberId": "barber_1",
-            "date": "2024-01-20",
-            "time": "14:00",
-            "service": "Haircut + Beard",
-            "price": "$65",
-            "status": "confirmed",
-            "notes": "Looking for a modern fade",
-            "timestamp": datetime.now().isoformat()
-        }
-    ]
-
-initialize_mock_data()
-
-# Mock data fallback for AI analysis
-def get_mock_data():
-    return {
-        "analysis": {
-            "faceShape": "oval",
-            "hairTexture": "wavy",
-            "hairColor": "brown",
-            "estimatedGender": "male",
-            "estimatedAge": "25-30"
-        },
-        "recommendations": [
-            {
-                "styleName": "Crew Cut",
-                "description": "A clean, short cut tapered on the sides with slightly more length on top. Low maintenance and always looks sharp.",
-                "reason": "Complements oval face shapes and works well with wavy hair texture."
-            },
-            {
-                "styleName": "Faux Hawk",
-                "description": "Shorter sides with a longer strip of hair on top styled upward. A modern, edgy look without full commitment to a mohawk.",
-                "reason": "Adds height and definition to facial features while being versatile enough for professional settings."
-            },
-            {
-                "styleName": "Side-Parted",
-                "description": "A timeless style with a clean side part creating a polished, professional appearance.",
-                "reason": "Enhances facial symmetry and adds sophistication to oval and square face shapes."
-            },
-            {
-                "styleName": "Tousled",
-                "description": "A relaxed, effortlessly messy style with natural texture and movement throughout.",
-                "reason": "Takes advantage of wavy hair's natural texture for an easy, low-maintenance look."
-            },
-            {
-                "styleName": "Slicked Back",
-                "description": "Hair swept back from the forehead for a sleek, polished finish. Works great with medium-length hair.",
-                "reason": "Opens up the face and highlights strong facial features."
-            },
-            {
-                "styleName": "Layered",
-                "description": "Multiple layers of varying lengths create volume and dimension throughout the hair.",
-                "reason": "Adds movement to wavy hair and frames the face beautifully."
-            }
-        ]
-    }
-
-def getMockBarbersForLocation(location):
-    """Generate location-specific mock barber data"""
-    base_barbers = [
-        {
-            "id": "barber_1",
-            "name": f"Elite Cuts {location.split(',')[0]}",
-            "specialties": ["Fade", "Taper", "Modern Cuts"],
-            "rating": 4.9,
-            "user_ratings_total": 127,
-            "priceTier": "$$",
-            "address": f"Downtown {location.split(',')[0]}",
-            "photo": "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400&h=300&fit=crop",
-            "phone": "(555) 123-4567",
-            "website": "https://elitecuts.example.com",
-            "bookingUrl": "https://calendly.com/elitecuts/booking",
-            "google_maps_url": "https://www.google.com/maps/search/?api=1&query=33.7490,-84.3880",
-            "hours": "Mon-Sat 9AM-8PM"
-        },
-        {
-            "id": "barber_2", 
-            "name": f"The {location.split(',')[0]} Barber",
-            "specialties": ["Pompadour", "Buzz Cut", "Beard Trim"],
-            "rating": 4.8,
-            "user_ratings_total": 89,
-            "priceTier": "$$",
-            "address": f"Uptown {location.split(',')[0]}",
-            "photo": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400&h=300&fit=crop",
-            "phone": "(555) 123-4568",
-            "website": "",
-            "bookingUrl": "https://booksy.com/thebarber",
-            "google_maps_url": "https://www.google.com/maps/search/?api=1&query=33.7490,-84.3880",
-            "hours": "Tue-Sun 10AM-7PM"
-        },
-        {
-            "id": "barber_3",
-            "name": f"{location.split(',')[0]} Style Studio",
-            "specialties": ["Modern Fade", "Beard Trim", "Styling"],
-            "rating": 4.9,
-            "user_ratings_total": 156,
-            "priceTier": "$$$",
-            "address": f"Midtown {location.split(',')[0]}",
-            "photo": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop",
-            "phone": "(555) 123-4569",
-            "website": "https://stylestudio.example.com",
-            "bookingUrl": "https://squareup.com/appointments/book/stylestudio",
-            "google_maps_url": "https://www.google.com/maps/search/?api=1&query=33.7490,-84.3880",
-            "hours": "Mon-Fri 8AM-6PM"
-        }
-    ]
-    return base_barbers
-
 # Root endpoint
 @app.route('/')
 @limiter.limit("100 per minute")
@@ -672,20 +461,18 @@ def index():
         "status": "running",
         "version": "2.0",
         "gemini_configured": model is not None,
-        "features": ["AI Analysis", "Social Feed", "Barber Portfolios", "Appointments"],
+        "features": ["AI Analysis", "Barber Search", "Appointments"],
         "rate_limits": {
             "general": "1000 per hour",
             "ai_analysis": "10 per hour per IP",
-            "social_posts": "20 per hour per IP",
             "appointments": "30 per hour per IP"
         },
         "endpoints": {
             "health": "/health",
             "analyze": "/analyze (POST)",
-            "social": "/social (GET/POST)",
-            "portfolio": "/portfolio (GET/POST)",
             "appointments": "/appointments (GET/POST)",
-            "barbers": "/barbers (GET)"
+            "barbers": "/barbers (GET)",
+            "virtual-tryon": "/virtual-tryon (POST)"
         }
     })
 
@@ -816,9 +603,7 @@ def health():
             "daily_reset": api_usage_tracker['daily_reset'].isoformat()
         },
         "data_counts": {
-            "social_posts": len(social_posts),
-            "appointments": len(appointments),
-            "barber_portfolios": len(barber_portfolios)
+            "appointments": len(appointments)
         }
     })
 
@@ -870,8 +655,8 @@ def analyze():
     
     # Check if we can make Gemini API call
     if not can_make_gemini_api_call():
-        logger.warning("Gemini API daily limit reached, using mock data")
-        response = make_response(jsonify(get_mock_data()), 200)
+        logger.warning("Gemini API daily limit reached")
+        response = make_response(jsonify({"error": "AI analysis limit reached", "message": "Please try again later"}), 503)
         response.headers['Content-Type'] = 'application/json'
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
@@ -880,8 +665,8 @@ def analyze():
         data = request.get_json(force=True)
         
         if not model:
-            logger.info("Using mock data (Gemini not configured)")
-            response = make_response(jsonify(get_mock_data()), 200)
+            logger.info("Gemini not configured")
+            response = make_response(jsonify({"error": "AI analysis unavailable", "message": "Service not configured"}), 503)
             response.headers['Content-Type'] = 'application/json'
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
@@ -953,7 +738,7 @@ Provide exactly 6 diverse haircut recommendations. Choose styles that genuinely 
             
         except Exception as e:
             logger.error(f"Gemini API error: {str(e)}")
-            response = make_response(jsonify(get_mock_data()), 200)
+            response = make_response(jsonify({"error": "AI analysis failed", "message": str(e)}), 503)
             response.headers['Content-Type'] = 'application/json'
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
@@ -968,14 +753,14 @@ Provide exactly 6 diverse haircut recommendations. Choose styles that genuinely 
         try:
             analysis_data = json.loads(response_text)
         except json.JSONDecodeError:
-            response = make_response(jsonify(get_mock_data()), 200)
+            response = make_response(jsonify({"error": "Invalid AI response", "message": "Could not parse analysis results"}), 503)
             response.headers['Content-Type'] = 'application/json'
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
         
         # Validate and return response
         if "analysis" not in analysis_data or "recommendations" not in analysis_data:
-            response = make_response(jsonify(get_mock_data()), 200)
+            response = make_response(jsonify({"error": "Invalid analysis", "message": "Missing required fields"}), 503)
             response.headers['Content-Type'] = 'application/json'
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
@@ -987,198 +772,8 @@ Provide exactly 6 diverse haircut recommendations. Choose styles that genuinely 
         
     except Exception as e:
         logger.error(f"Error in analyze endpoint: {str(e)}")
-        response = make_response(jsonify(get_mock_data()), 200)
+        response = make_response(jsonify({"error": "Analysis failed", "message": str(e)}), 503)
         response.headers['Content-Type'] = 'application/json'
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-
-# Social feed endpoints with rate limiting
-@app.route('/social', methods=['GET', 'POST', 'OPTIONS'])
-def social():
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        return response, 200
-    
-    if request.method == 'GET':
-        # Lighter rate limit for GET requests
-        limiter.limit("100 per hour")(lambda: None)()
-        
-        # Try to get from database, fallback to in-memory
-        if db:
-            posts = db_get_all('social_posts') or []
-        else:
-            posts = social_posts
-        
-        # Return social posts sorted by timestamp
-        sorted_posts = sorted(posts, key=lambda x: x['timestamp'], reverse=True)
-        response = make_response(jsonify({"posts": sorted_posts}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    
-    elif request.method == 'POST':
-        # Stricter rate limit for POST requests
-        limiter.limit("20 per hour")(lambda: None)()
-        
-        try:
-            data = request.get_json()
-            image_base64 = data.get("image", "")
-            
-            if not image_base64:
-                response = make_response(jsonify({
-                    "success": False,
-                    "error": "Image is required"
-                }), 400)
-                response.headers['Access-Control-Allow-Origin'] = '*'
-                return response
-            
-            # Decode base64 image
-            try:
-                # Remove data URL prefix if present
-                if ',' in image_base64:
-                    image_base64 = image_base64.split(',')[1]
-                
-                image_bytes = base64.b64decode(image_base64)
-                
-                # Validate image
-                try:
-                    img = Image.open(BytesIO(image_bytes))
-                    img.verify()
-                except Exception as e:
-                    logger.error(f"Invalid image format: {str(e)}")
-                    response = make_response(jsonify({
-                        "success": False,
-                        "error": "Invalid image format. Please upload a valid image."
-                    }), 400)
-                    response.headers['Access-Control-Allow-Origin'] = '*'
-                    return response
-                
-                # Re-open image after verification (verify() closes it)
-                image_bytes = base64.b64decode(image_base64.split(',')[-1] if ',' in image_base64 else image_base64)
-                
-            except Exception as e:
-                logger.error(f"Error decoding image: {str(e)}")
-                response = make_response(jsonify({
-                    "success": False,
-                    "error": "Failed to process image. Please try again."
-                }), 400)
-                response.headers['Access-Control-Allow-Origin'] = '*'
-                return response
-            
-            # Content moderation - check for explicit and non-hair-related content
-            is_approved, rejection_reason = moderate_image_content(image_bytes)
-            
-            if not is_approved:
-                response = make_response(jsonify({
-                    "success": False,
-                    "error": "Content rejected",
-                    "reason": rejection_reason
-                }), 403)
-                response.headers['Access-Control-Allow-Origin'] = '*'
-                return response
-            
-            # Upload image to Cloudinary (FREE) or Firebase Storage, or keep base64
-            image_url = upload_image_to_storage(image_bytes)
-            
-            # Use storage URL if available, otherwise use base64
-            final_image = image_url if image_url else image_base64
-            
-            new_post = {
-                "username": data.get("username", "anonymous"),
-                "avatar": data.get("avatar", "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face"),
-                "image": final_image,
-                "caption": data.get("caption", ""),
-                "likes": 0,
-                "timeAgo": "now",
-                "liked": False,
-                "timestamp": datetime.now().isoformat(),
-                "shares": 0,
-                "comments": 0,
-                "hashtags": data.get("hashtags", []),
-                "stored_in_storage": bool(image_url)  # Track if using storage
-            }
-            
-            # Try to save to database, fallback to in-memory
-            if db:
-                result = db_add_doc('social_posts', new_post)
-                new_post['id'] = result['id'] if result else str(uuid.uuid4())
-            else:
-                new_post['id'] = str(uuid.uuid4())
-            social_posts.insert(0, new_post)
-            
-            logger.info(f"Social post created successfully: {new_post['id']}")
-            response = make_response(jsonify({"success": True, "post": new_post}), 201)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error creating social post: {str(e)}")
-            response = make_response(jsonify({
-                "success": False,
-                "error": "Failed to create post",
-                "details": str(e) if logger.level == logging.DEBUG else None
-            }), 400)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-
-# Like/unlike post with rate limiting
-@app.route('/social/<post_id>/like', methods=['POST', 'OPTIONS'])
-@limiter.limit("60 per hour")  # Allow frequent likes but prevent spam
-def toggle_like(post_id):
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        return response, 200
-    
-    try:
-        # Try to get post from database first, then fallback to in-memory
-        post = None
-        if db:
-            post_doc = db_get_doc('social_posts', post_id)
-            if post_doc:
-                post = post_doc
-        
-        # Fallback to in-memory if not in database
-        if not post:
-            post = next((p for p in social_posts if str(p.get("id")) == str(post_id)), None)
-        
-        if not post:
-            response = make_response(jsonify({"error": "Post not found"}), 404)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-        
-        # Toggle like
-        current_liked = post.get("liked", False)
-        new_liked = not current_liked
-        current_likes = post.get("likes", 0)
-        new_likes = current_likes + (1 if new_liked else -1)
-        
-        # Update post
-        post["liked"] = new_liked
-        post["likes"] = max(0, new_likes)  # Ensure likes don't go negative
-        
-        # Save to database if using database
-        if db:
-            db_update_doc('social_posts', post_id, {
-                "liked": new_liked,
-                "likes": post["likes"]
-            })
-        
-        response = make_response(jsonify({
-            "success": True, 
-            "liked": new_liked, 
-            "likes": post["likes"]
-        }), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-        
-    except Exception as e:
-        logger.error(f"Error toggling like: {str(e)}")
-        response = make_response(jsonify({"error": "Failed to toggle like"}), 400)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
@@ -1598,27 +1193,21 @@ def get_barbers():
     GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY")
     
     if not GOOGLE_PLACES_API_KEY:
-        logger.warning("Google Places API key not configured, using mock data")
-        mock_barbers = getMockBarbersForLocation(location)
+        logger.warning("Google Places API key not configured")
         response = make_response(jsonify({
-            "barbers": mock_barbers, 
-            "location": location,
-            "mock": True,
-            "reason": "API key not configured"
-        }), 200)
+            "error": "Barber search unavailable",
+            "message": "Location search is not configured"
+        }), 503)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
     
     # Check if we can make Places API call
     if not can_make_places_api_call():
-        logger.warning("Places API daily limit reached, using mock data")
-        mock_barbers = getMockBarbersForLocation(location)
+        logger.warning("Places API daily limit reached")
         response = make_response(jsonify({
-            "barbers": mock_barbers, 
-            "location": location,
-            "mock": True,
-            "reason": "API limit reached"
-        }), 200)
+            "error": "Search limit reached",
+            "message": "Please try again later"
+        }), 503)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
     
@@ -1830,187 +1419,12 @@ def get_barbers():
         
     except Exception as e:
         logger.error(f"Error fetching real barber data: {str(e)}")
-        
-        # Fallback to mock data on error
-        mock_barbers = getMockBarbersForLocation(location)
         response = make_response(jsonify({
-            "barbers": mock_barbers, 
-            "location": location,
-            "mock": True,
-            "error": str(e)
-        }), 200)
+            "error": "Failed to load barbershops",
+            "message": str(e)
+        }), 503)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
-
-# Portfolio endpoints with rate limiting
-@app.route('/portfolio', methods=['GET', 'POST', 'OPTIONS'])
-@app.route('/portfolio/<barber_id>', methods=['GET', 'POST', 'OPTIONS'])
-def portfolio(barber_id=None):
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        return response, 200
-    
-    if request.method == 'GET':
-        # Light rate limit for viewing portfolios
-        limiter.limit("100 per hour")(lambda: None)()
-        
-        if barber_id:
-            portfolio = barber_portfolios.get(barber_id, [])
-        else:
-            # Return all portfolios
-            portfolio = []
-            for barber_portfolio in barber_portfolios.values():
-                portfolio.extend(barber_portfolio)
-        
-        response = make_response(jsonify({"portfolio": portfolio}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    
-    elif request.method == 'POST':
-        # Moderate rate limit for adding portfolio items
-        limiter.limit("25 per hour")(lambda: None)()
-        
-        try:
-            data = request.get_json()
-            barber_id = barber_id or data.get("barberId", "default_barber")
-            
-            new_work = {
-                "id": str(uuid.uuid4()),
-                "styleName": data.get("styleName", ""),
-                "image": data.get("image", ""),
-                "description": data.get("description", ""),
-                "likes": 0,
-                "date": datetime.now().strftime("%Y-%m-%d"),
-                "barberId": barber_id,
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            if barber_id not in barber_portfolios:
-                barber_portfolios[barber_id] = []
-            
-            barber_portfolios[barber_id].insert(0, new_work)
-            
-            response = make_response(jsonify({"success": True, "work": new_work}), 201)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error adding portfolio work: {str(e)}")
-            response = make_response(jsonify({"error": "Failed to add work"}), 400)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-
-# Subscription Packages endpoints
-@app.route('/subscription-packages', methods=['GET', 'POST', 'OPTIONS'])
-def handle_subscription_packages():
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        return response, 200
-    
-    if request.method == 'GET':
-        limiter.limit("100 per hour")(lambda: None)()
-        
-        barber_id = request.args.get('barber_id', None)
-        if barber_id:
-            packages = [pkg for pkg in subscription_packages if pkg.get('barberId') == barber_id]
-        else:
-            packages = subscription_packages
-        
-        response = make_response(jsonify({"packages": packages}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    
-    elif request.method == 'POST':
-        limiter.limit("20 per hour")(lambda: None)()
-        
-        try:
-            data = request.get_json()
-            
-            new_package = {
-                "id": str(uuid.uuid4()),
-                "barberId": data.get("barberId", ""),
-                "barberName": data.get("barberName", ""),
-                "title": data.get("title", ""),
-                "description": data.get("description", ""),
-                "price": data.get("price", ""),
-                "numCuts": data.get("numCuts", 0),
-                "durationMonths": data.get("durationMonths", 0),
-                "discount": data.get("discount", ""),
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            subscription_packages.append(new_package)
-            
-            response = make_response(jsonify({"success": True, "package": new_package}), 201)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error creating subscription package: {str(e)}")
-            response = make_response(jsonify({"error": "Failed to create package"}), 400)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-
-# Client Subscriptions endpoints
-@app.route('/client-subscriptions', methods=['GET', 'POST', 'OPTIONS'])
-def handle_client_subscriptions():
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        return response, 200
-    
-    if request.method == 'GET':
-        limiter.limit("100 per hour")(lambda: None)()
-        
-        client_id = request.args.get('client_id', 'current_user')
-        user_subscriptions = [sub for sub in client_subscriptions if sub.get('clientId') == client_id]
-        
-        response = make_response(jsonify({"subscriptions": user_subscriptions}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    
-    elif request.method == 'POST':
-        limiter.limit("20 per hour")(lambda: None)()
-        
-        try:
-            data = request.get_json()
-            
-            new_subscription = {
-                "id": str(uuid.uuid4()),
-                "clientId": data.get("clientId", "current_user"),
-                "clientName": data.get("clientName", "Current User"),
-                "packageId": data.get("packageId", ""),
-                "packageTitle": data.get("packageTitle", ""),
-                "barberId": data.get("barberId", ""),
-                "barberName": data.get("barberName", ""),
-                "price": data.get("price", ""),
-                "numCuts": data.get("numCuts", 0),
-                "remainingCuts": data.get("numCuts", 0),
-                "purchaseDate": datetime.now().isoformat(),
-                "expiryDate": (datetime.now() + timedelta(days=30 * data.get("durationMonths", 1))).isoformat(),
-                "status": "active",
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            client_subscriptions.append(new_subscription)
-            
-            response = make_response(jsonify({"success": True, "subscription": new_subscription}), 201)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-            
-        except Exception as e:
-            logger.error(f"Error creating subscription: {str(e)}")
-            response = make_response(jsonify({"error": "Failed to create subscription"}), 400)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
 
 # Test endpoint with rate limiting
 @app.route('/test', methods=['GET', 'POST'])
@@ -2104,8 +1518,9 @@ def handle_reviews(barber_id):
         # Try to fetch Google Reviews first
         # Google place_ids are typically 27+ characters and start with 'Ch' or other patterns
         is_google_place_id = len(barber_id) >= 20 and (barber_id.startswith('Ch') or barber_id.startswith('Ei') or barber_id.startswith('Gh'))
+        places_key = os.environ.get("GOOGLE_PLACES_API_KEY")
         
-        if GOOGLE_PLACES_API_KEY and is_google_place_id:
+        if places_key and is_google_place_id:
             try:
                 # Import requests if not already imported
                 try:
@@ -2121,7 +1536,7 @@ def handle_reviews(barber_id):
                 details_params = {
                     'place_id': barber_id,
                     'fields': 'name,rating,user_ratings_total,reviews',
-                    'key': GOOGLE_PLACES_API_KEY
+                    'key': places_key
                 }
                 
                 logger.info(f"Fetching Google Reviews for place_id: {barber_id}")
@@ -2179,8 +1594,8 @@ def handle_reviews(barber_id):
                 logger.error(traceback.format_exc())
                 # Fall through to mock reviews
         
-        # Fallback to mock reviews
-        reviews = barber_reviews.get(barber_id, [])
+        # Fallback when Google reviews unavailable
+        reviews = []
         avg_rating = 0
         total_reviews = len(reviews)
         
@@ -2191,25 +1606,7 @@ def handle_reviews(barber_id):
             'reviews': reviews,
             'average_rating': avg_rating,
             'total_reviews': total_reviews,
-            'source': 'mock'
-        }), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    
-    if request.method == 'POST':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        return response, 200
-    
-    if request.method == 'GET':
-        reviews = barber_reviews.get(barber_id, [])
-        avg_rating = sum(r['rating'] for r in reviews) / len(reviews) if reviews else 0
-        response = make_response(jsonify({
-            "reviews": reviews,
-            "total_reviews": len(reviews),
-            "average_rating": round(avg_rating, 1)
+            'source': 'none'
         }), 200)
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
@@ -2225,11 +1622,14 @@ def handle_reviews(barber_id):
                 "date": datetime.now().strftime("%Y-%m-%d"),
                 "timestamp": datetime.now().isoformat()
             }
-            
-            if barber_id not in barber_reviews:
-                barber_reviews[barber_id] = []
-            barber_reviews[barber_id].append(new_review)
-            
+            if db:
+                reviews_doc = db_get_doc('barber_reviews', barber_id) or {'reviews': []}
+                reviews_doc['reviews'] = reviews_doc.get('reviews', []) + [new_review]
+                db_add_doc('barber_reviews', reviews_doc, doc_id=barber_id)
+            else:
+                if barber_id not in user_reviews:
+                    user_reviews[barber_id] = []
+                user_reviews[barber_id].append(new_review)
             response = make_response(jsonify({"success": True, "review": new_review}), 201)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
@@ -2238,124 +1638,6 @@ def handle_reviews(barber_id):
             response = make_response(jsonify({"error": "Failed to create review"}), 400)
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
-
-# Comment endpoints for social posts
-@app.route('/social/<post_id>/comments', methods=['GET', 'POST', 'OPTIONS'])
-@limiter.limit("60 per hour")
-def handle_comments(post_id):
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        return response, 200
-    
-    if request.method == 'GET':
-        # Try to get comments from database first
-        comments = []
-        if db:
-            comments_doc = db_get_doc('post_comments', post_id)
-            if comments_doc and 'comments' in comments_doc:
-                comments = comments_doc['comments']
-        
-        # Fallback to in-memory
-        if not comments:
-            comments = post_comments.get(post_id, [])
-        
-        response = make_response(jsonify({"comments": comments}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    
-    elif request.method == 'POST':
-        try:
-            data = request.get_json()
-            new_comment = {
-                "id": str(uuid.uuid4()),
-                "username": data.get("username", "anonymous"),
-                "text": data.get("text", ""),
-                "timeAgo": "just now",
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            # Get existing comments
-            comments = []
-            if db:
-                comments_doc = db_get_doc('post_comments', post_id)
-                if comments_doc and 'comments' in comments_doc:
-                    comments = comments_doc['comments']
-            
-            if not comments:
-                comments = post_comments.get(post_id, [])
-            
-            # Add new comment
-            comments.append(new_comment)
-            
-            # Save to database if using database
-            if db:
-                db_add_doc('post_comments', {"comments": comments}, doc_id=post_id)
-            else:
-                post_comments[post_id] = comments
-            
-            # Update comment count on post
-            post = None
-            if db:
-                post = db_get_doc('social_posts', post_id)
-            
-            if not post:
-                post = next((p for p in social_posts if str(p.get("id")) == str(post_id)), None)
-            
-            if post:
-                current_comments = post.get("comments", 0)
-                post["comments"] = current_comments + 1
-                
-                # Update in database
-                if db:
-                    db_update_doc('social_posts', post_id, {
-                        "comments": post["comments"]
-                    })
-            
-            response = make_response(jsonify({"success": True, "comment": new_comment}), 201)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-        except Exception as e:
-            logger.error(f"Error creating comment: {str(e)}")
-            response = make_response(jsonify({"error": "Failed to create comment"}), 400)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-
-# Follow/unfollow endpoints
-@app.route('/users/<user_id>/follow', methods=['POST', 'OPTIONS'])
-@app.route('/users/<user_id>/unfollow', methods=['POST', 'OPTIONS'])
-@limiter.limit("100 per hour")
-def toggle_follow(user_id):
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        return response, 200
-    
-    try:
-        data = request.get_json()
-        follower_id = data.get("follower_id", "current_user")
-        
-        if request.path.endswith('/follow'):
-            if follower_id not in user_follows:
-                user_follows[follower_id] = []
-            if user_id not in user_follows[follower_id]:
-                user_follows[follower_id].append(user_id)
-        else:  # unfollow
-            if follower_id in user_follows:
-                user_follows[follower_id] = [uid for uid in user_follows[follower_id] if uid != user_id]
-        
-        response = make_response(jsonify({"success": True}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    except Exception as e:
-        logger.error(f"Error toggling follow: {str(e)}")
-        response = make_response(jsonify({"error": "Failed to toggle follow"}), 400)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
 
 # ========================================
 # Availability & Working Hours Management
@@ -2768,101 +2050,6 @@ def manage_client_notes(barber_id, client_id):
             response.headers['Access-Control-Allow-Origin'] = '*'
             return response
 
-# Share post endpoint
-@app.route('/social/<post_id>/share', methods=['POST', 'OPTIONS'])
-@limiter.limit("100 per hour")
-def share_post(post_id):
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        return response, 200
-    
-    try:
-        # Try to get post from database first, then fallback to in-memory
-        post = None
-        if db:
-            post_doc = db_get_doc('social_posts', post_id)
-            if post_doc:
-                post = post_doc
-        
-        # Fallback to in-memory if not in database
-        if not post:
-            post = next((p for p in social_posts if str(p.get("id")) == str(post_id)), None)
-        
-        if not post:
-            response = make_response(jsonify({"error": "Post not found"}), 404)
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            return response
-        
-        current_shares = post.get("shares", 0)
-        post["shares"] = current_shares + 1
-        
-        # Save to database if using database
-        if db:
-            db_update_doc('social_posts', post_id, {
-                "shares": post["shares"]
-            })
-        
-        response = make_response(jsonify({"success": True, "shares": post["shares"]}), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    except Exception as e:
-        logger.error(f"Error sharing post: {str(e)}")
-        response = make_response(jsonify({"error": "Failed to share post"}), 400)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-
-# AI Insights endpoint - trending styles, tips, recommendations
-@app.route('/ai-insights', methods=['GET', 'OPTIONS'])
-@limiter.limit("50 per hour")
-def get_ai_insights():
-    if request.method == 'OPTIONS':
-        response = make_response('')
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        return response, 200
-    
-    try:
-        # Get user's preferred styles from recommendations if available
-        recommended_styles = request.args.get('styles', '').split(',') if request.args.get('styles') else []
-        
-        # Analyze trends from social posts
-        all_hashtags = []
-        for post in social_posts:
-            all_hashtags.extend(post.get('hashtags', []))
-        
-        trending_hashtags = list(set([tag for tag in all_hashtags if all_hashtags.count(tag) > 1]))[:5]
-        
-        # Combine with pre-loaded trends
-        insights = {
-            "trending_styles": hair_trends.get("trending_styles", [])[:5],
-            "trending_hashtags": trending_hashtags if trending_hashtags else hair_trends.get("trending_hashtags", []),
-            "popular_colors": hair_trends.get("popular_colors", [])[:4],
-            "seasonal_tips": hair_trends.get("seasonal_tips", ""),
-            "personalized_recommendations": []
-        }
-        
-        # Add personalized recommendations based on user's styles
-        if recommended_styles:
-            first_style = recommended_styles[0] if recommended_styles else "this style"
-            insights["personalized_recommendations"] = [
-                f"Since you like {first_style}, try these complementary looks:",
-                f"Professional tip: {first_style} works best for your face shape when paired with...",
-                f"Try {first_style} with a slight variation for a fresh look"
-            ][:3]
-        
-        response = make_response(jsonify(insights), 200)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-    except Exception as e:
-        logger.error(f"Error getting AI insights: {str(e)}")
-        response = make_response(jsonify({"error": "Failed to get insights"}), 400)
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
-
 # Rate limit exceeded handler
 @app.errorhandler(429)
 def rate_limit_exceeded(error):
@@ -2896,7 +2083,5 @@ def server_error(e):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    # Initialize mock data on startup
-    initialize_mock_data()
     logger.info(f"🚀 Starting LineUp API server on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)  # debug=False for production

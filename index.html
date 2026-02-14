@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LineUp - AI Haircut Recommendations</title>
+  <title>LineUp</title>
   <link rel="icon" type="image/png" href="images/logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -77,9 +77,6 @@
           </div>
           <h1 class="text-2xl font-bold text-white">LineUp</h1>
         </div>
-        
-        <!-- Tagline -->
-        <span class="text-sm text-gray-400 hidden md:inline">AI Haircut Recommendations</span>
       </div>
     </header>
 
@@ -135,10 +132,6 @@
                 <p class="text-gray-400 text-sm">AI-powered haircut suggestions based on your face shape and features</p>
               </div>
               <button id="start-over-button" class="text-gray-400 hover:text-white text-sm font-medium px-4 py-2 rounded-lg border border-gray-700 hover:border-gray-500 transition-all whitespace-nowrap">Start Over</button>
-            </div>
-            <!-- Mock data banner (hidden by default) -->
-            <div id="mock-data-banner" class="hidden mb-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3 text-center">
-              <p class="text-yellow-400 text-sm">Could not reach AI -- showing sample results for demo purposes</p>
             </div>
             <div id="recommendations-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
 
@@ -248,15 +241,6 @@
 
     </main>
 
-    <!-- Shared Community Tab Content -->
-    <div id="community-tab-content" class="tab-content hidden px-4 py-8">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-3xl font-bold">Community</h2>
-        <button id="add-post-button" class="bg-sky-500 text-white px-4 py-2 rounded-full hover:bg-sky-600 transition-colors">+ Post</button>
-      </div>
-      <div id="social-feed-container" class="space-y-6"></div>
-    </div>
-
     <!-- Dynamic Bottom Tab Nav (Rendered by JS) -->
     <nav id="bottom-nav" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-gray-900 border border-gray-800 rounded-full shadow-lg bottom-nav-safe">
       <!-- Buttons will be injected by scripts-updated.js -->
@@ -264,24 +248,6 @@
   </div>
 
   <!-- Modals -->
-  
-  <!-- Add Post Modal -->
-  <div id="add-post-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="modal-panel bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
-      <h3 class="text-2xl font-bold mb-4">Share Your Look</h3>
-      <input type="file" id="post-image-input" accept="image/*" class="hidden">
-      <div id="post-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
-        <p class="text-gray-400">Click to add photo</p>
-      </div>
-      <img id="post-image-preview" class="hidden w-full h-48 object-cover rounded-lg mb-4">
-      <textarea id="post-caption" placeholder="Tell us about your new look..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-24 focus:border-sky-400 focus:outline-none"></textarea>
-      <div class="flex gap-3 mt-4">
-        <button id="cancel-post" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
-        <button id="submit-post" class="flex-1 btn-primary py-3 rounded-lg font-medium">Post</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Book Appointment Modal -->
   <div id="book-appointment-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
     <div class="modal-panel bg-gray-900 rounded-2xl p-6 w-full max-w-lg">

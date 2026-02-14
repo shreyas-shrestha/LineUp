@@ -10,7 +10,7 @@ const API_URL = (window.LINEUP_CONFIG && window.LINEUP_CONFIG.API_URL) ||
 const CONFIG = window.LINEUP_CONFIG || {
   FEATURES: { 
     virtualTryOn: true, 
-    socialFeed: true, 
+    socialFeed: false, 
     subscriptionPackages: true,
     googlePlacesSearch: true,
     contentModeration: true
@@ -60,17 +60,6 @@ const bottomNav = document.getElementById('bottom-nav');
 // Client content
 const clientContent = document.getElementById('client-content');
 
-// Social / Community elements
-const socialFeedContainer = document.getElementById('social-feed-container');
-const addPostButton = document.getElementById('add-post-button');
-const addPostModal = document.getElementById('add-post-modal');
-const postImageArea = document.getElementById('post-image-area');
-const postImageInput = document.getElementById('post-image-input');
-const postImagePreview = document.getElementById('post-image-preview');
-const postCaption = document.getElementById('post-caption');
-const cancelPost = document.getElementById('cancel-post');
-const submitPost = document.getElementById('submit-post');
-
 // Appointment elements
 const bookAppointmentModal = document.getElementById('book-appointment-modal');
 const clientAppointmentsContainer = document.getElementById('client-appointments-container');
@@ -79,11 +68,9 @@ const noAppointments = document.getElementById('no-appointments');
 // --- State ---
 let base64ImageData = null;
 let lastRecommendedStyles = [];
-let socialPosts = [];
 let appointments = [];
 let currentBarberForBooking = null;
 let nearbyBarbers = []; // Store loaded barbers for booking URL access
-let usingMockData = false; // Track if we're using mock data
 
 // --- Toast Notification System ---
 function showToast(message, type = 'info', duration = 3500) {
@@ -134,158 +121,16 @@ function createBarberSkeleton(count = 3) {
   return html;
 }
 
-function createFeedSkeleton(count = 2) {
-  let html = '';
-  for (let i = 0; i < count; i++) {
-    html += `
-      <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-4 mb-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="skeleton w-10 h-10 rounded-full"></div>
-          <div class="space-y-2 flex-1">
-            <div class="skeleton h-4 w-24"></div>
-            <div class="skeleton h-3 w-16"></div>
-          </div>
-        </div>
-        <div class="skeleton w-full h-64 rounded-lg mb-3"></div>
-        <div class="skeleton h-4 w-3/4"></div>
-      </div>`;
-  }
-  return html;
-}
-
-// --- Initialize Mock Data ---
-function initializeMockData() {
-  // Social posts with variety
-  socialPosts = [
-    {
-      id: 1,
-      username: 'mike_style',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
-      image: 'https://images.unsplash.com/photo-1622296089863-eb7fc530daa8?w=400&h=400&fit=crop',
-      caption: 'Fresh fade from @atlanta_cuts 🔥 Loving this clean look!',
-      likes: 23,
-      timeAgo: '2h',
-      liked: false
-    },
-    {
-      id: 2,
-      username: 'sarah_hair',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face',
-      image: 'https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=400&fit=crop',
-      caption: 'New bob cut! Love how it frames my face ✨',
-      likes: 45,
-      timeAgo: '4h',
-      liked: true
-    },
-    {
-      id: 3,
-      username: 'jason_cuts',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
-      image: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&h=400&fit=crop',
-      caption: 'Classic taper fade. Clean and professional 💼',
-      likes: 67,
-      timeAgo: '1d',
-      liked: false
-    },
-    {
-      id: 4,
-      username: 'alex_barber',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face',
-      image: 'https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?w=400&h=400&fit=crop',
-      caption: 'Textured pompadour on my client today. What do you think? 💇‍♂️',
-      likes: 89,
-      timeAgo: '2d',
-      liked: false
-    }
-  ];
-  
-  // Appointments
-  appointments = [
-    {
-      id: 1,
-      clientName: 'Alex Johnson',
-      clientId: 'client_1',
-      barberName: 'Mike\'s Cuts',
-      barberId: 'barber_1',
-      date: '2024-12-20',
-      time: '14:00',
-      service: 'Haircut + Beard',
-      price: '$65',
-      status: 'confirmed',
-      notes: 'Looking for a modern fade'
-    },
-    {
-      id: 2,
-      clientName: 'Current User',
-      clientId: 'current-user',
-      barberName: 'Style Studio',
-      barberId: 'barber_2',
-      date: '2024-12-22',
-      time: '10:00',
-      service: 'Haircut',
-      price: '$45',
-      status: 'pending',
-      notes: 'First time visit'
-    },
-    {
-      id: 3,
-      clientName: 'Sarah Miller',
-      clientId: 'client_2',
-      barberName: 'Mike\'s Cuts',
-      barberId: 'barber_1',
-      date: '2024-12-21',
-      time: '15:30',
-      service: 'Haircut',
-      price: '$45',
-      status: 'confirmed',
-      notes: 'Regular trim'
-    },
-    {
-      id: 4,
-      clientName: 'Michael Chen',
-      clientId: 'client_3',
-      barberName: 'Mike\'s Cuts',
-      barberId: 'barber_1',
-      date: '2024-12-23',
-      time: '11:00',
-      service: 'Haircut + Beard',
-      price: '$65',
-      status: 'pending',
-      notes: 'Want a fade with texture on top'
-    },
-    {
-      id: 5,
-      clientName: 'David Williams',
-      clientId: 'client_4',
-      barberName: 'Mike\'s Cuts',
-      barberId: 'barber_1',
-      date: '2024-12-24',
-      time: '16:00',
-      service: 'Haircut',
-      price: '$45',
-      status: 'confirmed',
-      notes: 'Regular customer'
-    }
-  ];
-}
-
 // --- Initialize ---
 window.addEventListener('DOMContentLoaded', () => {
   console.log('LineUp Customer Platform initialized');
   
-  initializeMockData();
   testBackendConnection();
   setupEventListeners();
   renderBottomNav();
   
-  // Load posts from API first, then render
-  loadSocialPosts().then(() => {
-    renderSocialFeed();
-  });
-  
-  // Render initial data
+  // Render initial data (appointments loaded from API when available)
   renderClientAppointments();
-  loadNearbyBarbers('Atlanta, GA');
 });
 
 // --- Setup Event Listeners ---
@@ -308,13 +153,6 @@ function setupEventListeners() {
   
   setupLocationSearch();
   
-  // Social modals
-  addPostButton.addEventListener('click', () => addPostModal.classList.remove('hidden'));
-  postImageArea.addEventListener('click', () => postImageInput.click());
-  postImageInput.addEventListener('change', handlePostImageUpload);
-  cancelPost.addEventListener('click', closeAddPostModal);
-  submitPost.addEventListener('click', submitSocialPost);
-  
   // Appointment booking
   const cancelBookingBtn = document.getElementById('cancel-booking');
   const confirmBookingBtn = document.getElementById('confirm-booking');
@@ -322,7 +160,7 @@ function setupEventListeners() {
   if (confirmBookingBtn) confirmBookingBtn.addEventListener('click', confirmBooking);
   
   // Close modals on outside click
-  [addPostModal, bookAppointmentModal].forEach(modal => {
+  [bookAppointmentModal].forEach(modal => {
     if (modal) {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
@@ -379,9 +217,10 @@ function setupEventListeners() {
   }
 
   // Escape key closes modals
+  const zipcodeModalEl = document.getElementById('zipcode-modal');
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      [addPostModal, bookAppointmentModal, zipcodeModal].forEach(modal => {
+      [bookAppointmentModal, zipcodeModalEl].forEach(modal => {
         if (modal && !modal.classList.contains('hidden')) {
           modal.classList.add('hidden');
         }
@@ -401,7 +240,7 @@ function switchTab(targetTab) {
   });
   
   const activeTab = document.querySelector(`#bottom-nav [data-tab="${targetTab}"]`);
-  if (activeTab && !activeTab.classList.contains('center-pill')) {
+  if (activeTab) {
     activeTab.classList.add('tab-active', 'text-white', 'font-semibold');
     activeTab.classList.remove('text-gray-500');
   }
@@ -419,12 +258,6 @@ function switchTab(targetTab) {
   if (targetTab === 'profile') {
     renderClientProfile();
   }
-  
-  if (targetTab === 'community') {
-    loadSocialPosts(); // Load fresh posts from API when switching to community tab
-    renderSocialFeed();
-  }
-  
 }
 
 // --- Backend Connection ---
@@ -550,58 +383,11 @@ async function analyzeImage() {
 
   } catch (err) {
     console.error('Analysis error:', err);
-    showError("Using demo results...");
-    setTimeout(() => {
-      displayResults(getMockData());
-    }, 1000);
+    showError(err.message || 'Analysis failed. Please try again.');
   } finally {
     loader.classList.add('hidden');
     statusMessage.textContent = '';
   }
-}
-
-function getMockData() {
-  return {
-    analysis: {
-      faceShape: "oval",
-      hairTexture: "wavy", 
-      hairColor: "brown",
-      estimatedGender: "male",
-      estimatedAge: "25-30"
-    },
-    recommendations: [
-      {
-        styleName: "Classic Fade",
-        description: "Short on the sides with a gradual fade, longer on top for versatility",
-        reason: "Perfect for oval face shapes and professional settings"
-      },
-      {
-        styleName: "Textured Quiff",
-        description: "Modern style with volume at the front, swept upward and back",
-        reason: "Takes advantage of wavy hair texture for natural volume"
-      },
-      {
-        styleName: "Side Part",
-        description: "Timeless look with a defined part, suitable for any occasion",
-        reason: "Enhances facial symmetry and adds sophistication"
-      },
-      {
-        styleName: "Messy Crop", 
-        description: "Short, textured cut with a deliberately tousled finish",
-        reason: "Low maintenance while maintaining style"
-      },
-      {
-        styleName: "Buzz Cut",
-        description: "Very short all over, clean and minimal",
-        reason: "Highlights facial features with zero styling needed"
-      },
-      {
-        styleName: "Undercut",
-        description: "Dramatic contrast with shaved sides and longer top",
-        reason: "Bold, edgy style that adds character and dimension"
-      }
-    ]
-  };
 }
 
 function showError(msg) {
@@ -710,6 +496,9 @@ async function loadNearbyBarbers(location = 'Atlanta, GA', recommendedStyles = [
     const response = await fetch(`${API_URL}/barbers?location=${encodeURIComponent(location)}${stylesParam}`);
     const data = await response.json();
     
+    if (!response.ok) {
+      throw new Error(data.error || data.message || 'Failed to load barbershops');
+    }
     if (data.barbers && data.barbers.length > 0) {
       renderBarberList(data.barbers, data.real_data);
     } else {
@@ -719,8 +508,9 @@ async function loadNearbyBarbers(location = 'Atlanta, GA', recommendedStyles = [
     console.error('Error loading barbershops:', error);
     if (barberListContainer) {
       barberListContainer.innerHTML = `
-        <div class="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-4 text-center">
-          <p class="text-yellow-400">Using sample data. Connect to backend for real barbershops.</p>
+        <div class="bg-red-900/20 border border-red-500/50 rounded-lg p-4 text-center">
+          <p class="text-red-400">Could not load barbershops. Please check your location and try again.</p>
+          <button onclick="loadNearbyBarbers(document.getElementById('location-search')?.value || 'Atlanta, GA', lastRecommendedStyles)" class="mt-3 btn-secondary py-2 px-4 rounded-lg text-sm">Retry</button>
         </div>
       `;
     }
@@ -734,8 +524,7 @@ function renderBarberList(barbers, isRealData = false) {
   nearbyBarbers = barbers;
   
   const dataSourceBadge = isRealData ? 
-    '<span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs">✓ Real Barbershops</span>' :
-    '<span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs">Sample Data</span>';
+    '<span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs">✓ Real Barbershops</span>' : '';
   
   barberListContainer.innerHTML = `
     <div class="mb-6 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
@@ -957,279 +746,11 @@ function setupLocationSearch() {
   }
 }
 
-// --- Social Media Functions ---
-async function loadSocialPosts() {
-  // Show skeleton while loading
-  if (socialFeedContainer && socialPosts.length === 0) {
-    socialFeedContainer.innerHTML = createFeedSkeleton(3);
-  }
-  try {
-    const response = await fetch(`${API_URL}/social`);
-    const data = await response.json();
-    
-    if (data.posts && Array.isArray(data.posts)) {
-      // Create a map of existing post IDs to avoid duplicates
-      const existingIds = new Set(socialPosts.map(p => String(p.id)));
-      
-      // Add new posts that don't exist locally
-      const newPosts = data.posts.filter(p => !existingIds.has(String(p.id)));
-      
-      // Merge: new posts first, then existing local posts
-      socialPosts = [...newPosts, ...socialPosts];
-      
-      // Sort by timestamp (newest first)
-      socialPosts.sort((a, b) => {
-        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-        return timeB - timeA;
-      });
-      
-      // Remove duplicates by ID
-      const seen = new Set();
-      socialPosts = socialPosts.filter(p => {
-        const id = String(p.id);
-        if (seen.has(id)) return false;
-        seen.add(id);
-        return true;
-      });
-      
-      renderSocialFeed();
-    }
-  } catch (error) {
-    console.error('Error loading posts:', error);
-    // Keep existing posts if API fails - don't clear the feed
-  }
-}
-
-function renderSocialFeed() {
-  if (!socialFeedContainer) return;
-  
-  socialFeedContainer.innerHTML = '';
-  
-  if (socialPosts.length === 0) {
-    socialFeedContainer.innerHTML = `
-      <div class="text-center py-16 text-gray-400">
-        <svg class="w-16 h-16 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
-        </svg>
-        <p class="text-lg font-medium text-gray-300 mb-2">No posts yet</p>
-        <p class="text-sm mb-6">Share your latest haircut with the community.</p>
-      </div>`;
-    return;
-  }
-  
-  socialPosts.forEach(post => {
-    const postElement = document.createElement('div');
-    postElement.className = 'bg-gray-900/50 border border-gray-700 rounded-2xl overflow-hidden';
-    
-    // Extract hashtags from caption
-    const caption = post.caption || '';
-    const hashtags = post.hashtags || [];
-    
-    // Calculate timeAgo from timestamp if not provided
-    let timeAgo = post.timeAgo || 'now';
-    if (post.timestamp && !post.timeAgo) {
-      const postTime = new Date(post.timestamp);
-      const now = new Date();
-      const diffMs = now - postTime;
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMs / 3600000);
-      const diffDays = Math.floor(diffMs / 86400000);
-      
-      if (diffMins < 1) timeAgo = 'now';
-      else if (diffMins < 60) timeAgo = `${diffMins}m`;
-      else if (diffHours < 24) timeAgo = `${diffHours}h`;
-      else if (diffDays < 7) timeAgo = `${diffDays}d`;
-      else timeAgo = postTime.toLocaleDateString();
-    }
-    
-    // Handle image URL - support both base64 and Cloudinary URLs
-    let imageSrc = post.image || '';
-    if (imageSrc && !imageSrc.startsWith('http') && !imageSrc.startsWith('data:')) {
-      // If it's base64 without prefix, add data URL prefix
-      imageSrc = `data:image/jpeg;base64,${imageSrc}`;
-    }
-    
-    postElement.innerHTML = `
-      <div class="p-4 flex items-center gap-3 justify-between">
-        <div class="flex items-center gap-3">
-        <img src="${post.avatar}" alt="${post.username}" class="w-10 h-10 rounded-full object-cover">
-        <div>
-          <p class="font-semibold text-white">${post.username}</p>
-          <p class="text-xs text-gray-400">${timeAgo}</p>
-        </div>
-      </div>
-        <button onclick="toggleFollow('${post.username}')" class="text-sky-400 hover:text-sky-300 text-sm font-medium">
-          Follow
-        </button>
-      </div>
-      <img src="${imageSrc}" alt="Post image" class="w-full h-80 object-cover">
-      <div class="p-4">
-        <div class="flex items-center gap-4 mb-3">
-          <button onclick="toggleLike('${post.id}')" class="flex items-center gap-2 transition-colors ${post.liked ? 'text-red-500' : 'text-gray-400 hover:text-red-500'}">
-            <svg class="w-6 h-6 ${post.liked ? 'fill-current' : ''}" fill="${post.liked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-            </svg>
-            <span class="text-sm font-semibold">${post.likes || 0}</span>
-          </button>
-          <button onclick="toggleComments('${post.id}')" class="flex items-center gap-2 text-gray-400 hover:text-gray-200">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-            </svg>
-            <span class="text-sm">${post.comments || 0}</span>
-          </button>
-          <button onclick="sharePost('${post.id}')" class="flex items-center gap-2 text-gray-400 hover:text-gray-200">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
-            </svg>
-            <span class="text-sm">${post.shares || 0}</span>
-          </button>
-        </div>
-        <p class="text-gray-300 mb-2">${caption}</p>
-        <div class="flex flex-wrap gap-1 mb-3">
-          ${hashtags.map(tag => `<span class="text-sky-400 text-sm hover:underline cursor-pointer">#${tag}</span>`).join('')}
-        </div>
-        <div id="comments-${post.id}" class="hidden space-y-2 mb-3 max-h-48 overflow-y-auto border-t border-gray-700 pt-3"></div>
-        <div class="flex gap-2">
-          <input type="text" id="comment-input-${post.id}" placeholder="Add a comment..." class="flex-1 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
-          <button onclick="submitComment('${post.id}')" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 text-sm font-medium">Post</button>
-        </div>
-      </div>
-    `;
-    socialFeedContainer.appendChild(postElement);
-  });
-}
-
-function handlePostImageUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  const reader = new FileReader();
-  reader.onload = e => {
-    postImagePreview.src = e.target.result;
-    postImagePreview.classList.remove('hidden');
-    postImageArea.classList.add('hidden');
-  };
-  reader.readAsDataURL(file);
-}
-
-function closeAddPostModal() {
-  addPostModal.classList.add('hidden');
-  postImageInput.value = '';
-  postImagePreview.classList.add('hidden');
-  postImageArea.classList.remove('hidden');
-  postCaption.value = '';
-}
-
-async function submitSocialPost() {
-  const caption = postCaption.value.trim();
-  if (!postImagePreview.src || !caption) {
-    showToast('Please add both an image and caption.', 'error');
-    return;
-  }
-  
-  // Show loading state
-  if (submitPost) {
-    submitPost.disabled = true;
-    submitPost.textContent = 'Posting...';
-  }
-  
-  try {
-    // Get base64 image (remove data URL prefix if present)
-    let imageBase64 = postImagePreview.src;
-    if (imageBase64.includes(',')) {
-      imageBase64 = imageBase64.split(',')[1];
-    }
-    
-    const response = await fetch(`${API_URL}/social`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-    username: 'you',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
-        image: imageBase64,
-    caption: caption,
-        hashtags: []
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      // Reload posts from server to get latest (includes the new post)
-      await loadSocialPosts();
-      closeAddPostModal();
-  showToast('Post shared successfully!', 'success');
-    } else {
-      // Handle rejection (content moderation)
-      const errorMsg = data.reason || data.error || 'Failed to post. Please try again.';
-      showToast(errorMsg, 'error');
-    }
-  } catch (error) {
-    console.error('Error posting:', error);
-    showToast('Failed to post. Check your connection and try again.', 'error');
-  } finally {
-    if (submitPost) {
-      submitPost.disabled = false;
-      submitPost.textContent = 'Post';
-    }
-  }
-}
-
-async function toggleLike(postId) {
-  // Find post by ID (handle both string and number IDs)
-  const post = socialPosts.find(p => String(p.id) === String(postId));
-  if (!post) {
-    console.error('Post not found:', postId);
-    return;
-  }
-  
-  // Optimistically update UI
-  const wasLiked = post.liked || false;
-  post.liked = !wasLiked;
-  post.likes = (post.likes || 0) + (post.liked ? 1 : -1);
-    renderSocialFeed();
-  
-  try {
-    // Call backend API to persist the like
-    const response = await fetch(`${API_URL}/social/${postId}/like`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      // Update with server response
-      post.liked = data.liked;
-      post.likes = data.likes;
-      renderSocialFeed();
-    } else {
-      // Revert on error
-      post.liked = wasLiked;
-      post.likes = (post.likes || 0) + (wasLiked ? 1 : -1);
-      renderSocialFeed();
-      console.error('Failed to toggle like:', data.error);
-    }
-  } catch (error) {
-    // Revert on error
-    post.liked = wasLiked;
-    post.likes = (post.likes || 0) + (wasLiked ? 1 : -1);
-    renderSocialFeed();
-    console.error('Error toggling like:', error);
-  }
-}
-
 // --- Bottom Nav Rendering ---
 function renderBottomNav() {
   if (!bottomNav) return;
 
   const baseBtn = 'tab-button flex flex-col items-center justify-center h-14 flex-1 text-xs transition-all duration-200';
-  const centerBtn = 'tab-button center-pill flex items-center justify-center h-12 w-12 transition-all duration-200 rounded-full bg-white -translate-y-2';
 
   const icons = {
     home: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>',
@@ -1241,35 +762,21 @@ function renderBottomNav() {
     shop: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>'
   };
 
-  const clientTabs = [
+  const tabs = [
     { key: 'ai', label: 'Home', icon: icons.home },
     { key: 'barbers', label: 'Explore', icon: icons.explore },
-    { key: 'appointments', label: 'Book', icon: icons.calendar, center: true },
-    { key: 'community', label: 'Community', icon: icons.community },
+    { key: 'appointments', label: 'Book', icon: icons.calendar },
     { key: 'profile', label: 'Profile', icon: icons.profile }
   ];
 
-  const tabs = clientTabs;
-
   bottomNav.innerHTML = `
     <div class="flex items-center justify-between px-4 py-1">
-      ${tabs.map((t) => {
-        if (t.center) {
-          return `
-            <div class="flex-1 flex items-center justify-center">
-              <button class="${centerBtn} text-black" data-tab="${t.key}">
-                ${t.icon}
-              </button>
-            </div>
-          `;
-        }
-        return `
-          <button class="${baseBtn} text-gray-500 hover:text-white" data-tab="${t.key}">
-            ${t.icon}
-            <span class="mt-1 text-[11px]">${t.label}</span>
-          </button>
-        `;
-      }).join('')}
+      ${tabs.map((t) => `
+        <button class="${baseBtn} text-gray-500 hover:text-white" data-tab="${t.key}">
+          ${t.icon}
+          <span class="mt-1 text-[11px]">${t.label}</span>
+        </button>
+      `).join('')}
     </div>
   `;
 
@@ -1581,191 +1088,6 @@ function downloadTryOnImage(base64Data, styleName) {
 }
 
 
-// ============================================================
-// NEW FEATURES: Comments, Shares, Follows, AI Insights
-// ============================================================
-
-let postCommentsState = {}; // Track which post comments are visible
-
-async function toggleComments(postId) {
-  const commentsDiv = document.getElementById(`comments-${postId}`);
-  if (!commentsDiv) return;
-  
-  const isHidden = commentsDiv.classList.contains('hidden');
-  
-  if (isHidden) {
-    // Load and show comments
-    try {
-      const response = await fetch(`${API_URL}/social/${postId}/comments`);
-      const data = await response.json();
-      
-      commentsDiv.innerHTML = '';
-      if (data.comments && data.comments.length > 0) {
-        data.comments.forEach(comment => {
-          const commentDiv = document.createElement('div');
-          commentDiv.className = 'flex gap-2';
-          commentDiv.innerHTML = `
-            <span class="font-semibold text-white text-sm">${comment.username}</span>
-            <span class="text-gray-300 text-sm">${comment.text}</span>
-          `;
-          commentsDiv.appendChild(commentDiv);
-        });
-      } else {
-        commentsDiv.innerHTML = '<p class="text-gray-500 text-sm">No comments yet</p>';
-      }
-      commentsDiv.classList.remove('hidden');
-    } catch (error) {
-      console.error('Error loading comments:', error);
-      showToast('Failed to load comments.', 'error');
-    }
-  } else {
-    commentsDiv.classList.add('hidden');
-  }
-}
-
-async function submitComment(postId) {
-  const input = document.getElementById(`comment-input-${postId}`);
-  const text = input.value.trim();
-  
-  if (!text) {
-    showToast('Please enter a comment.', 'error');
-    return;
-  }
-  
-  try {
-    const response = await fetch(`${API_URL}/social/${postId}/comments`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        username: 'you',
-        text: text
-      })
-    });
-    
-    if (response.ok) {
-      input.value = '';
-      toggleComments(postId); // Reload comments
-    } else {
-      showToast('Failed to post comment.', 'error');
-    }
-  } catch (error) {
-    console.error('Error posting comment:', error);
-    showToast('Failed to post comment.', 'error');
-  }
-}
-
-async function sharePost(postId) {
-  try {
-    const response = await fetch(`${API_URL}/social/${postId}/share`, {
-      method: 'POST'
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      const post = socialPosts.find(p => String(p.id) === String(postId));
-      if (post) {
-        post.shares = data.shares || (post.shares || 0) + 1;
-      }
-      renderSocialFeed();
-      showToast('Post shared!', 'success');
-    } else {
-      showToast('Failed to share post.', 'error');
-    }
-  } catch (error) {
-    console.error('Error sharing post:', error);
-    showToast('Failed to share post.', 'error');
-  }
-}
-
-async function toggleFollow(username) {
-  const isFollowing = (user_follows?.current_user || []).includes(username);
-  
-  const endpoint = isFollowing ? 'unfollow' : 'follow';
-  
-  try {
-    const response = await fetch(`${API_URL}/users/${username}/${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        follower_id: 'current_user'
-      })
-    });
-    
-    if (response.ok) {
-      showToast(isFollowing ? `Unfollowed ${username}` : `Now following ${username}!`, 'success');
-      renderSocialFeed();
-    } else {
-      showToast('Failed to update follow status.', 'error');
-    }
-  } catch (error) {
-    console.error('Error toggling follow:', error);
-    showToast('Failed to update follow status.', 'error');
-  }
-}
-
-// Load AI insights and display trending styles
-async function loadAIInsights() {
-  try {
-    const styles = lastRecommendedStyles.map(s => s.styleName).join(',');
-    const response = await fetch(`${API_URL}/ai-insights?styles=${styles}`);
-    const data = await response.json();
-    
-    // Create insights display
-    const insightsDiv = document.createElement('div');
-    insightsDiv.id = 'ai-insights-display';
-    insightsDiv.className = 'bg-gradient-to-r from-sky-900 to-purple-900 border border-sky-700 rounded-2xl p-6 mb-6';
-    insightsDiv.innerHTML = `
-      <h3 class="text-xl font-bold mb-4 text-white">✨ AI Style Insights</h3>
-      
-      <div class="mb-4">
-        <p class="text-sm font-semibold text-sky-200 mb-2">🔥 Trending Styles</p>
-        <div class="flex flex-wrap gap-2">
-          ${data.trending_styles.map(style => `
-            <span class="bg-white/20 text-white px-3 py-1 rounded-full text-sm">${style}</span>
-          `).join('')}
-        </div>
-      </div>
-      
-      <div class="mb-4">
-        <p class="text-sm font-semibold text-sky-200 mb-2">💡 Seasonal Tips</p>
-        <p class="text-white text-sm">${data.seasonal_tips}</p>
-      </div>
-      
-      <div class="mb-4">
-        <p class="text-sm font-semibold text-sky-200 mb-2">🎨 Popular Colors</p>
-        <div class="flex flex-wrap gap-2">
-          ${data.popular_colors.map(color => `
-            <span class="bg-white/20 text-white px-3 py-1 rounded-full text-sm">${color}</span>
-          `).join('')}
-        </div>
-      </div>
-      
-      ${data.trending_hashtags.length > 0 ? `
-      <div>
-        <p class="text-sm font-semibold text-sky-200 mb-2">📱 Trending Hashtags</p>
-        <div class="flex flex-wrap gap-2">
-          ${data.trending_hashtags.map(tag => `
-            <span class="text-sky-300 text-sm">#${tag}</span>
-          `).join('')}
-        </div>
-      </div>
-      ` : ''}
-    `;
-    
-    // Insert after recommendations
-    const recommendationsContainer = document.getElementById('recommendations-container');
-    if (recommendationsContainer && !document.getElementById('ai-insights-display')) {
-      recommendationsContainer.insertAdjacentElement('afterend', insightsDiv);
-    }
-  } catch (error) {
-    console.error('Error loading AI insights:', error);
-  }
-}
-
 // Load barber reviews
 async function loadBarberReviews(barberId) {
   try {
@@ -1889,17 +1211,11 @@ const originalAnalyzeComplete = () => {}; // We'll override this
 
 // --- Make functions globally available ---
 window.switchTab = switchTab;
-window.toggleLike = toggleLike;
 window.openBookingModal = openBookingModal;
 window.findBarbersForStyle = findBarbersForStyle;
 window.confirmZipcodeSearch = confirmZipcodeSearch;
 window.cancelZipcodeSearch = cancelZipcodeSearch;
 window.tryOnStyle = tryOnStyle;
 window.downloadTryOnImage = downloadTryOnImage;
-window.toggleComments = toggleComments;
-window.submitComment = submitComment;
-window.sharePost = sharePost;
-window.toggleFollow = toggleFollow;
-window.loadAIInsights = loadAIInsights;
 window.showBarberReviews = showBarberReviews;
 

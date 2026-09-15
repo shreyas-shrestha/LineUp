@@ -180,7 +180,6 @@ def cache_stats():
     require_ops_access()
     svc = services()
     stats = svc.places_cache.stats()
-    stats["memory_usage_estimate_kb"] = stats["cache_size"] * 10
     return jsonify(stats)
 
 

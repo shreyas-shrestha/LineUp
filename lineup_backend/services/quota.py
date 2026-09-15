@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 from datetime import date
-from typing import Any, Dict, Optional
+from typing import Optional
 
 
 class DailyQuota:
@@ -38,6 +38,3 @@ class DailyQuota:
         with self._lock:
             self._roll()
             return None if self.limit <= 0 else max(0, self.limit - self.used)
-
-    def snapshot(self) -> Dict[str, Any]:
-        return {"used": self.used, "limit": self.limit, "remaining": self.remaining, "reset_date": self.reset_date.isoformat()}

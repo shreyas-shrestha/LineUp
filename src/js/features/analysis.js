@@ -7,7 +7,7 @@ import { getSavedAnalysis, saveAnalysis, clearAnalysis, getSavedImage, saveImage
 import { bindDropzone, validateImage, compressImage } from '../ui/dropzone.js';
 import { titleCase } from '../format.js';
 import { openTryOn } from './tryon.js';
-import { findBarbersForStyle, searchForStyles } from './barbers.js';
+import { openZipcodePrompt, searchForStyles } from './barbers.js';
 import { debug } from '../env.js';
 
 const SAMPLE_RESULT = {
@@ -231,7 +231,7 @@ export function initAnalysis() {
   delegate(els.recs, 'click', '[data-action]', (event, button) => {
     const style = button.dataset.style || '';
     if (button.dataset.action === 'tryon') openTryOn(style);
-    else if (button.dataset.action === 'find-barbers') findBarbersForStyle(style);
+    else if (button.dataset.action === 'find-barbers') openZipcodePrompt(style);
   });
   restore();
 }

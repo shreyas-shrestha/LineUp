@@ -263,9 +263,6 @@ export function initCommunity() {
     error: byId('post-error'),
     submit: byId('submit-post'),
   });
-  // Posts are authored by the account, so the name field from phase 1 is retired.
-  const nameField = byId('post-username');
-  if (nameField) { const wrap = nameField.closest('.field') || nameField; wrap.classList.add('hidden'); wrap.hidden = true; nameField.disabled = true; }
   byId('add-post-button').addEventListener('click', () => { resetPostForm(); openModal('add-post-modal'); });
   bindDropzone({ input: els.input, zone: els.zone, onFile: handleFile });
   els.form.addEventListener('submit', submitPost);

@@ -52,7 +52,9 @@ function compute(appointments, portfolio) {
   const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7);
   const weekCount = active.filter((apt) => { const d = parseDate(apt.date); return d && d >= weekStart && d < weekEnd; }).length;
 
-  const capacity = 22 * 8; // working days x slots, a rough monthly ceiling
+  // A fixed ceiling, not the barber's own hours: the card is labelled
+  // "Of 176 slots a month" so the number is not read as real capacity.
+  const capacity = 22 * 8;
   const utilization = Math.min(100, Math.round((thisMonthList.length / capacity) * 100));
 
   els.revenue.textContent = `$${Math.round(revenue).toLocaleString('en-US')}`;

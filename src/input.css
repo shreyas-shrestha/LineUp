@@ -107,7 +107,7 @@
     text-rendering: optimizeLegibility;
     font-feature-settings: "cv11", "ss01";
   }
-  /* Fixed canvas: two soft radial lights and a 4% grid, like a Vercel hero. */
+  /* Fixed canvas: two soft radial lights over a 4% grid. */
   body::before {
     content: "";
     position: fixed;
@@ -1190,14 +1190,91 @@
   .section-head .lead { margin-top: 12px; font-size: 16px; }
   @media (min-width: 768px) { .section-head { margin-bottom: 56px; } .section-head .lead { font-size: 17px; } }
 
-  .hero { padding: 64px 0 40px; }
+  /* overflow-clip keeps the drifting glow from widening the page. */
+  .hero { position: relative; padding: 64px 0 40px; isolation: isolate; overflow: hidden; }
   @media (min-width: 768px) { .hero { padding: 104px 0 64px; } }
   .hero-inner { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; max-width: 760px; }
   .hero .display-1 { max-width: 18ch; }
   .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
   .hero-note { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-2); font-family: theme('fontFamily.mono'); }
-  .hero-shot { margin-top: 48px; }
+  .hero-shot { margin-top: 48px; will-change: transform, translate; }
   @media (min-width: 768px) { .hero-shot { margin-top: 72px; } }
+
+  /* Hero ambience -----------------------------------------------------
+     One soft accent wash behind the hero. A radial gradient, not a blurred
+     element, so it costs no extra blur layer on top of the glass surfaces. */
+  .hero-glow {
+    position: absolute;
+    z-index: -1;
+    inset: -20% -10% auto -10%;
+    height: 620px;
+    pointer-events: none;
+    background:
+      radial-gradient(48% 52% at 22% 34%, rgba(50, 145, 255, 0.16), transparent 70%),
+      radial-gradient(38% 46% at 74% 16%, rgba(50, 145, 255, 0.08), transparent 72%);
+    animation: hero-drift 24s ease-in-out infinite alternate;
+  }
+
+  /* The payoff half of the hero headline. 7.2:1 on the black canvas. */
+  .accent-text { color: var(--color-accent); }
+
+  /* Style fan ---------------------------------------------------------
+     Fills the empty right column of the hero at wide widths with a fanned
+     stack of result cards. Decorative: hidden from assistive tech, and not
+     rendered at all below 1120px where the hero text uses the full width. */
+  .hero .container { position: relative; }
+  .style-fan { display: none; }
+  @media (min-width: 1120px) {
+    .style-fan {
+      display: block;
+      position: absolute;
+      z-index: -1;
+      top: 84px;
+      right: var(--gutter);
+      width: 300px;
+      height: 320px;
+      pointer-events: none;
+    }
+  }
+  .fan-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 232px;
+    padding: 14px 16px;
+    border-radius: var(--radius-lg);
+    background: var(--glass-1);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--glass-highlight), var(--shadow-elevated);
+    transform: translate(var(--fan-x, 0), var(--fan-y, 0)) rotate(var(--fan-r, 0deg));
+    animation: fan-float 9s ease-in-out infinite alternate;
+    animation-delay: var(--fan-delay, 0s);
+  }
+  /* A clean diagonal cascade, best match at the top. The tilt stays under 3deg:
+     enough to read as a stack, not enough to look like a mistake. */
+  .fan-card:nth-child(1) { --fan-x: 0px;  --fan-y: 152px; --fan-r: -2.5deg; --fan-delay: 0s; }
+  .fan-card:nth-child(2) { --fan-x: 28px; --fan-y: 76px;  --fan-r: 0deg;    --fan-delay: 1.2s; }
+  .fan-card:nth-child(3) { --fan-x: 56px; --fan-y: 0px;   --fan-r: 2.5deg;  --fan-delay: 2.4s; }
+  .fan-card-label { display: block; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-2); font-family: theme('fontFamily.mono'); }
+  .fan-card-value { display: block; margin-top: 4px; font-size: 15px; font-weight: 500; color: var(--color-text-1); }
+
+  /* Scroll reveals ----------------------------------------------------
+     Only applied once JS is running (html.js), so with scripts blocked the
+     page renders in its final state instead of staying invisible. */
+  .js [data-reveal] {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 560ms var(--ease-out) var(--reveal-delay, 0ms),
+      transform 560ms var(--ease-out) var(--reveal-delay, 0ms);
+  }
+  .js [data-reveal].is-in { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-glow, .fan-card { animation: none; }
+    .hero-shot { transform: none !important; }
+    .js [data-reveal] { opacity: 1; transform: none; transition: none; }
+  }
 
   /* Browser frame: glass window chrome around a product screenshot. */
   .browser-frame {
@@ -1490,6 +1567,14 @@
   .w3 { width: 0.75rem; }
 }
 
+@keyframes hero-drift {
+  from { transform: translate3d(-3%, -2%, 0) scale(1); }
+  to   { transform: translate3d(4%, 3%, 0) scale(1.08); }
+}
+@keyframes fan-float {
+  from { translate: 0 0; }
+  to   { translate: 0 -12px; }
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }

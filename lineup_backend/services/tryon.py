@@ -95,7 +95,7 @@ class TryOnService:
             "styleApplied": description,
             "haircut": haircut,
             "haircutMatchedBy": method,
-            "poweredBy": "LineUp Preview Mode",
+            "poweredBy": "LineUp preview mode",
             "note": "Preview only: your photo labelled with the style. Configure REPLICATE_API_TOKEN for a generated result.",
             "mode": "preview",
             "mock": True,

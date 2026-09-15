@@ -37,12 +37,6 @@ export function getCreditCost(action) {
   return Number(costs[action] ?? DEFAULT_COSTS[action] ?? 0);
 }
 
-export function getCredits() {
-  if (billing && typeof billing.credits === 'number') return billing.credits;
-  const user = getUser();
-  return user && typeof user.credits === 'number' ? user.credits : 0;
-}
-
 export function isPro() {
   if (billing) return Boolean(billing.pro || billing.plan === 'pro');
   const user = getUser();
@@ -202,7 +196,7 @@ function paintPlan() {
   els.upgradePro.classList.toggle('hidden', pro);
   els.proStatus.textContent = pro
     ? (billing && billing.stripe && billing.stripe.configured && billing.stripe.subscription ? 'Billed monthly through Stripe. Manage or cancel under Manage billing.' : 'Pro is active on this account.')
-    : 'Unlocks unlimited portfolio photos, packages, client history and analytics.';
+    : 'Pro adds unlimited portfolio photos, packages, client history and analytics.';
 
   const dev = devToolsEnabled();
   els.devGrant.classList.toggle('hidden', !dev);
@@ -482,7 +476,6 @@ export function initBilling() {
     checkoutNoticeText: byId('checkout-notice-text'),
     planBadge: byId('plan-badge'),
     manageBilling: byId('manage-billing'),
-    creditsCard: byId('credits-card'),
     refreshBilling: byId('refresh-billing'),
     balance: byId('credits-balance'),
     creditsNote: byId('credits-note'),

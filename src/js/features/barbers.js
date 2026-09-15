@@ -19,8 +19,6 @@ let requestSeq = 0;
 let searched = false;
 let reviewsBarber = null;
 
-export function getBarber(id) { return results.find((barber) => String(barber.id) === String(id)) || null; }
-
 function describeQuery(location, styles, count, mock) {
   const where = location ? ` near ${location}` : '';
   const forStyles = styles.length ? ` who do ${styles.slice(0, 2).join(' or ')}` : '';
@@ -119,10 +117,6 @@ export function searchForStyles(styles) {
   else openZipcodePrompt(currentStyles[0] || null);
 }
 
-export function findBarbersForStyle(styleName) {
-  openZipcodePrompt(styleName);
-}
-
 export function openZipcodePrompt(styleName) {
   pendingStyle = styleName;
   els.zipSubtitle.textContent = styleName
@@ -214,7 +208,7 @@ export function initBarbers() {
   els.zipForm.addEventListener('submit', submitZipcode);
 
   delegate(els.list, 'click', '[data-action]', (event, button) => {
-    const barber = getBarber(results[Number(button.dataset.index)]?.id);
+    const barber = results[Number(button.dataset.index)] || null;
     if (button.dataset.action === 'focus-search') { els.input.focus(); return; }
     if (!barber) return;
     if (button.dataset.action === 'book') openBooking(barber);

@@ -21,6 +21,7 @@ import { initDashboard } from './features/barber-dashboard.js';
 import { initPortfolio } from './features/portfolio.js';
 import { initShop } from './features/shop.js';
 import { initProfile } from './features/profile.js';
+import { initLanding } from './features/landing.js';
 import { debug } from './env.js';
 
 function initConnectivityNotice() {
@@ -68,6 +69,7 @@ function boot() {
   initAuth();
   initBilling();
   initRouter();
+  initLanding();
   flushPendingToast();
   checkBackend();
 }

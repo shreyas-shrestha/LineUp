@@ -118,13 +118,3 @@ export function errorNotice({ title = 'Something went wrong', text = '', retryLa
   if (onRetry) node.querySelector('button').addEventListener('click', onRetry);
   return node;
 }
-
-export function debounce(fn, wait) {
-  let timer = null;
-  const debounced = (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), wait);
-  };
-  debounced.cancel = () => clearTimeout(timer);
-  return debounced;
-}

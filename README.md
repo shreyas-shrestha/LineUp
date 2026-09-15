@@ -63,7 +63,8 @@ returns a Firebase web config, otherwise shows the developer sign-in;
 `billing.js` owns pricing cards, the header credits pill and plan badge, Pro
 locks, Checkout/portal redirects, the usage ledger and the out-of-credits
 modal; `state.js` holds preferences and the last analysis (client and barber
-ids are both the uid); `ui/` and `features/` are unchanged from phase 1.
+ids are both the uid); `ui/` holds the toast, modal, confirm, skeleton and
+dropzone primitives and `features/` one module per tab or modal.
 Styling is Tailwind v3 built from `src/input.css` to the committed
 `styles.css`. `config.js` picks the API base URL (`http://localhost:5000` on
 localhost, otherwise the production backend).
@@ -299,7 +300,7 @@ tests/                      pytest suite (conftest.py with auth fixtures, helper
 scripts/dev.sh              API + static frontend for local development
 get_metrics.py, Procfile, requirements.txt, requirements-dev.txt
 index.html                  the single page: landing, pricing, sign-in, onboarding, app, account, legal views
-config.js                   window.LINEUP_CONFIG (API URL, feature flags, ?api= ?debug= ?mock=)
+config.js                   window.LINEUP_CONFIG (API URL, feature flags, ?api= ?debug=)
 src/input.css               Tailwind entry: tokens and @layer components
 src/safelist.js             generated component-class safelist (src/tools/gen-safelist.js)
 src/js/                     main, router, session, auth, billing, api, state, nav, dom, env, format, icons
@@ -309,7 +310,6 @@ styles.css, tailwind.config.js, package.json, package-lock.json
 images/logo.png             logo; images/screens/ holds the landing-page product screenshots
 render.yaml, .renderignore  Render Blueprint and the files kept out of the published site
 .env.example, ENVIRONMENT_SETUP.md, CLAUDE.md
-.static, static-build.sh    leftovers from the previous static deploy; unused
 ```
 
 ## Known limitations

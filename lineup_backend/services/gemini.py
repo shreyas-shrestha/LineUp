@@ -54,7 +54,7 @@ Respond with ONLY a JSON object in this exact format (no markdown, no explanatio
 }"""
 
 REJECT_EXPLICIT = "Your image contains inappropriate or explicit content and cannot be posted."
-REJECT_OFF_TOPIC = "Your image must be related to hair, haircuts, or hairstyles. Please post hair-related content only."
+REJECT_OFF_TOPIC = "This image is not about hair. Post a cut, a style or shop work."
 
 
 def parse_json_block(text: Optional[str]) -> Optional[Dict[str, Any]]:

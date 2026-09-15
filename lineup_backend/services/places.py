@@ -312,7 +312,7 @@ class PlacesService:
             "user_ratings_total": place.get("user_ratings_total", 0),
             "price_level": price_level,
             "avgCost": avg_cost,
-            "phone": details.get("formatted_phone_number", "Call for info"),
+            "phone": details.get("formatted_phone_number", ""),
             "website": details.get("website", ""),
             "bookingUrl": details.get("website", ""),
             "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={lat},{lng}",

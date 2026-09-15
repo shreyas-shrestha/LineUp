@@ -1,4 +1,5 @@
-"""Performance metrics collection and tracking."""
+"""Counters behind GET /metrics: cache hit rates, response-time percentiles,
+request and error counts, external API latencies."""
 
 from __future__ import annotations
 
@@ -6,55 +7,25 @@ import time
 import statistics
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-import threading
+from typing import Any, Dict, Optional
 from functools import wraps
 
 
 class MetricsCollector:
-    """Collects and aggregates performance metrics."""
-    
-    _instance: Optional['MetricsCollector'] = None
-    _lock = threading.Lock()
-    
-    def __new__(cls):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
-        return cls._instance
-    
+    """In-process counters behind GET /metrics. One instance, created below."""
+
     def __init__(self):
-        if self._initialized:
-            return
-        
-        # Cache metrics
         self.cache_hits: Dict[str, int] = defaultdict(int)
         self.cache_misses: Dict[str, int] = defaultdict(int)
-        
-        # Cache savings tracking
-        self.cache_time_saved_ms: Dict[str, float] = defaultdict(float)  # Total time saved
-        self.api_call_times: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))  # Track API call durations
-        self.cached_response_times: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))  # Track cached response times
-        
-        # Response time tracking (store last 1000 requests per endpoint)
+        self.cache_time_saved_ms: Dict[str, float] = defaultdict(float)
+        self.api_call_times: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
+        self.cached_response_times: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
         self.response_times: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
-        
-        # Request counts
         self.request_counts: Dict[str, int] = defaultdict(int)
         self.error_counts: Dict[str, int] = defaultdict(int)
-        
-        # API call latencies
         self.api_latencies: Dict[str, deque] = defaultdict(lambda: deque(maxlen=500))
-        
-        # API calls avoided (due to cache)
         self.api_calls_avoided: Dict[str, int] = defaultdict(int)
-        
-        # Timestamps for request tracking
         self.request_timestamps: Dict[str, deque] = defaultdict(lambda: deque(maxlen=10000))
-        
-        self._initialized = True
     
     def record_cache_hit(self, cache_name: str = "default", response_time_ms: Optional[float] = None):
         """Record a cache hit and track savings."""
@@ -71,7 +42,6 @@ class MetricsCollector:
             self.api_calls_avoided[cache_name] += 1
     
     def record_cache_miss(self, cache_name: str = "default"):
-        """Record a cache miss."""
         self.cache_misses[cache_name] += 1
     
     def record_api_call_time(self, cache_name: str, duration_ms: float):
@@ -79,22 +49,18 @@ class MetricsCollector:
         self.api_call_times[cache_name].append(duration_ms)
     
     def record_response_time(self, endpoint: str, duration_ms: float):
-        """Record response time in milliseconds."""
         self.response_times[endpoint].append(duration_ms)
         self.request_timestamps[endpoint].append(time.time())
     
     def record_request(self, endpoint: str, success: bool = True):
-        """Record a request."""
         self.request_counts[endpoint] += 1
         if not success:
             self.error_counts[endpoint] += 1
     
     def record_api_latency(self, api_name: str, duration_ms: float):
-        """Record external API call latency."""
         self.api_latencies[api_name].append(duration_ms)
     
     def get_cache_hit_rate(self, cache_name: str = "default") -> float:
-        """Get cache hit rate as percentage."""
         hits = self.cache_hits.get(cache_name, 0)
         misses = self.cache_misses.get(cache_name, 0)
         total = hits + misses
@@ -103,7 +69,6 @@ class MetricsCollector:
         return (hits / total) * 100.0
     
     def get_cache_savings(self, cache_name: str = "default") -> Dict[str, Any]:
-        """Get cache savings metrics."""
         hits = self.cache_hits.get(cache_name, 0)
         misses = self.cache_misses.get(cache_name, 0)
         total_time_saved_ms = self.cache_time_saved_ms.get(cache_name, 0.0)
@@ -160,7 +125,6 @@ class MetricsCollector:
         }
     
     def get_api_latency_stats(self, api_name: str) -> Dict[str, float]:
-        """Get API latency statistics."""
         latencies = list(self.api_latencies.get(api_name, []))
         if not latencies:
             return {
@@ -183,7 +147,6 @@ class MetricsCollector:
         }
     
     def get_success_rate(self, endpoint: str) -> float:
-        """Get success rate as percentage."""
         total = self.request_counts.get(endpoint, 0)
         errors = self.error_counts.get(endpoint, 0)
         if total == 0:
@@ -201,7 +164,6 @@ class MetricsCollector:
         return len(recent_requests) / minutes
     
     def get_all_metrics(self) -> Dict[str, Any]:
-        """Get all metrics in a structured format."""
         endpoints = set(self.request_counts.keys()) | set(self.response_times.keys())
         
         endpoint_metrics = {}
@@ -246,13 +208,10 @@ class MetricsCollector:
         self.request_timestamps.clear()
 
 
-# Global metrics collector instance
 metrics = MetricsCollector()
 
 
-# Decorator for tracking endpoint performance
 def track_performance(endpoint_name: Optional[str] = None):
-    """Decorator to track endpoint performance metrics."""
     def decorator(func):
         endpoint = endpoint_name or func.__name__
         
@@ -261,8 +220,7 @@ def track_performance(endpoint_name: Optional[str] = None):
             start_time = time.time()
             success = True
             try:
-                result = func(*args, **kwargs)
-                return result
+                return func(*args, **kwargs)
             except Exception:
                 success = False
                 raise

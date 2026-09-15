@@ -222,4 +222,3 @@ export function initRouter() {
   applyRoute({ initial: true });
 }
 
-export { homeHashFor, defaultTab };

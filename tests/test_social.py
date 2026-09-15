@@ -32,7 +32,7 @@ def test_create_post_rejects_invalid_image(as_client):
     response = as_client.post("/social", json={"image": "bm90IGFuIGltYWdl"})
     assert response.status_code == 400
     data = response.get_json()
-    assert data["success"] is False and "Invalid image" in data["error"]
+    assert data["success"] is False and "not a readable image" in data["error"]
 
 
 def test_create_post_success(as_client, client):

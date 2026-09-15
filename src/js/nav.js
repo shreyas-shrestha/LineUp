@@ -31,7 +31,6 @@ let current = { mode: null, tab: null };
 const findTab = (mode, key) => (TABS[mode] || []).find((tab) => tab.key === key);
 const findBySlug = (mode, slug) => (TABS[mode] || []).find((tab) => tab.slug === slug);
 
-export function currentMode() { return current.mode; }
 export function currentTab() { return current.tab; }
 export function defaultTab(mode) { return TABS[mode] ? TABS[mode][0].key : 'ai'; }
 

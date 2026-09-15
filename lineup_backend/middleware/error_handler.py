@@ -64,7 +64,7 @@ def register_error_handlers(app: Flask) -> None:
             retry_after = getattr(error, "retry_after", None) or 60
             body = {
                 "error": "Rate limit exceeded",
-                "message": "Too many requests. Please try again later.",
+                "message": f"Too many requests. Try again in {retry_after} seconds.",
                 "retry_after": retry_after,
                 "limit": str(error.description or ""),
             }
@@ -81,6 +81,6 @@ def register_error_handlers(app: Flask) -> None:
     def handle_unexpected(error: Exception) -> Response:
         logger.exception("Unhandled error on %s %s", request.method, request.path)
         return _json(
-            {"error": "Internal server error", "message": "Something went wrong on our end. Please try again later."},
+            {"error": "Internal server error", "message": "The request failed on our side. Try again."},
             500,
         )

@@ -62,7 +62,7 @@ def social():
     try:
         image_bytes = decode_base64_image(image_field, field="image")
     except ApiError as exc:
-        raise ApiError("Invalid image format. Please upload a valid image.", 400, success=False) from exc
+        raise ApiError("That file is not a readable image. Use a JPG, PNG or WebP.", 400, success=False) from exc
 
     if svc.gemini.available:
         approved, reason = svc.gemini.moderate_image(open_image(image_bytes))

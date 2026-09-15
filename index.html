@@ -90,18 +90,34 @@
 
     <main id="landing-main">
       <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-glow" aria-hidden="true"></div>
         <div class="container">
+          <!-- Decorative: a fanned sample of what an analysis returns. Wide screens only. -->
+          <div class="style-fan" style="--reveal-delay:380ms" aria-hidden="true" data-reveal>
+            <div class="fan-card">
+              <span class="fan-card-label">Suggested cut</span>
+              <span class="fan-card-value">Textured crop</span>
+            </div>
+            <div class="fan-card">
+              <span class="fan-card-label">Hair texture</span>
+              <span class="fan-card-value">Wavy</span>
+            </div>
+            <div class="fan-card">
+              <span class="fan-card-label">Face shape</span>
+              <span class="fan-card-value">Oval</span>
+            </div>
+          </div>
           <div class="hero-inner">
-            <p class="eyebrow">Haircut recommendations and booking</p>
-            <h1 id="hero-title" class="display-1">Find a cut that fits your face. Then book the barber who can do it.</h1>
-            <p class="lead">Upload one photo. LineUp reads your face shape and hair texture, suggests cuts that suit them, and shows barbershops near you with real ratings and opening hours.</p>
-            <div class="hero-actions">
+            <p class="eyebrow" data-reveal>Haircut recommendations and booking</p>
+            <h1 id="hero-title" class="display-1" style="--reveal-delay:60ms" data-reveal>Find a cut that fits your face. Then book the barber <span class="accent-text">who can do it.</span></h1>
+            <p class="lead" style="--reveal-delay:140ms" data-reveal>Upload one photo. LineUp reads your face shape and hair texture, suggests cuts that suit them, and shows barbershops near you with real ratings and opening hours.</p>
+            <div class="hero-actions" style="--reveal-delay:220ms" data-reveal>
               <a class="btn-primary btn-lg" href="#/signin">Get started</a>
               <a class="btn-secondary btn-lg" href="#/pricing">See pricing</a>
             </div>
-            <p class="hero-note"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-zap"/></svg>3 free credits when you sign up. No card needed.</p>
+            <p class="hero-note" style="--reveal-delay:300ms" data-reveal><svg class="icon icon-sm" aria-hidden="true"><use href="#i-zap"/></svg>3 free credits when you sign up. No card needed.</p>
           </div>
-          <div class="hero-shot">
+          <div class="hero-shot" data-reveal data-parallax="0.04">
             <div class="browser-frame">
               <div class="browser-frame-bar" aria-hidden="true">
                 <div class="browser-frame-dots"><span class="browser-frame-dot"></span><span class="browser-frame-dot"></span><span class="browser-frame-dot"></span></div>
@@ -115,23 +131,23 @@
 
       <section id="how-it-works" class="section" aria-labelledby="how-title">
         <div class="container">
-          <div class="section-head">
+          <div class="section-head" data-reveal>
             <p class="eyebrow">How it works</p>
             <h2 id="how-title" class="display-2">Three steps, about a minute</h2>
             <p class="lead">Nothing is stored until you ask for an analysis, and you can start over at any point.</p>
           </div>
           <ol class="steps">
-            <li class="step">
+            <li class="step" style="--reveal-delay:0ms" data-reveal>
               <span class="step-num">01</span>
               <h3 class="step-title">Upload a front-facing photo</h3>
               <p class="step-text">A phone photo in daylight is enough. We resize it on your device before it is sent, and delete it after the analysis.</p>
             </li>
-            <li class="step">
+            <li class="step" style="--reveal-delay:90ms" data-reveal>
               <span class="step-num">02</span>
               <h3 class="step-title">Read your analysis and pick a cut</h3>
               <p class="step-text">You get your face shape, hair texture and colour, plus five or six cuts with a one-line reason each. Preview any of them on your own photo.</p>
             </li>
-            <li class="step">
+            <li class="step" style="--reveal-delay:180ms" data-reveal>
               <span class="step-num">03</span>
               <h3 class="step-title">Book a barber who does it</h3>
               <p class="step-text">Search by ZIP code or city. Each shop shows its rating, hours and price range. Request a time and the barber confirms.</p>
@@ -143,7 +159,7 @@
       <section id="for-barbers" class="section" aria-labelledby="barbers-title">
         <div class="container">
           <div class="split">
-            <div class="split-copy">
+            <div class="split-copy" data-reveal>
               <p class="eyebrow">For barbers</p>
               <h2 id="barbers-title" class="display-2">Run your chair from one screen</h2>
               <p class="lead">Take booking requests, set your hours and prices, and keep a portfolio clients see before they book. Free to start; Pro adds the tools a busy shop needs.</p>
@@ -158,7 +174,7 @@
                 <a class="btn-ghost" href="#/pricing">Compare plans<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
               </div>
             </div>
-            <div class="browser-frame browser-frame-sm">
+            <div class="browser-frame browser-frame-sm" style="--reveal-delay:120ms" data-reveal>
               <div class="browser-frame-bar" aria-hidden="true">
                 <div class="browser-frame-dots"><span class="browser-frame-dot"></span><span class="browser-frame-dot"></span><span class="browser-frame-dot"></span></div>
                 <div class="browser-frame-url"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>lineup.app/barber/dashboard</div>
@@ -171,13 +187,13 @@
 
       <section id="pricing" class="section" aria-labelledby="pricing-title">
         <div class="container">
-          <div class="section-head">
+          <div class="section-head" data-reveal>
             <p class="eyebrow">Pricing</p>
             <h2 id="pricing-title" class="display-2">Pay for what you use</h2>
             <p class="lead">Clients buy credits once and spend them on analyses, previews and searches. Barbers pay a flat monthly fee for Pro. Prices below are loaded from the server when it is reachable.</p>
           </div>
           <!-- JS renders GET /billing/pricing into this container (replace innerHTML). The static cards are the fallback. -->
-          <div id="pricing-grid" class="pricing-grid" data-pricing-grid>
+          <div id="pricing-grid" class="pricing-grid" style="--reveal-delay:80ms" data-reveal data-pricing-grid>
             <article class="pricing-card" data-plan="starter">
               <div class="pricing-card-head"><h3 class="pricing-name">Starter</h3></div>
               <p class="pricing-price"><span class="pricing-amount">$4.99</span><span class="pricing-period">one time</span></p>
@@ -236,11 +252,11 @@
 
       <section id="faq" class="section" aria-labelledby="faq-title">
         <div class="container">
-          <div class="section-head">
+          <div class="section-head" data-reveal>
             <p class="eyebrow">FAQ</p>
             <h2 id="faq-title" class="display-2">Questions people ask</h2>
           </div>
-          <div class="faq">
+          <div class="faq" style="--reveal-delay:80ms" data-reveal>
             <details class="faq-item">
               <summary>What happens to my photo?<svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></summary>
               <p class="faq-body">It is resized in your browser, sent once for the analysis, and not kept on our servers afterwards. The result is saved on your device so you can come back to it; “Start over” clears it.</p>
@@ -781,7 +797,7 @@
           <div class="stat">
             <p class="stat-label">Utilization</p>
             <p class="stat-value" id="utilization-rate">0%</p>
-            <p class="stat-delta">Of available hours</p>
+            <p class="stat-delta">Of 176 slots a month</p>
           </div>
         </div>
 
@@ -1254,11 +1270,6 @@
         </div>
         <img id="post-image-preview" class="preview-img hidden" alt="Selected photo" width="480" height="360">
         <div class="field">
-          <label for="post-username" class="field-label">Your name</label>
-          <input type="text" id="post-username" class="input" autocomplete="name" maxlength="40" placeholder="Your name">
-          <p class="field-hint">Shown on the post and your comments.</p>
-        </div>
-        <div class="field">
           <label for="post-caption" class="field-label">Caption</label>
           <textarea id="post-caption" class="textarea" rows="3" maxlength="280" placeholder="Fresh taper from Marcus at Eastside"></textarea>
           <p class="field-hint">Up to 280 characters.</p>
@@ -1358,7 +1369,7 @@
             <option value="haircut-beard">Haircut and beard – $65</option>
             <option value="beard-only">Beard trim – $25</option>
           </select>
-          <p class="field-hint" id="appointment-service-hint">Prices are the shop's listed rates and may change on the day.</p>
+          <p class="field-hint" id="appointment-service-hint">Typical rates. The shop confirms the price when it accepts your request.</p>
         </div>
         <div class="field">
           <label for="appointment-notes" class="field-label">Notes for the barber <span class="optional">(optional)</span></label>

@@ -1,31 +1,134 @@
+# Render Blueprint for LineUp: one Flask API and one static site.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# After the first deploy, set LINEUP_PUBLIC_URL / LINEUP_ALLOWED_ORIGINS /
+# LINEUP_FRONTEND_URL below to the hostnames Render assigned (or leave them
+# blank to use the defaults in lineup_backend/config.py, which already list the
+# current production hosts). The frontend's API base URL lives in config.js
+# (API_URL) and must point at the backend service.
+#
+# Production requires FIREBASE_CREDENTIALS (without it auth is "disabled" and
+# every protected route answers 503) and the Stripe variables for payments.
+# Also add the frontend host to Firebase's authorized domains and point the
+# Stripe webhook endpoint at https://<backend-host>/billing/webhook.
+
 services:
-  # Backend API
+  # ---------------------------------------------------------------- Backend API
   - type: web
     name: lineup-backend
-    env: python
+    runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    # One worker on purpose: the default store is in-memory, so extra workers
+    # would each hold different data. Threads give concurrency; the 120 s
+    # timeout covers Replicate try-on calls (30-60 s). Move to --workers 2 only
+    # with FIREBASE_CREDENTIALS and RATELIMIT_STORAGE_URI=redis://... set.
+    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 120
+    healthCheckPath: /health
     envVars:
+      # Pinned to the version the test suite was run on. Render's current
+      # default (3.14) is not supported by the pinned dependencies.
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: FLASK_ENV
+        value: production
+      - key: LOG_FORMAT
+        value: json
+      - key: LINEUP_TRUST_PROXY
+        value: "true"
+      # Public base URL of this service (used in /places/photo links).
+      - key: LINEUP_PUBLIC_URL
+        value: https://lineup-fjpn.onrender.com
+      # Comma-separated CORS origins (exact or regex). Must include the static site.
+      - key: LINEUP_ALLOWED_ORIGINS
+        value: https://lineupai.onrender.com
+      # Site origin: Stripe Checkout / portal redirect back to <origin>/#/account.
+      - key: LINEUP_FRONTEND_URL
+        value: https://lineupai.onrender.com
+      # Integration keys: entered in the dashboard, never committed. Optional;
+      # the API falls back to mock/sample/preview behaviour when one is missing.
+      # Gates /metrics, /cache-stats and /clear-cache (header X-Admin-Token). Without it they answer 404 in production.
+      - key: LINEUP_ADMIN_TOKEN
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: GOOGLE_PLACES_API_KEY
         sync: false
-      - key: MODAL_HAIRFAST_ENDPOINT
+      - key: REPLICATE_API_TOKEN
         sync: false
-      - key: PYTHON_VERSION
-        value: 3.11.0
-    
-  # Frontend Static Site
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # Firebase: service-account JSON (Firestore + ID-token verification) and
+      # the public web-app config JSON served to the browser by /config.
+      - key: FIREBASE_CREDENTIALS
+        sync: false
+      - key: FIREBASE_WEB_CONFIG
+        sync: false
+      # Stripe: secret key, webhook signing secret and the four price ids
+      # (three one-time credit packs, one monthly Barber Pro subscription).
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_STARTER
+        sync: false
+      - key: STRIPE_PRICE_PLUS
+        sync: false
+      - key: STRIPE_PRICE_STUDIO
+        sync: false
+      - key: STRIPE_PRICE_BARBER_PRO
+        sync: false
+
+  # ------------------------------------------------------------ Frontend site
   - type: web
     name: lineup-frontend
-    env: static
-    buildCommand: echo "Static site - no build needed"
+    runtime: static
+    # styles.css is committed, so the site also works without this build; the
+    # build just guarantees the published stylesheet matches src/input.css.
+    buildCommand: npm ci && npm run build
     staticPublishPath: .
+    envVars:
+      - key: NODE_VERSION
+        value: 22.20.0
     routes:
+      # Single-page app: unknown paths fall back to index.html. Render serves
+      # real files (styles.css, src/js/*.js, images/*) before applying this.
       - type: rewrite
         source: /*
         destination: /index.html
     headers:
+      # Specific rules first, catch-all last. The catch-all is the conservative
+      # choice (always revalidate) so it is safe whichever rule wins on overlap.
+      - path: /styles.css
+        name: Cache-Control
+        value: public, max-age=300
+      - path: /config.js
+        name: Cache-Control
+        value: public, max-age=300
+      - path: /src/*
+        name: Cache-Control
+        value: public, max-age=300
+      - path: /src/**/*
+        name: Cache-Control
+        value: public, max-age=300
+      - path: /images/*
+        name: Cache-Control
+        value: public, max-age=86400
+      - path: /images/**/*
+        name: Cache-Control
+        value: public, max-age=86400
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /
+        name: Cache-Control
+        value: no-cache
       - path: /*
         name: Cache-Control
-        value: public, max-age=3600
+        value: no-cache
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff

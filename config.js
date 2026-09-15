@@ -107,6 +107,16 @@
       config.MOCK_MODE = true;
     }
     
+    // Helper methods (attached before freezing; a frozen object rejects new keys)
+    config.isFeatureEnabled = function(featureName) {
+      return config.FEATURES[featureName] === true;
+    };
+    config.getApiUrl = function(endpoint) {
+      const base = config.API_URL.replace(/\/$/, '');
+      const path = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+      return base + path;
+    };
+
     // Freeze config to prevent accidental modification
     Object.freeze(config);
     Object.freeze(config.FEATURES);
@@ -124,18 +134,7 @@
   
   // Log config in debug mode
   if (CONFIG.DEBUG) {
-    console.log('🔧 LineUp Config:', CONFIG);
+    console.log('LineUp config:', CONFIG);
   }
-  
-  // Expose helper methods
-  window.LINEUP_CONFIG.isFeatureEnabled = function(featureName) {
-    return CONFIG.FEATURES[featureName] === true;
-  };
-  
-  window.LINEUP_CONFIG.getApiUrl = function(endpoint) {
-    const base = CONFIG.API_URL.replace(/\/$/, '');
-    const path = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
-    return base + path;
-  };
 
 })();

@@ -1,293 +1,138 @@
-"""Authentication middleware for Firebase Auth integration."""
+"""Request authentication: ``Authorization: Bearer <token>`` -> ``g.user``.
+
+Verification is lazy and cached per request so the rate limiter's key
+function, ``optional_auth`` and ``require_auth`` share one lookup. Decorators:
+
+* ``require_auth``            401 without a valid token; sets ``g.user``.
+* ``require_role("barber")``  ...and 403 unless the user has that role
+                              (a user with no role yet gets 403 ``onboarding_required``).
+* ``optional_auth``           public reads that personalise when a token is present.
+
+Ownership helpers raise 403 when the token's uid does not match the resource.
+"""
 
 from __future__ import annotations
 
-import logging
 from functools import wraps
-from typing import Optional, Dict, Any, Callable
+from typing import Any, Callable, Dict, Optional
 
-from flask import request, g
+from flask import current_app, g, request
 
-logger = logging.getLogger(__name__)
+from lineup_backend.middleware.error_handler import ApiError
+from lineup_backend.services.auth import AuthError
 
-# Firebase Admin SDK (optional - graceful degradation)
-try:
-    import firebase_admin
-    from firebase_admin import auth as firebase_auth
-    FIREBASE_AUTH_AVAILABLE = True
-except ImportError:
-    firebase_admin = None
-    firebase_auth = None
-    FIREBASE_AUTH_AVAILABLE = False
-    logger.warning("Firebase Admin SDK not available. Auth will be disabled.")
+_RESOLVED = "_lineup_auth_resolved"
 
 
-class User:
-    """Represents an authenticated user."""
-    
-    def __init__(
-        self,
-        uid: str,
-        email: Optional[str] = None,
-        display_name: Optional[str] = None,
-        role: str = "client",
-        email_verified: bool = False,
-        custom_claims: Optional[Dict[str, Any]] = None
-    ):
-        self.uid = uid
-        self.email = email
-        self.display_name = display_name
-        self.role = role
-        self.email_verified = email_verified
-        self.custom_claims = custom_claims or {}
-    
-    @property
-    def is_barber(self) -> bool:
-        return self.role == "barber"
-    
-    @property
-    def is_client(self) -> bool:
-        return self.role == "client"
-    
-    @property
-    def is_admin(self) -> bool:
-        return self.custom_claims.get("admin", False)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "uid": self.uid,
-            "email": self.email,
-            "displayName": self.display_name,
-            "role": self.role,
-            "emailVerified": self.email_verified,
-        }
-    
-    @classmethod
-    def from_firebase_token(cls, decoded_token: Dict[str, Any]) -> "User":
-        """Create a User from a decoded Firebase token."""
-        custom_claims = decoded_token.get("custom_claims", {})
-        return cls(
-            uid=decoded_token.get("uid", ""),
-            email=decoded_token.get("email"),
-            display_name=decoded_token.get("name"),
-            role=custom_claims.get("role", "client"),
-            email_verified=decoded_token.get("email_verified", False),
-            custom_claims=custom_claims
-        )
+def bearer_token() -> Optional[str]:
+    header = request.headers.get("Authorization", "")
+    parts = header.split()
+    if len(parts) == 2 and parts[0].lower() == "bearer" and parts[1]:
+        return parts[1]
+    return None
 
 
-def get_current_user() -> Optional[User]:
-    """Get the current authenticated user from the request context."""
-    return getattr(g, 'current_user', None)
-
-
-def _extract_token_from_header() -> Optional[str]:
-    """Extract the Bearer token from the Authorization header."""
-    auth_header = request.headers.get("Authorization", "")
-    
-    if not auth_header:
-        return None
-    
-    parts = auth_header.split()
-    
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        return None
-    
-    return parts[1]
-
-
-def _verify_firebase_token(token: str) -> Optional[Dict[str, Any]]:
-    """Verify a Firebase ID token and return the decoded claims."""
-    if not FIREBASE_AUTH_AVAILABLE or not firebase_auth:
-        logger.warning("Firebase Auth not available, skipping token verification")
-        return None
-    
+def _resolve() -> None:
+    """Verify the bearer token once per request; store the outcome on ``g``."""
+    if getattr(g, _RESOLVED, False):
+        return
+    setattr(g, _RESOLVED, True)
+    g.user = None
+    g.principal = None
+    g.auth_error = None
+    token = bearer_token()
+    if not token:
+        return
+    svc = current_app.extensions["lineup"]
     try:
-        decoded_token = firebase_auth.verify_id_token(token)
-        return decoded_token
-    except firebase_auth.InvalidIdTokenError:
-        logger.warning("Invalid Firebase ID token")
-        return None
-    except firebase_auth.ExpiredIdTokenError:
-        logger.warning("Expired Firebase ID token")
-        return None
-    except firebase_auth.RevokedIdTokenError:
-        logger.warning("Revoked Firebase ID token")
-        return None
-    except Exception as e:
-        logger.error(f"Error verifying Firebase token: {str(e)}")
-        return None
+        principal = svc.auth.verify(token)
+        user, _created = svc.auth.get_or_create_user(principal)
+    except AuthError as exc:
+        g.auth_error = exc
+        return
+    g.principal = principal
+    g.user = user
 
 
-def require_auth(func: Callable) -> Callable:
-    """
-    Decorator to require authentication for an endpoint.
-    
-    Usage:
-        @app.route('/protected')
-        @require_auth
-        def protected_endpoint():
-            user = get_current_user()
-            return jsonify({"user": user.to_dict()})
-    """
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        # Check if auth is disabled (development mode)
-        from lineup_backend.config import AppConfig
-        import os
-        config = AppConfig.from_env()
-        
-        if config.flask_env == "development" and os.environ.get("LINEUP_DISABLE_AUTH") == "true":
-            # Create a mock user for development
-            g.current_user = User(
-                uid="dev_user",
-                email="dev@lineup.com",
-                display_name="Development User",
-                role="client"
-            )
-            return func(*args, **kwargs)
-        
-        # Extract and verify token
-        token = _extract_token_from_header()
-        
-        if not token:
-            from .error_handler import AuthenticationError
-            raise AuthenticationError("Missing authentication token")
-        
-        decoded_token = _verify_firebase_token(token)
-        
-        if not decoded_token:
-            from .error_handler import AuthenticationError
-            raise AuthenticationError("Invalid or expired authentication token")
-        
-        # Set the current user in the request context
-        g.current_user = User.from_firebase_token(decoded_token)
-        
-        return func(*args, **kwargs)
-    
+def current_user() -> Optional[Dict[str, Any]]:
+    """The signed-in user's document or None. Never raises (used by the limiter)."""
+    try:
+        _resolve()
+    except Exception:  # noqa: BLE001 - key functions must not fail the request
+        return None
+    return getattr(g, "user", None)
+
+
+def _raise_auth_error(exc: AuthError) -> None:
+    raise ApiError(exc.message, exc.status, code=exc.code)
+
+
+def authenticate(required: bool = True) -> Optional[Dict[str, Any]]:
+    """Resolve the caller. With ``required`` a missing/invalid token raises 401
+    (503 when auth is not configured). A bad token is rejected even when optional."""
+    _resolve()
+    error: Optional[AuthError] = getattr(g, "auth_error", None)
+    if error is not None:
+        _raise_auth_error(error)
+    user = getattr(g, "user", None)
+    if user is None and required:
+        svc = current_app.extensions["lineup"]
+        if not svc.auth.enabled:
+            raise ApiError("Authentication is not configured on this server", 503, code="auth_not_configured")
+        raise ApiError("Sign in to continue", 401, code="unauthorized")
+    return user
+
+
+def require_auth(view: Callable) -> Callable:
+    @wraps(view)
+    def wrapper(*args: Any, **kwargs: Any):
+        authenticate(required=True)
+        return view(*args, **kwargs)
+
     return wrapper
 
 
-def optional_auth(func: Callable) -> Callable:
-    """
-    Decorator for optional authentication.
-    Sets current_user if a valid token is provided, but doesn't require it.
-    
-    Usage:
-        @app.route('/public')
-        @optional_auth
-        def public_endpoint():
-            user = get_current_user()
-            if user:
-                return jsonify({"message": f"Hello, {user.display_name}!"})
-            return jsonify({"message": "Hello, guest!"})
-    """
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        token = _extract_token_from_header()
-        
-        if token:
-            decoded_token = _verify_firebase_token(token)
-            if decoded_token:
-                g.current_user = User.from_firebase_token(decoded_token)
-        
-        return func(*args, **kwargs)
-    
+def optional_auth(view: Callable) -> Callable:
+    @wraps(view)
+    def wrapper(*args: Any, **kwargs: Any):
+        authenticate(required=False)
+        return view(*args, **kwargs)
+
     return wrapper
 
 
-def require_role(role: str) -> Callable:
-    """
-    Decorator to require a specific role for an endpoint.
-    Must be used after @require_auth.
-    
-    Usage:
-        @app.route('/barber-only')
-        @require_auth
-        @require_role('barber')
-        def barber_only_endpoint():
-            return jsonify({"message": "Welcome, barber!"})
-    """
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            user = get_current_user()
-            
-            if not user:
-                from .error_handler import AuthenticationError
-                raise AuthenticationError()
-            
-            if user.role != role and not user.is_admin:
-                from .error_handler import AuthorizationError
-                raise AuthorizationError(f"This action requires {role} role")
-            
-            return func(*args, **kwargs)
-        
+def require_role(*roles: str) -> Callable:
+    def decorator(view: Callable) -> Callable:
+        @wraps(view)
+        def wrapper(*args: Any, **kwargs: Any):
+            user = authenticate(required=True)
+            role = (user or {}).get("role")
+            if not role:
+                raise ApiError("Finish onboarding to continue", 403, code="onboarding_required")
+            if role not in roles:
+                raise ApiError(f"This action requires the {' or '.join(roles)} role", 403, code="forbidden", required_role=list(roles))
+            return view(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
-def require_owner_or_admin(get_owner_id: Callable) -> Callable:
-    """
-    Decorator to require that the user is the owner of the resource or an admin.
-    
-    Usage:
-        def get_appointment_owner(appointment_id):
-            # Logic to get owner ID from appointment
-            return "user_123"
-        
-        @app.route('/appointments/<appointment_id>')
-        @require_auth
-        @require_owner_or_admin(get_appointment_owner)
-        def update_appointment(appointment_id):
-            return jsonify({"message": "Updated!"})
-    """
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            user = get_current_user()
-            
-            if not user:
-                from .error_handler import AuthenticationError
-                raise AuthenticationError()
-            
-            # Admin can do anything
-            if user.is_admin:
-                return func(*args, **kwargs)
-            
-            # Check if user is the owner
-            owner_id = get_owner_id(*args, **kwargs)
-            
-            if owner_id and user.uid != owner_id:
-                from .error_handler import AuthorizationError
-                raise AuthorizationError("You can only modify your own resources")
-            
-            return func(*args, **kwargs)
-        
-        return wrapper
-    return decorator
+def assert_owner(resource_owner_uid: Optional[str], message: str = "You can only manage your own data") -> Dict[str, Any]:
+    """403 unless the signed-in user is ``resource_owner_uid``. Returns the user."""
+    user = authenticate(required=True)
+    assert user is not None
+    if not resource_owner_uid or user["uid"] != str(resource_owner_uid):
+        raise ApiError(message, 403, code="forbidden")
+    return user
 
 
-def set_user_role(uid: str, role: str) -> bool:
-    """
-    Set a custom role for a user in Firebase.
-    
-    Args:
-        uid: The Firebase user ID
-        role: The role to set ('client' or 'barber')
-    
-    Returns:
-        True if successful, False otherwise
-    """
-    if not FIREBASE_AUTH_AVAILABLE or not firebase_auth:
-        logger.warning("Firebase Auth not available, cannot set user role")
-        return False
-    
-    try:
-        firebase_auth.set_custom_user_claims(uid, {"role": role})
-        logger.info(f"Set role '{role}' for user {uid}")
-        return True
-    except Exception as e:
-        logger.error(f"Error setting user role: {str(e)}")
-        return False
+def require_pro(feature: str) -> Dict[str, Any]:
+    """402 ``pro_required`` unless the signed-in user is on the Pro plan."""
+    from lineup_backend.services.billing import ProRequired
 
+    user = authenticate(required=True)
+    assert user is not None
+    if user.get("plan") != "pro":
+        raise ProRequired(feature)
+    return user

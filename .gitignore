@@ -63,3 +63,21 @@ htmlcov/
 # Deployment
 .vercel
 .netlify
+
+# Node
+node_modules/
+
+# Browser verification (Playwright) and ad-hoc screenshots. Screenshots that
+# belong to the repo live under images/; everything else is scratch output.
+.playwright*/
+playwright-report/
+test-results/
+/screenshots/
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+
+# uv / pip
+uv.lock
+pip-log.txt

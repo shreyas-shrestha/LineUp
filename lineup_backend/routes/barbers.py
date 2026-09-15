@@ -1,436 +1,380 @@
-"""Barber discovery and management endpoints."""
+"""Barber discovery (Google Places) and barber management: profile, reviews,
+availability, services, clients.
 
-import logging
-import os
-import time
-import uuid
-from datetime import datetime
+Public reads: search, photo proxy, profile, reviews, availability, slots,
+services. Writes derive the barber id from the token: the URL id must match.
+Client list, history and notes are Barber Pro features.
+"""
 
-from flask import Blueprint, request
+from __future__ import annotations
 
-from lineup_backend.utils import cors_response, handle_options, api_response, safe_get_json
-from lineup_backend import storage as memory_store
+from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+from flask import Blueprint, g, jsonify, redirect, request
 
-barbers_bp = Blueprint('barbers', __name__)
+from lineup_backend.context import services
+from lineup_backend.extensions import limiter, rate
+from lineup_backend.http import (
+    clean_text,
+    get_json_body,
+    is_valid_date,
+    json_response,
+    new_id,
+    now_iso,
+    query_list,
+    to_int,
+    to_number,
+    today_str,
+)
+from lineup_backend.metrics import track_performance
+from lineup_backend.middleware.auth import assert_owner, optional_auth, require_auth, require_pro, require_role
+from lineup_backend.middleware.error_handler import ApiError
+from lineup_backend.services.availability import (
+    DEFAULT_SERVICES,
+    default_availability,
+    generate_slots,
+    validate_working_hours,
+)
+from lineup_backend.services.billing import metered
+from lineup_backend.services.places import PlacesService
 
-# Cache for Places API results
-places_api_cache = {}
-CACHE_DURATION = 3600  # 1 hour
+bp = Blueprint("barbers", __name__)
+
+ACTIVE_STATUSES_EXCLUDED = {"cancelled", "rejected"}
 
 
-def get_mock_barbers_for_location(location: str) -> list:
-    """Generate mock barber data for a location."""
-    city = location.split(',')[0] if ',' in location else location
-    return [
+def _public_base_url() -> str:
+    cfg = services().config
+    if cfg.public_url:
+        return cfg.public_url.rstrip("/")
+    scheme = request.headers.get("X-Forwarded-Proto", request.scheme).split(",")[0].strip()
+    return f"{scheme}://{request.host}"
+
+
+def _search_location() -> str:
+    return clean_text(request.args.get("location"), default="Atlanta, GA", max_length=200)
+
+
+def _search_is_free() -> bool:
+    return not services().places.would_fetch(_search_location())
+
+
+def _own_barber(barber_id: str) -> Dict[str, Any]:
+    """The signed-in barber, who must be ``barber_id``."""
+    return assert_owner(barber_id, "You can only manage your own shop")
+
+
+def _profile_or_none(barber_id: str) -> Optional[Dict[str, Any]]:
+    return services().store.barber_profiles.get(barber_id)
+
+
+def _public_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
+    return {key: profile.get(key) for key in ("id", "name", "phone", "address", "bio", "createdAt", "updatedAt")}
+
+
+# -- discovery ---------------------------------------------------------------
+
+
+@bp.get("/barbers")
+@limiter.limit(rate("places"))
+@track_performance("barbers")
+@optional_auth
+@metered("barber_search", free_when=_search_is_free)
+def search_barbers():
+    """Signed-in users can trigger a (metered) Google Places search; anonymous
+    callers get cached results or sample data."""
+    location = _search_location()
+    styles = query_list("styles")
+    payload = services().places.search(location, styles, photo_base_url=_public_base_url(), allow_fetch=g.user is not None)
+    return jsonify(payload)
+
+
+@bp.get("/places/photo")
+@limiter.limit(rate("read"))
+def place_photo():
+    """Redirect to a Google Places photo without exposing the API key."""
+    ref = clean_text(request.args.get("ref"), max_length=1000)
+    if not ref:
+        raise ApiError("ref is required", 400)
+    max_width = min(to_int(request.args.get("maxwidth"), 400, minimum=1), 1600)
+    svc = services()
+    if not svc.places.available:
+        raise ApiError("Photos are not available", 404)
+    url = svc.places.photo_redirect_url(ref, max_width)
+    if not url:
+        raise ApiError("Photo not found", 404)
+    response = redirect(url, code=302)
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
+
+
+# -- profile -----------------------------------------------------------------
+
+
+@bp.route("/barbers/<barber_id>/profile", methods=["GET", "PUT"])
+@limiter.limit(rate("read"), methods=["GET"])
+@limiter.limit(rate("write"), methods=["PUT"])
+def profile(barber_id: str):
+    collection = services().store.barber_profiles
+    if request.method == "GET":
+        existing = collection.get(barber_id)
+        if not existing:
+            raise ApiError("Barber not found", 404)
+        return jsonify({"profile": _public_profile(existing)})
+
+    require_role("barber")(lambda: None)()
+    _own_barber(barber_id)
+    data = get_json_body()
+    existing = collection.get(barber_id) or {"ownerUid": barber_id, "createdAt": now_iso()}
+    if "name" in data and not clean_text(data.get("name")):
+        raise ApiError("name is required", 400)
+    name = clean_text(data.get("name"), default=existing.get("name", ""), max_length=120)
+    if not name:
+        raise ApiError("name is required", 400)
+    saved = collection.upsert(
+        barber_id,
         {
-            "id": "barber_1",
-            "name": f"Elite Cuts {city}",
-            "specialties": ["Fade", "Taper", "Modern Cuts"],
-            "rating": 4.9,
-            "user_ratings_total": 127,
-            "avgCost": 45,
-            "address": f"Downtown {city}",
-            "photo": "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400&h=300&fit=crop",
-            "phone": "(555) 123-4567",
-            "website": "https://elitecuts.example.com",
-            "bookingUrl": "https://calendly.com/elitecuts/booking",
-            "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={city}+barbershop",
-            "hours": "Mon-Sat 9AM-8PM"
+            **existing,
+            "ownerUid": barber_id,
+            "name": name,
+            "phone": clean_text(data.get("phone"), default=existing.get("phone", ""), max_length=40),
+            "address": clean_text(data.get("address"), default=existing.get("address", ""), max_length=200),
+            "bio": clean_text(data.get("bio"), default=existing.get("bio", ""), max_length=500),
+            "updatedAt": now_iso(),
         },
+    )
+    return jsonify({"success": True, "profile": _public_profile(saved)})
+
+
+# -- reviews -----------------------------------------------------------------
+
+
+@bp.route("/barbers/<barber_id>/reviews", methods=["GET", "POST"])
+@limiter.limit(rate("read"), methods=["GET"])
+@limiter.limit(rate("write"), methods=["POST"])
+def reviews(barber_id: str):
+    svc = services()
+    if request.method == "POST":
+        user = require_auth(lambda: g.user)()
+        data = get_json_body()
+        rating = to_int(data.get("rating", 5), default=-1)
+        if rating < 1 or rating > 5:
+            raise ApiError("rating must be an integer from 1 to 5", 400)
+        review = svc.store.barber_reviews.create(
+            {
+                "barberId": barber_id,
+                "username": clean_text(user.get("name"), default="anonymous", max_length=80),
+                "uid": user["uid"],
+                "rating": rating,
+                "text": clean_text(data.get("text"), max_length=2000),
+                "date": today_str(),
+                "timestamp": now_iso(),
+            }
+        )
+        return json_response({"success": True, "review": review}, 201)
+
+    if svc.places.available and PlacesService.is_google_place_id(barber_id):
+        google = svc.places.fetch_reviews(barber_id)
+        if google:
+            return jsonify(google)
+
+    items = svc.store.barber_reviews.list(barberId=barber_id)
+    items.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
+    average = round(sum(to_number(r.get("rating")) for r in items) / len(items), 1) if items else 0
+    return jsonify({"reviews": items, "average_rating": average, "total_reviews": len(items), "source": "local"})
+
+
+# -- availability ------------------------------------------------------------
+
+
+def _availability_for(barber_id: str) -> Dict[str, Any]:
+    return services().store.barber_availability.get(barber_id) or default_availability(barber_id)
+
+
+@bp.route("/barbers/<barber_id>/availability", methods=["GET", "PUT"])
+@limiter.limit(rate("read"), methods=["GET"])
+@limiter.limit(rate("write"), methods=["PUT"])
+def availability(barber_id: str):
+    if request.method == "GET":
+        return jsonify({"availability": _availability_for(barber_id)})
+
+    require_role("barber")(lambda: None)()
+    _own_barber(barber_id)
+    data = get_json_body()
+    working_hours = data.get("workingHours") or default_availability(barber_id)["workingHours"]
+    error = validate_working_hours(working_hours)
+    if error:
+        raise ApiError(error, 400)
+    record = {
+        "barberId": barber_id,
+        "workingHours": working_hours,
+        "breakTimes": data.get("breakTimes") if isinstance(data.get("breakTimes"), list) else [],
+        "blockedDates": [d for d in data.get("blockedDates", []) if is_valid_date(d)] if isinstance(data.get("blockedDates"), list) else [],
+        "serviceDuration": to_int(data.get("serviceDuration"), 30, minimum=5),
+        "bufferTime": to_int(data.get("bufferTime"), 15, minimum=0),
+        "timezone": clean_text(data.get("timezone"), default="America/New_York", max_length=64),
+        "updatedAt": now_iso(),
+    }
+    saved = services().store.barber_availability.upsert(barber_id, record)
+    return jsonify({"success": True, "availability": saved})
+
+
+@bp.get("/barbers/<barber_id>/available-slots")
+@limiter.limit(rate("read"))
+def available_slots(barber_id: str):
+    date = request.args.get("date", "").strip()
+    if not date:
+        raise ApiError("Date parameter required", 400)
+    if not is_valid_date(date):
+        raise ApiError("date must be YYYY-MM-DD", 400)
+    svc = services()
+    booked = [
+        apt.get("time")
+        for apt in svc.store.appointments.list(barberId=barber_id)
+        if apt.get("date") == date and apt.get("status") not in ACTIVE_STATUSES_EXCLUDED
+    ]
+    slots, day_hours = generate_slots(_availability_for(barber_id), date, booked)
+    return jsonify({"slots": slots, "date": date, "workingHours": day_hours})
+
+
+# -- services & pricing ------------------------------------------------------
+
+
+def _service_payload(barber_id: str, data: Dict[str, Any], existing: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    base = dict(existing or {})
+    base.update(
         {
-            "id": "barber_2",
-            "name": f"The {city} Barber",
-            "specialties": ["Pompadour", "Buzz Cut", "Beard Trim"],
-            "rating": 4.8,
-            "user_ratings_total": 89,
-            "avgCost": 55,
-            "address": f"Uptown {city}",
-            "photo": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400&h=300&fit=crop",
-            "phone": "(555) 123-4568",
-            "website": "",
-            "bookingUrl": "https://booksy.com/thebarber",
-            "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={city}+barbershop",
-            "hours": "Tue-Sun 10AM-7PM"
-        },
-        {
-            "id": "barber_3",
-            "name": f"{city} Style Studio",
-            "specialties": ["Modern Fade", "Beard Trim", "Styling"],
-            "rating": 4.9,
-            "user_ratings_total": 156,
-            "avgCost": 65,
-            "address": f"Midtown {city}",
-            "photo": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop",
-            "phone": "(555) 123-4569",
-            "website": "https://stylestudio.example.com",
-            "bookingUrl": "https://squareup.com/appointments/book/stylestudio",
-            "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={city}+barbershop",
-            "hours": "Mon-Fri 8AM-6PM"
+            "barberId": barber_id,
+            "name": clean_text(data.get("name"), default=base.get("name", ""), max_length=120),
+            "price": to_number(data.get("price"), default=to_number(base.get("price"), 0)),
+            "duration": to_int(data.get("duration"), default=int(base.get("duration", 30) or 30), minimum=5),
+            "category": clean_text(data.get("category"), default=base.get("category", "General"), max_length=60),
+            "description": clean_text(data.get("description"), default=base.get("description", ""), max_length=500),
         }
+    )
+    return base
+
+
+def _unsaved_default_services(barber_id: str) -> List[Dict[str, Any]]:
+    """Typical rates for shops that have not registered (Google places, sample data). Never persisted."""
+    return [
+        {**service, "id": f"default-{index}", "barberId": barber_id, "default": True}
+        for index, service in enumerate(DEFAULT_SERVICES, start=1)
     ]
 
 
-@barbers_bp.route('/barbers', methods=['GET', 'OPTIONS'])
-@handle_options("GET, OPTIONS")
-def get_barbers():
-    """Get nearby barbers using Google Places API or mock data."""
-    location = request.args.get('location', 'Atlanta, GA')
-    recommended_styles = request.args.get('styles', '').split(',')
-    
-    # Check cache
-    cache_key = location.lower().strip()
-    current_time = time.time()
-    
-    if cache_key in places_api_cache:
-        cached = places_api_cache[cache_key]
-        if current_time - cached['timestamp'] < CACHE_DURATION:
-            logger.info(f"Returning cached barber data for {location}")
-            return cors_response({
-                "barbers": cached['data'],
-                "location": location,
-                "cached": True
-            })
-    
-    # Check for Google Places API key
-    api_key = os.environ.get("GOOGLE_PLACES_API_KEY")
-    
-    if not api_key:
-        logger.warning("Google Places API key not configured, using mock data")
-        return cors_response({
-            "barbers": get_mock_barbers_for_location(location),
-            "location": location,
-            "mock": True,
-            "reason": "API key not configured"
-        })
-    
-    try:
-        import requests
-        
-        # Geocode the location
-        geocode_url = "https://maps.googleapis.com/maps/api/geocode/json"
-        geocode_response = requests.get(geocode_url, params={
-            'address': location,
-            'key': api_key
-        }, timeout=10)
-        geocode_data = geocode_response.json()
-        
-        if geocode_data['status'] != 'OK' or not geocode_data.get('results'):
-            raise Exception(f"Location not found: {location}")
-        
-        lat = geocode_data['results'][0]['geometry']['location']['lat']
-        lng = geocode_data['results'][0]['geometry']['location']['lng']
-        
-        # Search for barbershops
-        places_url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-        places_response = requests.get(places_url, params={
-            'location': f"{lat},{lng}",
-            'radius': 10000,
-            'type': 'hair_care',
-            'keyword': 'barber barbershop mens haircut',
-            'key': api_key
-        }, timeout=10)
-        places_data = places_response.json()
-        
-        if places_data['status'] != 'OK':
-            raise Exception(f"Places API error: {places_data.get('status')}")
-        
-        # Process results
-        barbers = []
-        for place in places_data['results'][:15]:
-            # Get place details
-            details = {}
-            try:
-                details_response = requests.get(
-                    "https://maps.googleapis.com/maps/api/place/details/json",
-                    params={
-                        'place_id': place['place_id'],
-                        'fields': 'name,formatted_address,formatted_phone_number,opening_hours,website,rating,user_ratings_total,photos,reviews',
-                        'key': api_key
-                    },
-                    timeout=10
-                )
-                details_data = details_response.json()
-                if details_data['status'] == 'OK':
-                    details = details_data.get('result', {})
-            except Exception:
-                pass
-            
-            # Build barber info
-            photo_url = None
-            if 'photos' in place and place['photos']:
-                photo_ref = place['photos'][0].get('photo_reference')
-                if photo_ref:
-                    photo_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={photo_ref}&key={api_key}"
-            
-            place_lat = place['geometry']['location']['lat']
-            place_lng = place['geometry']['location']['lng']
-            
-            barber_info = {
-                'id': place['place_id'],
-                'name': place['name'],
-                'address': details.get('formatted_address', place.get('vicinity', 'Address not available')),
-                'rating': place.get('rating', 0),
-                'user_ratings_total': place.get('user_ratings_total', 0),
-                'avgCost': 25 + (place.get('price_level', 2) * 15),
-                'phone': details.get('formatted_phone_number', 'Call for info'),
-                'website': details.get('website', ''),
-                'bookingUrl': details.get('website', ''),
-                'google_maps_url': f"https://www.google.com/maps/search/?api=1&query={place_lat},{place_lng}",
-                'hours': details.get('opening_hours', {}).get('weekday_text', []),
-                'open_now': place.get('opening_hours', {}).get('open_now'),
-                'photo': photo_url,
-                'specialties': ['Haircut', 'Styling', 'Beard Trim'],
-                'place_id': place['place_id']
-            }
-            
-            barbers.append(barber_info)
-        
-        # Sort by rating
-        barbers.sort(key=lambda x: (x['rating'] * min(x['user_ratings_total'], 100) / 100), reverse=True)
-        
-        # Cache results
-        places_api_cache[cache_key] = {
-            'data': barbers[:10],
-            'timestamp': current_time
-        }
-        
-        logger.info(f"Found {len(barbers)} barbershops in {location}")
-        
-        return cors_response({
-            "barbers": barbers[:10],
-            "location": location,
-            "real_data": True,
-            "total_found": len(barbers)
-        })
-        
-    except Exception as e:
-        logger.error(f"Error fetching barber data: {str(e)}")
-        return cors_response({
-            "barbers": get_mock_barbers_for_location(location),
-            "location": location,
-            "mock": True,
-            "error": str(e)
-        })
+@bp.route("/barbers/<barber_id>/services", methods=["GET", "POST", "PUT", "DELETE"])
+@limiter.limit(rate("read"), methods=["GET"])
+@limiter.limit(rate("write"), methods=["POST", "PUT", "DELETE"])
+def barber_services(barber_id: str):
+    collection = services().store.barber_services
+
+    if request.method == "GET":
+        items = collection.list(barberId=barber_id)
+        registered = _profile_or_none(barber_id) is not None
+        if not items and not registered:
+            return jsonify({"services": _unsaved_default_services(barber_id), "registered": False})
+        items.sort(key=lambda s: s.get("createdAt", ""))
+        return jsonify({"services": items, "registered": registered})
+
+    require_role("barber")(lambda: None)()
+    _own_barber(barber_id)
+
+    if request.method == "POST":
+        data = get_json_body()
+        if not clean_text(data.get("name")):
+            raise ApiError("Service name is required", 400)
+        service = collection.create({**_service_payload(barber_id, data), "createdAt": now_iso()})
+        return json_response({"success": True, "service": service}, 201)
+
+    service_id = clean_text(request.args.get("service_id") or (request.get_json(silent=True) or {}).get("id"))
+    if not service_id:
+        raise ApiError("service_id required", 400)
+    existing = collection.get(service_id)
+    if not existing or existing.get("barberId") != barber_id:
+        raise ApiError("Service not found", 404)
+
+    if request.method == "PUT":
+        data = get_json_body()
+        updated = collection.update(service_id, {**_service_payload(barber_id, data, existing), "updatedAt": now_iso(), "default": False})
+        return jsonify({"success": True, "service": updated})
+
+    collection.delete(service_id)
+    return jsonify({"success": True})
 
 
-@barbers_bp.route('/barbers/<barber_id>/reviews', methods=['GET', 'POST', 'OPTIONS'])
-@handle_options("GET, POST, OPTIONS")
-def handle_reviews(barber_id):
-    """Get or add reviews for a barber."""
-    
-    if request.method == 'GET':
-        # Check if it's a Google place_id
-        api_key = os.environ.get("GOOGLE_PLACES_API_KEY")
-        is_google_place_id = len(barber_id) >= 20 and barber_id[0].isalpha()
-        
-        if api_key and is_google_place_id:
-            try:
-                import requests
-                
-                details_response = requests.get(
-                    "https://maps.googleapis.com/maps/api/place/details/json",
-                    params={
-                        'place_id': barber_id,
-                        'fields': 'name,rating,user_ratings_total,reviews',
-                        'key': api_key
-                    },
-                    timeout=10
-                )
-                details_data = details_response.json()
-                
-                if details_data.get('status') == 'OK' and 'result' in details_data:
-                    result = details_data['result']
-                    reviews = result.get('reviews', [])
-                    
-                    google_reviews = []
-                    for review in reviews[:10]:
-                        review_date = 'Recent'
-                        if review.get('time'):
-                            try:
-                                review_date = datetime.fromtimestamp(review['time']).strftime('%Y-%m-%d')
-                            except Exception:
-                                pass
-                        
-                        google_reviews.append({
-                            'id': f"{review.get('author_name', '')}_{review.get('time', 0)}",
-                            'username': review.get('author_name', 'Anonymous'),
-                            'rating': review.get('rating', 5),
-                            'text': review.get('text', ''),
-                            'date': review_date,
-                            'profile_photo': review.get('profile_photo_url', ''),
-                            'relative_time': review.get('relative_time_description', '')
-                        })
-                    
-                    return cors_response({
-                        'reviews': google_reviews,
-                        'average_rating': result.get('rating', 0),
-                        'total_reviews': result.get('user_ratings_total', 0),
-                        'source': 'google'
-                    })
-            except Exception as e:
-                logger.error(f"Error fetching Google Reviews: {str(e)}")
-        
-        # Fallback to mock reviews
-        reviews = memory_store.barber_reviews.get(barber_id, [])
-        avg_rating = sum(r.get('rating', 0) for r in reviews) / len(reviews) if reviews else 0
-        
-        return cors_response({
-            'reviews': reviews,
-            'average_rating': avg_rating,
-            'total_reviews': len(reviews),
-            'source': 'mock'
-        })
-    
-    elif request.method == 'POST':
-        try:
-            data = safe_get_json()
-            
-            new_review = {
-                "id": str(uuid.uuid4()),
-                "username": data.get("username", "anonymous"),
-                "rating": data.get("rating", 5),
-                "text": data.get("text", ""),
-                "date": datetime.now().strftime("%Y-%m-%d"),
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            if barber_id not in memory_store.barber_reviews:
-                memory_store.barber_reviews[barber_id] = []
-            memory_store.barber_reviews[barber_id].append(new_review)
-            
-            return api_response(data={"review": new_review}, message="Review added", status=201)
-            
-        except Exception as e:
-            logger.error(f"Error creating review: {str(e)}")
-            return api_response(error="Failed to create review", status=400)
+# -- clients (Barber Pro) ----------------------------------------------------
 
 
-@barbers_bp.route('/barbers/<barber_id>/availability', methods=['GET', 'PUT', 'OPTIONS'])
-@handle_options("GET, PUT, OPTIONS")
-def manage_availability(barber_id):
-    """Get or update barber availability."""
-    
-    if request.method == 'GET':
-        # Return default availability
-        availability = {
-            "barberId": barber_id,
-            "workingHours": {
-                "monday": {"enabled": True, "start": "09:00", "end": "18:00"},
-                "tuesday": {"enabled": True, "start": "09:00", "end": "18:00"},
-                "wednesday": {"enabled": True, "start": "09:00", "end": "18:00"},
-                "thursday": {"enabled": True, "start": "09:00", "end": "18:00"},
-                "friday": {"enabled": True, "start": "09:00", "end": "18:00"},
-                "saturday": {"enabled": True, "start": "09:00", "end": "17:00"},
-                "sunday": {"enabled": False, "start": "09:00", "end": "17:00"}
-            },
-            "breakTimes": [],
-            "blockedDates": [],
-            "serviceDuration": 30,
-            "bufferTime": 15,
-            "timezone": "America/New_York"
-        }
-        return cors_response({"availability": availability})
-    
-    elif request.method == 'PUT':
-        try:
-            data = safe_get_json()
-            
-            availability_data = {
-                "barberId": barber_id,
-                "workingHours": data.get("workingHours", {}),
-                "breakTimes": data.get("breakTimes", []),
-                "blockedDates": data.get("blockedDates", []),
-                "serviceDuration": data.get("serviceDuration", 30),
-                "bufferTime": data.get("bufferTime", 15),
-                "timezone": data.get("timezone", "America/New_York"),
-                "updatedAt": datetime.now().isoformat()
-            }
-            
-            return cors_response({"success": True, "availability": availability_data})
-            
-        except Exception as e:
-            logger.error(f"Error updating availability: {str(e)}")
-            return api_response(error="Failed to update availability", status=400)
+@bp.get("/barbers/<barber_id>/clients")
+@limiter.limit(rate("read"))
+@require_role("barber")
+def clients(barber_id: str):
+    _own_barber(barber_id)
+    require_pro("clients")
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for apt in services().store.appointments.list(barberId=barber_id):
+        client_id = apt.get("clientId")
+        if not client_id:
+            continue
+        entry = grouped.setdefault(
+            client_id,
+            {"clientId": client_id, "clientName": apt.get("clientName", "Unknown"), "totalVisits": 0, "lastVisit": None, "totalSpent": 0, "appointments": []},
+        )
+        entry["totalVisits"] += 1
+        entry["appointments"].append(apt)
+        entry["totalSpent"] += to_number(apt.get("price"), 0)
+
+    result: List[Dict[str, Any]] = list(grouped.values())
+    for entry in result:
+        entry["appointments"].sort(key=lambda a: a.get("timestamp", ""), reverse=True)
+        entry["lastVisit"] = entry["appointments"][0].get("date")
+    result.sort(key=lambda c: c.get("lastVisit") or "", reverse=True)
+    return jsonify({"clients": result})
 
 
-@barbers_bp.route('/barbers/<barber_id>/services', methods=['GET', 'POST', 'OPTIONS'])
-@handle_options("GET, POST, OPTIONS")
-def manage_services(barber_id):
-    """Get or add services for a barber."""
-    
-    if request.method == 'GET':
-        # Return default services
-        services = [
-            {"id": "1", "name": "Haircut", "price": 30, "duration": 30, "category": "Hair"},
-            {"id": "2", "name": "Beard Trim", "price": 15, "duration": 15, "category": "Beard"},
-            {"id": "3", "name": "Haircut + Beard", "price": 40, "duration": 45, "category": "Package"}
-        ]
-        return cors_response({"services": services})
-    
-    elif request.method == 'POST':
-        try:
-            data = safe_get_json()
-            
-            new_service = {
-                "id": str(uuid.uuid4()),
-                "barberId": barber_id,
-                "name": data.get("name", ""),
-                "price": data.get("price", 0),
-                "duration": data.get("duration", 30),
-                "category": data.get("category", "General"),
-                "description": data.get("description", ""),
-                "createdAt": datetime.now().isoformat()
-            }
-            
-            return api_response(data={"service": new_service}, message="Service added", status=201)
-            
-        except Exception as e:
-            logger.error(f"Error creating service: {str(e)}")
-            return api_response(error="Failed to create service", status=400)
+@bp.get("/barbers/<barber_id>/clients/<client_id>/history")
+@limiter.limit(rate("read"))
+@require_role("barber")
+def client_history(barber_id: str, client_id: str):
+    _own_barber(barber_id)
+    require_pro("client_history")
+    items = [a for a in services().store.appointments.list(barberId=barber_id) if a.get("clientId") == client_id]
+    items.sort(key=lambda a: f"{a.get('date', '')} {a.get('time', '')}", reverse=True)
+    return jsonify({"clientId": client_id, "appointments": items, "totalVisits": len(items)})
 
 
-@barbers_bp.route('/barbers/<barber_id>/clients', methods=['GET', 'OPTIONS'])
-@handle_options("GET, OPTIONS")
-def get_clients(barber_id):
-    """Get clients for a barber based on appointments."""
-    try:
-        appointments_list = [apt for apt in memory_store.appointments if apt.get('barberId') == barber_id]
-        
-        # Group by client
-        clients_dict = {}
-        for apt in appointments_list:
-            client_id = apt.get('clientId')
-            if not client_id:
-                continue
-            
-            if client_id not in clients_dict:
-                clients_dict[client_id] = {
-                    "clientId": client_id,
-                    "clientName": apt.get('clientName', 'Unknown'),
-                    "totalVisits": 0,
-                    "lastVisit": None,
-                    "totalSpent": 0,
-                    "appointments": []
-                }
-            
-            clients_dict[client_id]["totalVisits"] += 1
-            clients_dict[client_id]["appointments"].append(apt)
-            
-            # Calculate total spent
-            price_str = apt.get('price', '$0').replace('$', '').replace(',', '')
-            try:
-                clients_dict[client_id]["totalSpent"] += float(price_str)
-            except ValueError:
-                pass
-        
-        clients = list(clients_dict.values())
-        clients.sort(key=lambda x: x.get('totalVisits', 0), reverse=True)
-        
-        return cors_response({"clients": clients})
-        
-    except Exception as e:
-        logger.error(f"Error getting clients: {str(e)}")
-        return api_response(error="Failed to get clients", status=400)
+@bp.route("/barbers/<barber_id>/clients/<client_id>/notes", methods=["GET", "POST", "PUT"])
+@limiter.limit(rate("read"), methods=["GET"])
+@limiter.limit(rate("write"), methods=["POST", "PUT"])
+@require_role("barber")
+def client_notes(barber_id: str, client_id: str):
+    _own_barber(barber_id)
+    require_pro("client_notes")
+    collection = services().store.client_notes
+    doc_id = f"{barber_id}_{client_id}"
+    doc = collection.get(doc_id) or {"barberId": barber_id, "clientId": client_id, "notes": []}
+    notes: List[Dict[str, Any]] = list(doc.get("notes", []))
 
+    if request.method == "GET":
+        return jsonify({"notes": notes})
+
+    data = get_json_body()
+    text = clean_text(data.get("note"), max_length=2000)
+    if not text:
+        raise ApiError("note is required", 400)
+    note_type = clean_text(data.get("type"), default="general", max_length=40)
+
+    if request.method == "PUT":
+        note_id = clean_text(data.get("id"))
+        target = next((n for n in notes if n.get("id") == note_id), None)
+        if not target:
+            raise ApiError("Note not found", 404)
+        target.update({"note": text, "type": note_type, "updatedAt": now_iso()})
+        collection.upsert(doc_id, {"barberId": barber_id, "clientId": client_id, "notes": notes})
+        return jsonify({"success": True, "note": target})
+
+    note = {"id": new_id(), "note": text, "type": note_type, "createdAt": now_iso()}
+    notes.append(note)
+    collection.upsert(doc_id, {"barberId": barber_id, "clientId": client_id, "notes": notes})
+    return json_response({"success": True, "note": note}, 201)

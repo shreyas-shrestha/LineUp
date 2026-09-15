@@ -1,6 +1,6 @@
-"""Middleware components for the LineUp backend."""
+"""Cross-cutting request/response concerns: CORS, error handling, optional auth."""
 
-from .error_handler import register_error_handlers
-from .cors import configure_cors
+from lineup_backend.middleware.cors import configure_cors
+from lineup_backend.middleware.error_handler import ApiError, register_error_handlers
 
-__all__ = ["register_error_handlers", "configure_cors"]
+__all__ = ["configure_cors", "ApiError", "register_error_handlers"]

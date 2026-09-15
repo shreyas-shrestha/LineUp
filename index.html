@@ -2,737 +2,1759 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LineUp - AI Haircut Analysis & Barber Platform</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LineUp – Haircut recommendations and barber booking</title>
+  <meta name="description" content="Upload a photo, get haircut suggestions that fit your face shape and hair texture, then find and book a barbershop near you.">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
   <link rel="icon" type="image/png" href="images/logo.png">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; overscroll-behavior-y: contain; }
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: #1a1a1a; }
-    ::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: #6a6a6a; }
-    .loader { border: 3px solid #333; border-top: 3px solid #fff; border-radius: 50%; width: 36px; height: 36px; animation: spin 0.8s linear infinite; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .tab-active { color: #fff; font-weight: 600; }
-    .modal { backdrop-filter: blur(12px); }
-    .card-hover { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-    .card-hover:hover { transform: translateY(-2px); }
-    .btn-primary { background: #fff; color: #000; transition: all 0.2s; font-weight: 500; }
-    .btn-primary:hover { background: #f0f0f0; }
-    .btn-secondary { background: #1f1f1f; color: #fff; border: 1px solid #333; transition: all 0.2s; }
-    .btn-secondary:hover { background: #2a2a2a; }
-  </style>
+  <link rel="apple-touch-icon" href="images/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-black text-white min-h-screen">
-  <div id="app" class="container mx-auto max-w-4xl pb-24">
-    <!-- Sticky Header -->
-    <header class="sticky top-0 z-50 bg-black p-4 md:p-6 border-b border-gray-800 backdrop-blur-sm bg-opacity-95">
-      <div class="flex items-center justify-between">
-        <!-- Logo Area - Your custom logo -->
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg flex items-center justify-center">
-            <img src="images/logo.png" alt="LineUp Logo" class="w-full h-full object-contain">
-          </div>
-          <h1 class="text-2xl font-bold text-white">LineUp</h1>
-        </div>
-        
-        <!-- Role Switcher -->
-        <div class="bg-gray-900 rounded-full p-0.5 flex">
-          <button id="client-mode" class="role-button px-5 py-1.5 rounded-full transition-all text-sm font-medium bg-white text-black shadow-sm">Client</button>
-          <button id="barber-mode" class="role-button px-5 py-1.5 rounded-full transition-all text-sm font-medium text-gray-400 hover:text-white">Barber</button>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <!-- Icon sprite (Lucide, stroke 1.75). Use: <svg class="icon" aria-hidden="true"><use href="#i-name"/></svg> -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+    <symbol id="i-images" viewBox="0 0 24 24"><path d="M18 22H4a2 2 0 0 1-2-2V6"/><path d="m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18"/><circle cx="12" cy="8" r="2"/><rect width="16" height="16" x="6" y="2" rx="2"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></symbol>
+    <symbol id="i-store" viewBox="0 0 24 24"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+    <symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-log-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+    <symbol id="i-credit-card" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="M4 6h16"/><path d="M4 18h16"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-3"/><path d="M14 4H3"/><path d="M21 12h-9"/><path d="M8 12H3"/><path d="M21 20h-5"/><path d="M12 20H3"/><path d="M18 2v4"/><path d="M8 10v4"/><path d="M16 18v4"/></symbol>
+  </svg>
+
+  <!-- ============================== LANDING (#/) ============================== -->
+  <div id="view-landing" class="view landing">
+    <header class="landing-nav">
+      <div class="landing-nav-inner">
+        <a class="brand" href="#/" aria-label="LineUp home">
+          <img src="images/logo.png" alt="" width="26" height="26">
+          <span class="wordmark">LineUp</span>
+        </a>
+        <nav class="landing-nav-links" aria-label="Site">
+          <a class="nav-link" href="#/pricing">Pricing</a>
+          <a class="nav-link" href="#/" data-scroll-to="for-barbers">For barbers</a>
+          <a class="nav-link" href="#/" data-scroll-to="faq">FAQ</a>
+        </nav>
+        <div class="landing-nav-actions">
+          <a class="nav-link" href="#/signin" data-auth="signed-out">Sign in</a>
+          <a class="btn-primary btn-sm" href="#/signin" data-auth="signed-out">Get started</a>
+          <a class="btn-primary btn-sm hidden" href="#/client/home" data-auth="signed-in">Open app</a>
         </div>
       </div>
     </header>
 
-    <main id="main-content">
-      <!-- CLIENT SIDE -->
-      <div id="client-content">
-        <!-- AI Tab (Home) -->
-        <div id="ai-tab-content" class="tab-content px-4 py-8">
-          <section id="upload-section">
-            <div class="text-center mb-6">
-              <h2 class="text-2xl font-bold mb-2 text-white">Find your perfect haircut</h2>
-              <p class="text-gray-400">Upload a photo and let AI recommend the best styles for you</p>
+    <main id="landing-main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="container">
+          <div class="hero-inner">
+            <p class="eyebrow">Haircut recommendations and booking</p>
+            <h1 id="hero-title" class="display-1">Find a cut that fits your face. Then book the barber who can do it.</h1>
+            <p class="lead">Upload one photo. LineUp reads your face shape and hair texture, suggests cuts that suit them, and shows barbershops near you with real ratings and opening hours.</p>
+            <div class="hero-actions">
+              <a class="btn-primary btn-lg" href="#/signin">Get started</a>
+              <a class="btn-secondary btn-lg" href="#/pricing">See pricing</a>
             </div>
-            
-            <div id="image-upload-area" class="border-2 border-dashed border-gray-700 rounded-xl p-12 cursor-pointer hover:border-gray-500 hover:bg-gray-900 transition-all text-center">
-              <input type="file" id="file-input" class="hidden" accept="image/*">
-              <div class="flex flex-col items-center">
-                <svg class="w-12 h-12 text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-                <p class="font-medium text-white mb-1">Upload your photo</p>
-                <p class="text-sm text-gray-500">Best results with clear, front-facing photos</p>
+            <p class="hero-note"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-zap"/></svg>3 free credits when you sign up. No card needed.</p>
+          </div>
+          <div class="hero-shot">
+            <div class="browser-frame">
+              <div class="browser-frame-bar" aria-hidden="true">
+                <div class="browser-frame-dots"><span class="browser-frame-dot"></span><span class="browser-frame-dot"></span><span class="browser-frame-dot"></span></div>
+                <div class="browser-frame-url"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>lineup.app/client/home</div>
               </div>
+              <img src="images/screens/results.png" alt="LineUp results screen: the analysis shows face shape, hair texture and colour, with six recommended cuts below and a button to find barbershops nearby." width="1280" height="800" fetchpriority="high">
             </div>
-            
-            <div id="image-preview-container" class="hidden mt-6 text-center">
-              <img id="image-preview" src="" alt="Uploaded photo" class="max-w-xs mx-auto rounded-xl shadow-md border border-gray-800"/>
-              <button id="analyze-button" class="mt-6 btn-primary px-8 py-3 rounded-lg font-medium">Analyze my look</button>
-            </div>
-          </section>
-
-          <section id="status-section" class="text-center my-12 hidden">
-            <div id="loader" class="mx-auto loader hidden"></div>
-            <p id="status-message" class="mt-4 text-gray-400"></p>
-            <div id="error-container" class="mt-4 bg-red-900/20 border border-red-800 text-red-300 px-4 py-3 rounded-lg hidden max-w-md mx-auto">
-              <p id="error-message" class="text-sm"></p>
-              <button id="try-again-button" class="mt-3 btn-secondary px-6 py-2 rounded-lg font-medium text-sm">Try again</button>
-            </div>
-          </section>
-
-          <section id="results-section" class="hidden mt-8">
-            <!-- Face Analysis -->
-            <div class="mb-8 bg-gray-900 border border-gray-800 rounded-lg p-6">
-              <h2 class="text-xl font-bold mb-4 text-white">Your Analysis</h2>
-              <div id="analysis-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"></div>
-            </div>
-            
-            <!-- Recommendations -->
-            <div class="mb-6">
-              <h2 class="text-2xl font-bold mb-2 text-white">Recommended for you</h2>
-              <p class="text-gray-400 text-sm">AI-powered haircut suggestions based on your face shape and features</p>
-            </div>
-            <div id="recommendations-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-
-            <div class="text-center mt-8 border-t border-gray-700 pt-8">
-              <p class="text-lg mb-4">Ready for the perfect cut?</p>
-              <button id="find-barber-button" class="bg-green-500 text-white font-bold py-3 px-8 rounded-full hover:bg-green-600 transition-all">Find Real Barbershops Near You</button>
-            </div>
-            <div class="text-center mt-12">
-              <button id="start-over-button" class="bg-gray-700 text-white font-semibold py-3 px-8 rounded-full hover:bg-gray-600">Start Over</button>
-            </div>
-          </section>
-        </div>
-
-        <!-- Barbers Tab -->
-        <div id="barbers-tab-content" class="tab-content hidden px-4 py-8">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-3xl font-bold">Find Real Barbershops</h2>
-            <button id="refresh-barbers" class="bg-sky-500 text-white px-4 py-2 rounded-lg hover:bg-sky-600 transition-colors">Refresh</button>
-          </div>
-          <div id="barber-search" class="mb-6">
-            <input type="text" id="location-search" placeholder="Enter ZIP code or city (e.g., 30308 or Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-          </div>
-          <p id="barber-intro" class="text-center text-gray-400 mb-8">Enter your location to find real barbershops near you.</p>
-          <div id="barber-list-container" class="space-y-4"></div>
-        </div>
-
-        <!-- Appointments Tab (Bookings) -->
-        <div id="appointments-tab-content" class="tab-content hidden px-4 py-8">
-          <h2 class="text-3xl font-bold text-center mb-6">My Bookings</h2>
-          <div id="client-appointments-container" class="space-y-4"></div>
-          <div id="no-appointments" class="text-center py-12 text-gray-400">
-            <p>No appointments scheduled.</p>
-            <p class="text-sm mt-2">Book with a barber to get started!</p>
           </div>
         </div>
+      </section>
 
-        <!-- Profile Tab (Client) -->
-        <div id="profile-tab-content" class="tab-content hidden px-4 py-8">
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-3xl font-bold">Profile</h2>
-            <span class="text-sm text-gray-400">Client</span>
+      <section id="how-it-works" class="section" aria-labelledby="how-title">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow">How it works</p>
+            <h2 id="how-title" class="display-2">Three steps, about a minute</h2>
+            <p class="lead">Nothing is stored until you ask for an analysis, and you can start over at any point.</p>
           </div>
+          <ol class="steps">
+            <li class="step">
+              <span class="step-num">01</span>
+              <h3 class="step-title">Upload a front-facing photo</h3>
+              <p class="step-text">A phone photo in daylight is enough. We resize it on your device before it is sent, and delete it after the analysis.</p>
+            </li>
+            <li class="step">
+              <span class="step-num">02</span>
+              <h3 class="step-title">Read your analysis and pick a cut</h3>
+              <p class="step-text">You get your face shape, hair texture and colour, plus five or six cuts with a one-line reason each. Preview any of them on your own photo.</p>
+            </li>
+            <li class="step">
+              <span class="step-num">03</span>
+              <h3 class="step-title">Book a barber who does it</h3>
+              <p class="step-text">Search by ZIP code or city. Each shop shows its rating, hours and price range. Request a time and the barber confirms.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
 
-          <!-- Personal Info -->
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
-            <div class="flex items-center gap-4">
-              <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face" alt="You" class="w-16 h-16 rounded-full object-cover">
-              <div>
-                <p class="text-xl font-semibold">Current User</p>
-                <p class="text-gray-400 text-sm">Member since 2024</p>
+      <section id="for-barbers" class="section" aria-labelledby="barbers-title">
+        <div class="container">
+          <div class="split">
+            <div class="split-copy">
+              <p class="eyebrow">For barbers</p>
+              <h2 id="barbers-title" class="display-2">Run your chair from one screen</h2>
+              <p class="lead">Take booking requests, set your hours and prices, and keep a portfolio clients see before they book. Free to start; Pro adds the tools a busy shop needs.</p>
+              <ul class="feature-list">
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span><strong>Bookings you confirm.</strong> Accept, decline or reschedule from your phone.</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span><strong>Hours and services.</strong> Clients only see times you actually offer.</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span><strong>Portfolio.</strong> Up to six photos free, unlimited on Pro.</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span><strong>Pro: client notes, packages and analytics.</strong> $19 a month, cancel any time.</span></li>
+              </ul>
+              <div class="hero-actions">
+                <a class="btn-primary" href="#/signin">Set up your shop</a>
+                <a class="btn-ghost" href="#/pricing">Compare plans<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
               </div>
             </div>
-          </div>
-
-          <!-- History -->
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-xl font-bold">Personal History</h3>
-              <button id="refresh-history" class="text-sky-400 text-sm hover:underline">Refresh</button>
-            </div>
-            <div id="client-profile-history" class="space-y-3">
-              <!-- Filled by JS from appointments -->
-            </div>
-          </div>
-
-          <!-- Payments -->
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5 mb-6">
-            <h3 class="text-xl font-bold mb-3">Payment Methods</h3>
-            <div id="client-payment-methods" class="space-y-2">
-              <div class="flex items-center justify-between bg-gray-800/60 border border-gray-700 rounded-xl p-3">
-                <div class="flex items-center gap-3">
-                  <span>💳</span>
-                  <div>
-                    <p class="font-semibold">Visa •••• 4242</p>
-                    <p class="text-xs text-gray-400">Default</p>
-                  </div>
-                </div>
-                <button class="text-gray-400 text-sm hover:text-white">Remove</button>
+            <div class="browser-frame browser-frame-sm">
+              <div class="browser-frame-bar" aria-hidden="true">
+                <div class="browser-frame-dots"><span class="browser-frame-dot"></span><span class="browser-frame-dot"></span><span class="browser-frame-dot"></span></div>
+                <div class="browser-frame-url"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>lineup.app/barber/dashboard</div>
               </div>
+              <img src="images/screens/barber-dashboard.png" alt="LineUp barber dashboard with revenue, appointments, clients and utilization for the month, plus popular services and peak times." width="1280" height="800" loading="lazy">
             </div>
-            <button id="add-payment" class="mt-3 w-full bg-sky-500 hover:bg-sky-600 text-white font-semibold py-3 rounded-lg">+ Add Card</button>
           </div>
+        </div>
+      </section>
 
-          <!-- Settings -->
-          <div class="bg-gray-900/50 border border-gray-700 rounded-2xl p-5">
-            <h3 class="text-xl font-bold mb-4">Settings</h3>
-            <div class="space-y-3">
-              <label class="flex items-center justify-between">
-                <span class="text-gray-300">Notifications</span>
-                <input type="checkbox" class="w-5 h-5" checked>
-              </label>
-              <label class="flex items-center justify-between">
-                <span class="text-gray-300">Remind upcoming bookings</span>
-                <input type="checkbox" class="w-5 h-5" checked>
-              </label>
-              <label class="flex items-center justify-between">
-                <span class="text-gray-300">Dark Mode</span>
-                <input type="checkbox" class="w-5 h-5" checked disabled>
-              </label>
+      <section id="pricing" class="section" aria-labelledby="pricing-title">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow">Pricing</p>
+            <h2 id="pricing-title" class="display-2">Pay for what you use</h2>
+            <p class="lead">Clients buy credits once and spend them on analyses, previews and searches. Barbers pay a flat monthly fee for Pro. Prices below are loaded from the server when it is reachable.</p>
+          </div>
+          <!-- JS renders GET /billing/pricing into this container (replace innerHTML). The static cards are the fallback. -->
+          <div id="pricing-grid" class="pricing-grid" data-pricing-grid>
+            <article class="pricing-card" data-plan="starter">
+              <div class="pricing-card-head"><h3 class="pricing-name">Starter</h3></div>
+              <p class="pricing-price"><span class="pricing-amount">$4.99</span><span class="pricing-period">one time</span></p>
+              <p class="pricing-desc">10 credits. Enough for a few analyses and one preview.</p>
+              <ul class="feature-list">
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>10 credits, never expire</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Analysis: 1 credit</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Preview on your photo: 3 credits</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Barber search: 1 credit</span></li>
+              </ul>
+              <button type="button" class="btn-secondary" data-action="buy-pack" data-pack-id="starter">Buy 10 credits</button>
+              <p class="pricing-meta">$0.50 per credit</p>
+            </article>
+            <article class="pricing-card is-featured" data-plan="plus">
+              <div class="pricing-card-head"><h3 class="pricing-name">Plus</h3><span class="pricing-badge">Most popular</span></div>
+              <p class="pricing-price"><span class="pricing-amount">$9.99</span><span class="pricing-period">one time</span></p>
+              <p class="pricing-desc">30 credits. Try several cuts on your photo before you book.</p>
+              <ul class="feature-list">
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>30 credits, never expire</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Everything in Starter</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Saved analysis on this device</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Repeat searches are free</span></li>
+              </ul>
+              <button type="button" class="btn-primary" data-action="buy-pack" data-pack-id="plus">Buy 30 credits</button>
+              <p class="pricing-meta">$0.33 per credit</p>
+            </article>
+            <article class="pricing-card" data-plan="studio">
+              <div class="pricing-card-head"><h3 class="pricing-name">Studio</h3></div>
+              <p class="pricing-price"><span class="pricing-amount">$24.99</span><span class="pricing-period">one time</span></p>
+              <p class="pricing-desc">100 credits. For stylists and people who change their cut often.</p>
+              <ul class="feature-list">
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>100 credits, never expire</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Everything in Plus</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Lowest price per credit</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Receipts for expenses</span></li>
+              </ul>
+              <button type="button" class="btn-secondary" data-action="buy-pack" data-pack-id="studio">Buy 100 credits</button>
+              <p class="pricing-meta">$0.25 per credit</p>
+            </article>
+            <article class="pricing-card" data-plan="barber_pro">
+              <div class="pricing-card-head"><h3 class="pricing-name">Barber Pro</h3><span class="plan-badge is-pro">Pro</span></div>
+              <p class="pricing-price"><span class="pricing-amount">$19</span><span class="pricing-period">per month</span></p>
+              <p class="pricing-desc">For barbers. Everything in the free shop tools, plus the paid ones.</p>
+              <ul class="feature-list">
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Unlimited portfolio photos</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Prepaid packages for regulars</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Client notes and visit history</span></li>
+                <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Revenue and peak-time analytics</span></li>
+              </ul>
+              <button type="button" class="btn-secondary" data-action="upgrade-pro">Start Pro</button>
+              <p class="pricing-meta">Cancel any time from your account</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="section" aria-labelledby="faq-title">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow">FAQ</p>
+            <h2 id="faq-title" class="display-2">Questions people ask</h2>
+          </div>
+          <div class="faq">
+            <details class="faq-item">
+              <summary>What happens to my photo?<svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+              <p class="faq-body">It is resized in your browser, sent once for the analysis, and not kept on our servers afterwards. The result is saved on your device so you can come back to it; “Start over” clears it.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Why credits instead of a subscription for clients?<svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+              <p class="faq-body">Most people need LineUp a few times a year, not every month. Each analysis and preview costs us a real fee from the model providers, so you pay per use and credits never expire.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Do barbers pay to appear in search?<svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+              <p class="faq-body">No. Search results come from public listings and ratings. Barbers who sign up get a booking page and shop tools; Pro adds packages, notes and analytics, and does not change ranking.</p>
+            </details>
+            <details class="faq-item">
+              <summary>How does booking work?<svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+              <p class="faq-body">You request a time from the shop's open slots. The barber accepts, declines or suggests another time, and you see the status under Bookings. Payment for the haircut happens at the shop.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Can I get a refund on credits?<svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+              <p class="faq-body">If an analysis or preview fails on our side, the credits go straight back to your balance. Unused packs can be refunded within 14 days of purchase; write to support with your receipt.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-inner">
+          <div class="footer-brand">
+            <a class="brand" href="#/" aria-label="LineUp home">
+              <img src="images/logo.png" alt="" width="26" height="26">
+              <span class="wordmark">LineUp</span>
+            </a>
+            <p>Haircut recommendations from a photo, and booking with barbers who can do the cut.</p>
+          </div>
+          <div class="footer-cols">
+            <div class="footer-col">
+              <p class="footer-col-title">Product</p>
+              <a class="footer-link" href="#/pricing">Pricing</a>
+              <a class="footer-link" href="#/" data-scroll-to="for-barbers">For barbers</a>
+              <a class="footer-link" href="#/" data-scroll-to="faq">FAQ</a>
+            </div>
+            <div class="footer-col">
+              <p class="footer-col-title">Account</p>
+              <a class="footer-link" href="#/signin">Sign in</a>
+              <a class="footer-link" href="#/signin">Create account</a>
+              <a class="footer-link" href="#/account">Credits and billing</a>
+            </div>
+            <div class="footer-col">
+              <p class="footer-col-title">Legal</p>
+              <a class="footer-link" href="#/legal/terms">Terms</a>
+              <a class="footer-link" href="#/legal/privacy">Privacy</a>
+              <a class="footer-link" href="mailto:support@lineup.app">support@lineup.app</a>
             </div>
           </div>
+        </div>
+        <div class="footer-meta">
+          <span>© 2026 LineUp</span>
+          <span><span class="status-dot" aria-hidden="true"></span><span id="footer-status">All systems normal</span></span>
         </div>
       </div>
+    </footer>
+  </div>
 
-      <!-- BARBER SIDE -->
-      <div id="barber-content" class="hidden">
-        <!-- Dashboard Tab (Home) -->
-        <div id="barber-dashboard-tab-content" class="tab-content px-4 py-8">
-          <div class="mb-6">
-            <h2 class="text-3xl font-bold text-white mb-2">Dashboard</h2>
-            <p class="text-gray-400 text-sm">Manage your shop and track performance</p>
-          </div>
-          
-          <!-- Key Metrics Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <!-- Revenue Card -->
-            <div class="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Revenue</h3>
-                <div class="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="total-revenue">$0</p>
-              <p class="text-xs text-green-400" id="revenue-change">+0% vs last month</p>
-            </div>
-            
-            <!-- Appointments Card -->
-            <div class="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Appointments</h3>
-                <div class="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="total-appointments">0</p>
-              <p class="text-xs text-blue-400" id="appointments-change">This month</p>
-            </div>
-            
-            <!-- Clients Card -->
-            <div class="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Clients</h3>
-                <div class="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="total-clients">0</p>
-              <p class="text-xs text-purple-400" id="new-clients">+0 new this month</p>
-            </div>
-            
-            <!-- Utilization Card -->
-            <div class="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Utilization</h3>
-                <div class="w-10 h-10 bg-orange-500/20 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="utilization-rate">0%</p>
-              <p class="text-xs text-orange-400">Booking rate</p>
-            </div>
-          </div>
-          
-          <!-- Additional Stats (Today, This Week, Portfolio) -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Today</h3>
-                <div class="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="today-appointments">0</p>
-              <p class="text-sm text-gray-400">Appointments</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">This Week</h3>
-                <div class="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="week-appointments">0</p>
-              <p class="text-sm text-gray-400">Appointments</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 card-hover">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Portfolio</h3>
-                <div class="w-10 h-10 bg-purple-500/10 rounded-full flex items-center justify-center">
-                  <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-              </div>
-              <p class="text-3xl font-bold text-white mb-1" id="portfolio-count">0</p>
-              <p class="text-sm text-gray-400">Photos</p>
-            </div>
-          </div>
-
-          <!-- Analytics Section -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <!-- Popular Services -->
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h3 class="text-xl font-bold text-white mb-4">Popular Services</h3>
-              <div id="services-analytics" class="space-y-3">
-                <p class="text-gray-400 text-sm text-center py-4">Loading service analytics...</p>
-              </div>
-            </div>
-            
-            <!-- Peak Times -->
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h3 class="text-xl font-bold text-white mb-4">Peak Booking Times</h3>
-              <div id="peak-times" class="space-y-2">
-                <p class="text-gray-400 text-sm text-center py-4">Loading peak times...</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
-            <h3 class="text-xl font-bold text-white mb-4">Quick Actions</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button id="add-portfolio-btn" class="btn-primary py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
-                Add Portfolio Photo
-              </button>
-              <button id="view-schedule-btn" class="btn-secondary py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-                View Schedule
-              </button>
-            </div>
-          </div>
+  <!-- ============================== PRICING (#/pricing) ============================== -->
+  <div id="view-pricing" class="view" hidden>
+    <header class="landing-nav">
+      <div class="landing-nav-inner">
+        <a class="brand" href="#/" aria-label="LineUp home">
+          <img src="images/logo.png" alt="" width="26" height="26">
+          <span class="wordmark">LineUp</span>
+        </a>
+        <nav class="landing-nav-links" aria-label="Site">
+          <a class="nav-link" href="#/pricing" aria-current="page">Pricing</a>
+          <a class="nav-link" href="#/" data-scroll-to="for-barbers">For barbers</a>
+          <a class="nav-link" href="#/" data-scroll-to="faq">FAQ</a>
+        </nav>
+        <div class="landing-nav-actions">
+          <a class="nav-link" href="#/signin" data-auth="signed-out">Sign in</a>
+          <a class="btn-primary btn-sm" href="#/signin" data-auth="signed-out">Get started</a>
+          <a class="btn-primary btn-sm hidden" href="#/client/home" data-auth="signed-in">Open app</a>
         </div>
-
-        <!-- Portfolio Tab -->
-        <div id="barber-portfolio-tab-content" class="tab-content hidden px-4 py-8">
-          <div class="flex justify-between items-center mb-6">
-            <div>
-              <h2 class="text-3xl font-bold text-white mb-2">My Portfolio</h2>
-              <p class="text-gray-400 text-sm">Showcase your best work</p>
-            </div>
-            <button id="upload-work-button" class="btn-primary px-6 py-3 rounded-lg font-medium flex items-center gap-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-              </svg>
-              Upload Work
-            </button>
-          </div>
-          <div id="barber-portfolio-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+    </header>
+    <main class="section" aria-labelledby="pricing-page-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Pricing</p>
+          <h1 id="pricing-page-title" class="display-2">Credits for clients. One plan for barbers.</h1>
+          <p class="lead">Every new account starts with 3 free credits. Buy more when you need them; they never expire. Barber Pro is billed monthly and can be cancelled from your account.</p>
         </div>
+        <!-- JS: render the same cards as #pricing-grid here (from /billing/pricing, or clone #pricing-grid children). -->
+        <div id="pricing-page-grid" class="pricing-grid" data-pricing-grid aria-live="polite"></div>
 
-        <!-- Schedule Tab (Clients / Bookings) -->
-        <div id="barber-schedule-tab-content" class="tab-content hidden px-4 py-8">
-          <!-- Simple Header -->
-          <div class="mb-6">
-            <h2 class="text-2xl font-bold text-white mb-1">Bookings</h2>
-            <p class="text-gray-400 text-sm">Manage your appointments</p>
-          </div>
-          
-          <!-- Simple Filters -->
-          <div class="flex gap-3 mb-6">
-            <select id="status-filter" class="bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-white text-sm focus:border-gray-700 focus:outline-none">
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="completed">Completed</option>
-            </select>
-            <button id="clear-filters" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white text-sm transition-colors">Clear</button>
-          </div>
-          
-          <!-- Appointments List -->
-          <div id="barber-appointments-container" class="space-y-3"></div>
+        <div class="section-head" style="margin-top:64px;margin-bottom:24px">
+          <h2 class="display-4">What a credit buys</h2>
+          <p class="lead" style="font-size:15px">Costs are fixed per action. Cached results (a repeat search for the same place) are free and marked as such in your usage.</p>
         </div>
-
-        <!-- Barber Profile / Shop Settings -->
-        <div id="barber-profile-tab-content" class="tab-content hidden px-4 py-8">
-          <div class="mb-6">
-            <h2 class="text-3xl font-bold text-white mb-2">Shop Settings</h2>
-            <p class="text-gray-400 text-sm">Manage your business profile and preferences</p>
-          </div>
-          
-          <!-- Business Info -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
-            <h3 class="text-xl font-bold text-white mb-4">Business Information</h3>
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-400 mb-2">Shop Name</label>
-                <input placeholder="Your Barber Shop" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-400 focus:outline-none" value="Your Barber Shop">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-400 mb-2">Phone Number</label>
-                <input placeholder="(555) 123-4567" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-400 focus:outline-none" value="(555) 123-4567">
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-400 mb-2">Address</label>
-                <input placeholder="123 Main St, Atlanta, GA" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-sky-400 focus:outline-none" value="123 Main St, Atlanta, GA">
-              </div>
-            </div>
-          </div>
-          
-          <!-- Payments -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <h3 class="text-xl font-bold text-white mb-1">Payment Processing</h3>
-                <p class="text-gray-400 text-sm">Connect Stripe to accept online payments</p>
-              </div>
-              <button class="btn-primary px-6 py-3 rounded-lg font-medium">Connect Stripe</button>
-            </div>
-          </div>
-          
-          <!-- Working Hours & Availability -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="text-xl font-bold text-white mb-1">Working Hours & Availability</h3>
-                <p class="text-gray-400 text-sm">Set your schedule and manage availability</p>
-              </div>
-              <button id="manage-availability-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">Manage Hours</button>
-            </div>
-            <div id="availability-preview" class="text-gray-400 text-sm">
-              <!-- Availability preview will be loaded here -->
-            </div>
-          </div>
-          
-          <!-- Services & Pricing -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="text-xl font-bold text-white mb-1">Services & Pricing</h3>
-                <p class="text-gray-400 text-sm">Manage your service offerings and prices</p>
-              </div>
-              <button id="manage-services-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">Manage Services</button>
-            </div>
-            <div id="services-preview" class="text-gray-400 text-sm">
-              <!-- Services preview will be loaded here -->
-            </div>
-          </div>
-          
-          <!-- Client Management -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="text-xl font-bold text-white mb-1">Client Management</h3>
-                <p class="text-gray-400 text-sm">View and manage your clients</p>
-              </div>
-              <button id="view-clients-btn" class="btn-primary px-6 py-3 rounded-lg font-medium">View Clients</button>
-            </div>
-            <div id="clients-preview" class="text-gray-400 text-sm">
-              <!-- Clients preview will be loaded here -->
-            </div>
-          </div>
-          
-          <!-- Subscription Packages -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div class="flex justify-between items-center mb-4">
-              <div>
-                <h3 class="text-xl font-bold text-white mb-1">Subscription Packages</h3>
-                <p class="text-gray-400 text-sm">Offer monthly deals to boost customer retention</p>
-              </div>
-              <button id="create-package-btn" class="btn-primary px-6 py-3 rounded-lg font-medium flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                </svg>
-                Create Package
-              </button>
-            </div>
-            <div id="subscription-packages-list" class="space-y-3 mt-4">
-              <!-- Packages will be loaded here -->
-            </div>
+        <div class="card" style="max-width:640px">
+          <div class="usage-table-wrap">
+            <table class="usage-table" id="credit-costs-table">
+              <thead><tr><th>Action</th><th>What you get</th><th class="num">Credits</th></tr></thead>
+              <tbody>
+                <tr><td>Analysis</td><td class="muted">Face shape, texture, colour and 5–6 cuts</td><td class="num">1</td></tr>
+                <tr><td>Preview</td><td class="muted">A chosen cut rendered on your photo</td><td class="num">3</td></tr>
+                <tr><td>Barber search</td><td class="muted">Fresh results for a new location</td><td class="num">1</td></tr>
+                <tr><td>Repeat search</td><td class="muted">Same location within a day</td><td class="num is-refund">0</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
     </main>
-
-    <!-- Shared Community Tab Content -->
-    <div id="community-tab-content" class="tab-content hidden px-4 py-8">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-3xl font-bold">Community</h2>
-        <button id="add-post-button" class="bg-sky-500 text-white px-4 py-2 rounded-full hover:bg-sky-600 transition-colors">+ Post</button>
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-meta" style="margin-top:0;padding-top:0;border-top:0">
+          <span>© 2026 LineUp</span>
+          <a class="footer-link" href="#/legal/terms">Terms</a>
+          <a class="footer-link" href="#/legal/privacy">Privacy</a>
+        </div>
       </div>
-      <div id="social-feed-container" class="space-y-6"></div>
-    </div>
-
-    <!-- Dynamic Bottom Tab Nav (Rendered by JS) -->
-    <nav id="bottom-nav" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-gray-900 border border-gray-800 rounded-full shadow-lg">
-      <!-- Buttons will be injected by scripts-updated.js -->
-    </nav>
+    </footer>
   </div>
 
-  <!-- Modals -->
-  
-  <!-- Add Post Modal -->
-  <div id="add-post-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
-      <h3 class="text-2xl font-bold mb-4">Share Your Look</h3>
-      <input type="file" id="post-image-input" accept="image/*" class="hidden">
-      <div id="post-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
-        <p class="text-gray-400">Click to add photo</p>
-      </div>
-      <img id="post-image-preview" class="hidden w-full h-48 object-cover rounded-lg mb-4">
-      <textarea id="post-caption" placeholder="Tell us about your new look..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-24 focus:border-sky-400 focus:outline-none"></textarea>
-      <div class="flex gap-3 mt-4">
-        <button id="cancel-post" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
-        <button id="submit-post" class="flex-1 btn-primary py-3 rounded-lg font-medium">Post</button>
-      </div>
+  <!-- ============================== SIGN IN (#/signin) ============================== -->
+  <div id="view-signin" class="view auth-page" hidden>
+    <div class="auth-top">
+      <a class="brand" href="#/" aria-label="LineUp home">
+        <img src="images/logo.png" alt="" width="26" height="26">
+        <span class="wordmark">LineUp</span>
+      </a>
+      <a class="btn-ghost btn-sm" href="#/"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back</a>
     </div>
-  </div>
 
-  <!-- Upload Work Modal -->
-  <div id="upload-work-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
-      <h3 class="text-2xl font-bold mb-4">Upload Client Work</h3>
-      <input type="file" id="work-image-input" accept="image/*" class="hidden">
-      <div id="work-image-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-sky-400 transition-colors mb-4">
-        <p class="text-gray-400">Click to add photo</p>
+    <section class="auth-card" aria-labelledby="signin-title">
+      <div class="auth-head">
+        <h1 id="signin-title" class="auth-title">Sign in to LineUp</h1>
+        <p id="signin-lead" class="auth-lead">Use your Google account or your email. New here? Create an account below.</p>
       </div>
-      <img id="work-image-preview" class="hidden w-full h-48 object-cover rounded-lg mb-4">
-      <input type="text" id="work-style-name" placeholder="Style name (e.g., Modern Fade)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 mb-3 focus:border-sky-400 focus:outline-none">
-      <textarea id="work-description" placeholder="Describe the cut and technique..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-24 focus:border-sky-400 focus:outline-none"></textarea>
-      <div class="flex gap-3 mt-4">
-        <button id="cancel-work" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
-        <button id="submit-work" class="flex-1 btn-primary py-3 rounded-lg font-medium">Upload</button>
-      </div>
-    </div>
-  </div>
 
-  <!-- Book Appointment Modal -->
-  <div id="book-appointment-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
-      <h3 class="text-2xl font-bold mb-4">Book Appointment</h3>
-      <div id="booking-barber-info" class="mb-4"></div>
-      <div class="grid grid-cols-2 gap-4 mb-4">
-        <input type="date" id="appointment-date" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:border-sky-400 focus:outline-none">
-        <select id="appointment-time" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:border-sky-400 focus:outline-none">
-          <option value="">Select time</option>
-          <option value="09:00">9:00 AM</option>
-          <option value="10:00">10:00 AM</option>
-          <option value="11:00">11:00 AM</option>
-          <option value="14:00">2:00 PM</option>
-          <option value="15:00">3:00 PM</option>
-          <option value="16:00">4:00 PM</option>
-        </select>
+      <!-- Shown only when GET /config returns a firebase web config. -->
+      <div id="signin-firebase" class="stack" style="gap:16px">
+        <div id="signin-providers">
+          <button type="button" id="signin-google" class="provider-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"/></svg>
+            Continue with Google
+          </button>
+        </div>
+        <p class="divider-label" aria-hidden="true">or</p>
+        <form id="signin-form" class="form-grid" novalidate>
+          <div class="field">
+            <label for="signin-email" class="field-label">Email</label>
+            <input type="email" id="signin-email" class="input" autocomplete="email" inputmode="email" required placeholder="you@example.com">
+          </div>
+          <div class="field">
+            <label for="signin-password" class="field-label">Password</label>
+            <input type="password" id="signin-password" class="input" autocomplete="current-password" minlength="8" required placeholder="At least 8 characters">
+            <p id="signin-password-hint" class="field-hint">At least 8 characters.</p>
+          </div>
+          <p class="field-error" id="signin-error" hidden></p>
+          <button type="submit" id="signin-submit" class="btn-primary btn-block">Sign in</button>
+        </form>
+        <p class="auth-foot">
+          <span id="signin-mode-text">New to LineUp?</span>
+          <button type="button" id="signin-mode-toggle" aria-pressed="false">Create an account</button>
+        </p>
       </div>
-      <select id="appointment-service" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white mb-4 focus:border-sky-400 focus:outline-none">
-        <option value="">Select service</option>
-        <option value="haircut">Haircut ($45)</option>
-        <option value="haircut-beard">Haircut + Beard ($65)</option>
-        <option value="beard-only">Beard Trim ($25)</option>
-      </select>
-      <textarea id="appointment-notes" placeholder="Special requests or notes..." class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 focus:border-sky-400 focus:outline-none"></textarea>
-      <div class="flex gap-3 mt-4">
-        <button id="cancel-booking" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
-        <button id="confirm-booking" class="flex-1 btn-primary py-3 rounded-lg font-medium">Book Now</button>
-      </div>
-    </div>
-  </div>
 
-  <!-- Create Subscription Package Modal -->
-  <div id="create-package-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-lg">
-      <h3 class="text-2xl font-bold mb-4">Create Subscription Package</h3>
-      <input type="text" id="package-title" placeholder="Package Title (e.g., Monthly Haircuts)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 mb-3 focus:border-sky-400 focus:outline-none">
-      <textarea id="package-description" placeholder="Description (e.g., 2 haircuts per month at discounted rate)" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 mb-3 focus:border-sky-400 focus:outline-none"></textarea>
-      <div class="grid grid-cols-2 gap-4 mb-3">
-        <input type="number" id="package-num-cuts" placeholder="Number of cuts" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-        <input type="number" id="package-duration" placeholder="Duration (months)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-      </div>
-      <div class="grid grid-cols-2 gap-4 mb-3">
-        <input type="text" id="package-price" placeholder="Price (e.g., $80)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-        <input type="text" id="package-discount" placeholder="Discount (e.g., 25% off)" class="bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-      </div>
-      <div class="flex gap-3 mt-4">
-        <button id="cancel-package" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
-        <button id="submit-package" class="flex-1 btn-primary py-3 rounded-lg font-medium">Create Package</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Virtual Try-On Modal -->
-  <div id="virtual-tryon-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-2xl font-bold">Virtual Try-On</h3>
-        <button id="close-tryon-modal" class="text-gray-400 hover:text-white">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      
-      <!-- Virtual Try-On Interface -->
-      <div class="virtual-tryon-container mx-auto mb-6" style="width: 640px; height: 480px; position: relative; border-radius: 1rem; overflow: hidden; background: #1a1a1a;">
-        <video id="virtual-tryon-video" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;" autoplay muted playsinline></video>
-        <img id="virtual-tryon-photo" alt="Try-on photo" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none;" />
-        <div id="virtual-tryon-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: auto;"></div>
-        
-        <!-- Loading overlay -->
-        <div id="tryon-loading" class="absolute inset-0 bg-black/80 flex items-center justify-center hidden">
-          <div class="text-center">
-            <div class="loader mx-auto mb-4"></div>
-            <p class="text-white">Initializing Virtual Try-On...</p>
+      <!-- Shown when the API reports no Firebase config (development). -->
+      <div id="signin-unavailable" class="notice hidden" role="status">
+        <svg class="icon notice-icon" aria-hidden="true"><use href="#i-info"/></svg>
+        <div class="notice-body">
+          <div>
+            <p class="notice-title">Sign-in is not configured on this server</p>
+            <p class="notice-text">Google and email sign-in need Firebase keys. In development, use the developer sign-in below.</p>
           </div>
         </div>
       </div>
-      
-      <!-- Controls -->
-      <div class="flex justify-center gap-4 mb-6">
-        <button id="start-tryon" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
-          Start Try-On
-        </button>
-        <button id="stop-tryon" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg transition-colors hidden">
-          Stop Try-On
-        </button>
-        <button id="take-screenshot" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors hidden">
-          📸 Take Screenshot & Share
-        </button>
-      </div>
-      
-      <!-- Style info -->
-      <div id="current-tryon-style" class="text-center text-gray-400 mb-4"></div>
-    </div>
-  </div>
+    </section>
 
-  <!-- MediaPipe Face Detection for Virtual Try-On -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4/face_detection.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js" crossorigin="anonymous"></script>
-  
-  <!-- Firebase Integration -->
-  <script type="module" src="firebase-simple.js"></script>
-  
-  <!-- Availability Management Modal -->
-  <div id="availability-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-2xl font-bold">Working Hours & Availability</h3>
-        <button id="close-availability-modal" class="text-gray-400 hover:text-white">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
+    <section id="dev-signin" class="auth-card dev-card hidden" aria-labelledby="dev-signin-title">
+      <div class="auth-head">
+        <h2 id="dev-signin-title" class="auth-title">Developer sign-in</h2>
+        <p class="auth-lead">Local only. Creates a session signed by this server; nothing leaves your machine.</p>
       </div>
-      <div id="availability-form" class="space-y-4">
-        <!-- Form will be populated by JavaScript -->
-      </div>
-      <div class="flex gap-3 mt-6">
-        <button id="cancel-availability" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
-        <button id="save-availability" class="flex-1 btn-primary py-3 rounded-lg font-medium">Save Hours</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Zipcode Input Modal -->
-  <div id="zipcode-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-md">
-      <h3 class="text-2xl font-bold mb-4" id="zipcode-modal-title">Enter Location</h3>
-      <p class="text-gray-400 mb-4" id="zipcode-modal-subtitle">Enter your ZIP code or city to find barbers specializing in this style.</p>
-      <input type="text" id="zipcode-input" placeholder="ZIP code or city (e.g., 30308 or Atlanta, GA)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none mb-4">
-      <div class="flex gap-3">
-        <button id="cancel-zipcode" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Cancel</button>
-        <button id="confirm-zipcode" class="flex-1 btn-primary py-3 rounded-lg font-medium">Find Barbers</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Services Management Modal -->
-  <div id="services-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-2xl font-bold">Services & Pricing</h3>
-        <button id="close-services-modal" class="text-gray-400 hover:text-white">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
-      <div id="services-list" class="space-y-4 mb-4">
-        <!-- Services list will be populated by JavaScript -->
-      </div>
-      <button id="add-service-btn" class="w-full btn-secondary py-3 rounded-lg font-medium mb-4">+ Add New Service</button>
-      <div id="add-service-form" class="hidden space-y-4 p-4 bg-gray-800 rounded-lg">
-        <input type="text" id="service-name" placeholder="Service name" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-        <div class="grid grid-cols-2 gap-4">
-          <input type="number" id="service-price" placeholder="Price ($)" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-          <input type="number" id="service-duration" placeholder="Duration (minutes)" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
+      <form id="dev-signin-form" class="form-grid" novalidate>
+        <div class="field">
+          <label for="dev-email" class="field-label">Email</label>
+          <input type="email" id="dev-email" class="input" autocomplete="off" inputmode="email" placeholder="dev@example.com">
         </div>
-        <input type="text" id="service-category" placeholder="Category" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:border-sky-400 focus:outline-none">
-        <textarea id="service-description" placeholder="Description" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 resize-none h-20 focus:border-sky-400 focus:outline-none"></textarea>
-        <div class="flex gap-3">
-          <button id="cancel-service" class="flex-1 btn-secondary py-2 rounded-lg font-medium">Cancel</button>
-          <button id="save-service" class="flex-1 btn-primary py-2 rounded-lg font-medium">Add Service</button>
+        <div class="field">
+          <label for="dev-name" class="field-label">Name</label>
+          <input type="text" id="dev-name" class="input" autocomplete="off" maxlength="40" placeholder="Test User">
+        </div>
+        <p class="field-error" id="dev-signin-error" hidden></p>
+        <button type="submit" id="dev-signin-submit" class="btn-secondary btn-block">Continue as developer</button>
+      </form>
+    </section>
+
+    <p class="auth-legal">By continuing you agree to the <a href="#/legal/terms">Terms</a> and <a href="#/legal/privacy">Privacy policy</a>.</p>
+  </div>
+
+  <!-- ============================== ONBOARDING (#/onboarding) ============================== -->
+  <div id="view-onboarding" class="view auth-page" hidden>
+    <div class="auth-top" style="max-width:640px">
+      <a class="brand" href="#/" aria-label="LineUp home">
+        <img src="images/logo.png" alt="" width="26" height="26">
+        <span class="wordmark">LineUp</span>
+      </a>
+      <span class="chip-neutral">Step 1 of 1</span>
+    </div>
+
+    <section class="auth-card auth-card-wide" aria-labelledby="onboarding-title">
+      <div class="auth-head">
+        <h1 id="onboarding-title" class="auth-title">How will you use LineUp?</h1>
+        <p class="auth-lead">This decides which tools you see. You can't change it later, but you can create another account.</p>
+      </div>
+      <form id="onboarding-form" class="form-grid" novalidate>
+        <div class="role-grid" role="group" aria-label="Choose a role">
+          <button type="button" class="role-card" data-role="client" aria-pressed="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+            <span class="role-card-title">I want a haircut</span>
+            <span class="role-card-text">Analyze a photo, preview cuts and book barbers near you. Starts with 3 free credits.</span>
+          </button>
+          <button type="button" class="role-card" data-role="barber" aria-pressed="false">
+            <svg class="icon" aria-hidden="true"><use href="#i-scissors"/></svg>
+            <span class="role-card-title">I cut hair</span>
+            <span class="role-card-text">Take bookings, set hours and prices, and show your work. Free, with a Pro upgrade.</span>
+          </button>
+        </div>
+        <div id="onboarding-shop-field" class="field hidden">
+          <label for="onboarding-shop-name" class="field-label">Shop name</label>
+          <input type="text" id="onboarding-shop-name" class="input" autocomplete="organization" maxlength="80" placeholder="Eastside Barber Co.">
+          <p class="field-hint">Shown to clients on your booking page. You can edit it later in Shop settings.</p>
+        </div>
+        <p class="field-error" id="onboarding-error" hidden></p>
+        <div class="form-actions">
+          <button type="submit" id="onboarding-submit" class="btn-primary" disabled>Continue</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <!-- ============================== APP HEADER (shared by #view-app and #view-account) ============================== -->
+  <header id="app-header" class="app-header" hidden>
+    <div class="app-header-inner">
+      <a class="brand" href="#/client/home" aria-label="LineUp home">
+        <img src="images/logo.png" alt="" width="26" height="26">
+        <span class="wordmark">LineUp</span>
+      </a>
+      <div class="header-right">
+        <div id="role-switch" class="segmented" role="group" aria-label="Switch between client and barber views">
+          <button type="button" id="client-mode" class="role-button is-active" aria-pressed="true">Client</button>
+          <button type="button" id="barber-mode" class="role-button" aria-pressed="false">Barber</button>
+        </div>
+        <a id="header-credits" class="credit-pill hidden" href="#/account" aria-label="Credits">
+          <svg class="icon" aria-hidden="true"><use href="#i-zap"/></svg>
+          <span id="header-credits-value">0</span>
+        </a>
+        <span id="header-plan" class="plan-badge is-free hidden">Free</span>
+        <div class="menu-wrap">
+          <button type="button" id="account-menu" class="avatar-button" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu-panel" aria-label="Account menu">
+            <span id="account-menu-avatar" class="avatar avatar-sm" aria-hidden="true"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-user"/></svg></span>
+          </button>
+          <div id="account-menu-panel" class="menu hidden" role="menu" aria-labelledby="account-menu">
+            <div class="menu-head">
+              <p id="menu-name" class="menu-name">Not signed in</p>
+              <p id="menu-email" class="menu-email"></p>
+            </div>
+            <a class="menu-item" role="menuitem" id="menu-account" href="#/account"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>Account and billing</a>
+            <a class="menu-item" role="menuitem" id="menu-pricing" href="#/pricing"><svg class="icon" aria-hidden="true"><use href="#i-credit-card"/></svg>Pricing</a>
+            <div class="menu-sep" role="separator"></div>
+            <button type="button" class="menu-item is-danger" role="menuitem" id="menu-sign-out"><svg class="icon" aria-hidden="true"><use href="#i-log-out"/></svg>Sign out</button>
+          </div>
         </div>
       </div>
-      <div class="flex gap-3 mt-4">
-        <button id="close-services" class="flex-1 btn-secondary py-3 rounded-lg font-medium">Close</button>
+    </div>
+  </header>
+
+  <!-- ============================== APP (#/client/*, #/barber/*) ============================== -->
+  <div id="view-app" class="view" hidden>
+  <main id="main-content" class="app-main" tabindex="-1">
+    <div id="api-notice" class="notice notice-warning mt-6 hidden" role="status">
+      <svg class="icon notice-icon" aria-hidden="true"><use href="#i-alert"/></svg>
+      <div class="notice-body">
+        <div>
+          <p class="notice-title">Can't reach the LineUp service</p>
+          <p class="notice-text">Search, bookings and the feed need a connection. Check your network, then retry.</p>
+        </div>
+        <div><button type="button" id="api-notice-retry" class="btn-secondary btn-sm">Retry</button></div>
       </div>
     </div>
-  </div>
 
-  <!-- Clients Management Modal -->
-  <div id="clients-modal" class="fixed inset-0 bg-black/50 modal hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-3xl max-h-screen overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-2xl font-bold">Client Management</h3>
-        <button id="close-clients-modal" class="text-gray-400 hover:text-white">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
+    <!-- ============================== CLIENT ============================== -->
+    <div id="client-content">
+
+      <!-- Home: photo analysis -->
+      <div id="ai-tab-content" class="tab-content">
+        <section id="upload-section" class="stack-lg" aria-labelledby="home-title">
+          <div class="page-header">
+            <div>
+              <h1 id="home-title" class="page-title">Find a cut that fits your face</h1>
+              <p class="page-lead">Upload a clear, front-facing photo. We'll read your face shape and hair texture, suggest cuts that suit them, and show barbers nearby who can do them.</p>
+            </div>
+          </div>
+
+          <input type="file" id="file-input" class="sr-only" accept="image/jpeg,image/png,image/webp" aria-describedby="upload-hint">
+
+          <div id="image-upload-area" class="dropzone narrow">
+            <svg class="icon icon-lg dropzone-icon" aria-hidden="true"><use href="#i-upload"/></svg>
+            <p class="dropzone-title"><label for="file-input">Choose a photo</label> or drag one here</p>
+            <p id="upload-hint" class="dropzone-hint">JPG, PNG or WebP, up to 5 MB. Nothing is uploaded until you tap Analyze.</p>
+          </div>
+
+          <div id="image-preview-container" class="preview-card narrow hidden">
+            <div class="preview-media">
+              <img id="image-preview" src="" alt="Your selected photo" width="220" height="275">
+            </div>
+            <div class="preview-actions">
+              <div>
+                <p class="card-title">Ready to analyze</p>
+                <p class="card-text">Analysis takes about ten seconds. You can pick a different photo first if this one is blurry or side-on.</p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" id="analyze-button" class="btn-primary">Analyze photo</button>
+                <label for="file-input" class="btn-secondary">Change photo</label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="status-section" class="stack hidden" aria-live="polite" aria-labelledby="status-title">
+          <h2 id="status-title" class="section-title">Analyzing your photo</h2>
+          <p id="status-message" class="status-text"></p>
+
+          <div id="loader" class="stack-lg hidden" role="status" aria-label="Analysis in progress">
+            <div class="kv-grid">
+              <div class="kv"><div class="skeleton skeleton-text" style="width:55%"></div><div class="skeleton skeleton-title mt-2" style="width:70%"></div></div>
+              <div class="kv"><div class="skeleton skeleton-text" style="width:60%"></div><div class="skeleton skeleton-title mt-2" style="width:50%"></div></div>
+              <div class="kv"><div class="skeleton skeleton-text" style="width:50%"></div><div class="skeleton skeleton-title mt-2" style="width:65%"></div></div>
+              <div class="kv"><div class="skeleton skeleton-text" style="width:45%"></div><div class="skeleton skeleton-title mt-2" style="width:55%"></div></div>
+              <div class="kv"><div class="skeleton skeleton-text" style="width:40%"></div><div class="skeleton skeleton-title mt-2" style="width:60%"></div></div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div class="skeleton-card"><div class="skeleton skeleton-title" style="width:45%"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:85%"></div><div class="skeleton skeleton-text" style="width:60%"></div></div>
+              <div class="skeleton-card"><div class="skeleton skeleton-title" style="width:55%"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:75%"></div><div class="skeleton skeleton-text" style="width:65%"></div></div>
+              <div class="skeleton-card"><div class="skeleton skeleton-title" style="width:40%"></div><div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text" style="width:90%"></div><div class="skeleton skeleton-text" style="width:50%"></div></div>
+            </div>
+          </div>
+
+          <div id="error-container" class="notice notice-danger hidden" role="alert">
+            <svg class="icon notice-icon" aria-hidden="true"><use href="#i-alert"/></svg>
+            <div class="notice-body">
+              <div>
+                <p class="notice-title">We couldn't analyze that photo</p>
+                <p id="error-message" class="notice-text"></p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" id="try-again-button" class="btn-secondary btn-sm">Try again</button>
+                <button type="button" id="use-sample-button" class="btn-ghost btn-sm hidden">Show sample results</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="results-section" class="stack-lg hidden" aria-labelledby="results-title">
+          <div>
+            <div class="section-header">
+              <h2 id="results-title" class="section-title">Your analysis</h2>
+            </div>
+            <div id="analysis-grid" class="kv-grid"></div>
+          </div>
+
+          <div>
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">Recommended cuts</h2>
+                <p class="section-lead">Based on your face shape and hair texture. Preview a style on your photo, or find barbers nearby who do it.</p>
+              </div>
+            </div>
+            <div id="recommendations-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          </div>
+
+          <div class="cta-row">
+            <button type="button" id="find-barber-button" class="btn-primary">
+              Find barbershops near you
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+            </button>
+            <button type="button" id="start-over-button" class="btn-ghost">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>
+              Start over
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Barbers -->
+      <div id="barbers-tab-content" class="tab-content hidden">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Barbershops near you</h1>
+            <p class="page-lead">Search by ZIP code or city. Results include ratings, hours and a booking link when the shop has one.</p>
+          </div>
+        </div>
+
+        <form id="barber-search" class="field" role="search" novalidate>
+          <label for="location-search" class="field-label">Location</label>
+          <div class="input-group">
+            <input type="text" id="location-search" class="input" inputmode="text" autocomplete="postal-code" enterkeyhint="search" placeholder="30308 or Atlanta, GA">
+            <button type="submit" id="refresh-barbers" class="btn-primary">
+              <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+              <span>Search</span>
+            </button>
+          </div>
+          <p class="field-hint">A ZIP code gives the closest results.</p>
+          <p class="field-error" id="location-search-error" hidden></p>
+        </form>
+
+        <p id="barber-intro" class="text-sm text-text-2">Enter a location to see barbershops, their ratings and opening hours.</p>
+        <div id="barber-list-container" class="stack"></div>
+      </div>
+
+      <!-- Appointments -->
+      <div id="appointments-tab-content" class="tab-content hidden">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Your bookings</h1>
+            <p class="page-lead">Upcoming and past appointments. You can reschedule or cancel from here.</p>
+          </div>
+        </div>
+        <div id="client-appointments-container" class="stack"></div>
+        <div id="no-appointments" class="empty-state">
+          <svg class="icon icon-lg empty-state-icon" aria-hidden="true"><use href="#i-calendar"/></svg>
+          <p class="empty-state-title">No bookings yet</p>
+          <p class="empty-state-text">Find a barbershop and pick a time. Your appointments will show up here.</p>
+          <button type="button" id="go-to-barbers" class="btn-primary btn-sm" data-tab="barbers">Find a barber</button>
+        </div>
+      </div>
+
+      <!-- Client profile -->
+      <div id="profile-tab-content" class="tab-content hidden">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Profile</h1>
+            <p class="page-lead">How you appear to barbers when you book. Plan, credits and billing live under <a class="link" href="#/account">Account</a>.</p>
+          </div>
+        </div>
+
+        <section class="card" aria-labelledby="profile-details-title">
+          <h2 id="profile-details-title" class="sr-only">Your details</h2>
+          <form id="client-profile-form" novalidate>
+          <div class="flex items-start gap-4">
+            <div id="client-avatar" class="avatar avatar-lg" aria-hidden="true">
+              <svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>
+            </div>
+            <div class="field flex-1">
+              <label for="client-display-name" class="field-label">Display name</label>
+              <input type="text" id="client-display-name" class="input" autocomplete="name" maxlength="40" placeholder="Your name">
+              <p class="field-hint">Shown to barbers when you book. Defaults to the name on your account.</p>
+              <p class="field-error" id="client-profile-error" hidden></p>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" id="save-client-profile" class="btn-secondary btn-sm">Save</button>
+          </div>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="history-title">
+          <div class="card-header">
+            <h2 id="history-title" class="card-title">Booking history</h2>
+            <button type="button" id="refresh-history" class="btn-ghost btn-sm">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-refresh"/></svg>
+              Refresh
+            </button>
+          </div>
+          <div id="client-profile-history" class="list"></div>
+        </section>
+
+        <section class="card" aria-labelledby="notifications-title">
+          <div class="card-header">
+            <h2 id="notifications-title" class="card-title">Notifications</h2>
+          </div>
+          <div class="list">
+            <label class="list-row" for="notify-bookings">
+              <div class="grow">
+                <p class="list-title">Booking updates</p>
+                <p class="list-text">Confirmations, changes and cancellations.</p>
+              </div>
+              <span class="switch">
+                <input type="checkbox" id="notify-bookings" checked>
+                <span class="switch-track"></span>
+              </span>
+            </label>
+            <label class="list-row" for="notify-reminders">
+              <div class="grow">
+                <p class="list-title">Reminders</p>
+                <p class="list-text">A reminder the day before each appointment.</p>
+              </div>
+              <span class="switch">
+                <input type="checkbox" id="notify-reminders" checked>
+                <span class="switch-track"></span>
+              </span>
+            </label>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ============================== BARBER ============================== -->
+    <div id="barber-content" class="hidden">
+
+      <!-- Dashboard -->
+      <div id="barber-dashboard-tab-content" class="tab-content">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Dashboard</h1>
+            <p class="page-lead">This month at a glance.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="stat">
+            <p class="stat-label">Revenue</p>
+            <p class="stat-value" id="total-revenue">$0</p>
+            <p class="stat-delta" id="revenue-change">vs last month</p>
+          </div>
+          <div class="stat">
+            <p class="stat-label">Appointments</p>
+            <p class="stat-value" id="total-appointments">0</p>
+            <p class="stat-delta" id="appointments-change">This month</p>
+          </div>
+          <div class="stat">
+            <p class="stat-label">Clients</p>
+            <p class="stat-value" id="total-clients">0</p>
+            <p class="stat-delta" id="new-clients">0 new this month</p>
+          </div>
+          <div class="stat">
+            <p class="stat-label">Utilization</p>
+            <p class="stat-value" id="utilization-rate">0%</p>
+            <p class="stat-delta">Of available hours</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div class="stat stat-compact">
+            <p class="stat-label">Today</p>
+            <p class="stat-value" id="today-appointments">0</p>
+            <p class="stat-delta">Bookings</p>
+          </div>
+          <div class="stat stat-compact">
+            <p class="stat-label">This week</p>
+            <p class="stat-value" id="week-appointments">0</p>
+            <p class="stat-delta">Bookings</p>
+          </div>
+          <div class="stat stat-compact">
+            <p class="stat-label">Portfolio</p>
+            <p class="stat-value" id="portfolio-count">0</p>
+            <p class="stat-delta">Photos</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <section class="card" aria-labelledby="popular-services-title" data-pro-panel="analytics">
+            <div class="locked-overlay" data-pro-gate="analytics">
+              <span class="plan-badge is-pro"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-lock"/></svg>Pro</span>
+              <p class="locked-title">Analytics are part of Pro</p>
+              <p class="locked-text">See which services earn the most and when your chair is busiest.</p>
+              <button type="button" class="btn-primary btn-sm" data-action="upgrade-pro">Upgrade to Pro</button>
+            </div>
+            <div class="card-header">
+              <h2 id="popular-services-title" class="card-title">Popular services</h2>
+            </div>
+            <div id="services-analytics" class="list">
+              <div class="skeleton-rows" aria-hidden="true">
+                <div class="skeleton skeleton-text" style="width:70%"></div>
+                <div class="skeleton skeleton-text" style="width:55%"></div>
+                <div class="skeleton skeleton-text" style="width:62%"></div>
+              </div>
+            </div>
+          </section>
+          <section class="card" aria-labelledby="peak-times-title" data-pro-panel="analytics">
+            <div class="locked-overlay" data-pro-gate="analytics">
+              <span class="plan-badge is-pro"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-lock"/></svg>Pro</span>
+              <p class="locked-title">Analytics are part of Pro</p>
+              <p class="locked-text">Peak times show the hours and days clients book most.</p>
+              <button type="button" class="btn-primary btn-sm" data-action="upgrade-pro">Upgrade to Pro</button>
+            </div>
+            <div class="card-header">
+              <h2 id="peak-times-title" class="card-title">Peak times</h2>
+            </div>
+            <div id="peak-times" class="list">
+              <div class="skeleton-rows" aria-hidden="true">
+                <div class="skeleton skeleton-text" style="width:60%"></div>
+                <div class="skeleton skeleton-text" style="width:75%"></div>
+                <div class="skeleton skeleton-text" style="width:50%"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="card" aria-labelledby="quick-actions-title">
+          <div class="card-header">
+            <h2 id="quick-actions-title" class="card-title">Quick actions</h2>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="add-portfolio-btn" class="btn-primary">
+              <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+              Add portfolio photo
+            </button>
+            <button type="button" id="view-schedule-btn" class="btn-secondary">
+              <svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg>
+              View bookings
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Portfolio -->
+      <div id="barber-portfolio-tab-content" class="tab-content hidden">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Portfolio</h1>
+            <p class="page-lead">Photos of your work. Clients see these when they look you up.</p>
+          </div>
+          <button type="button" id="upload-work-button" class="btn-primary">
+            <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+            Upload work
+          </button>
+        </div>
+        <div id="barber-portfolio-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        <div id="portfolio-limit" class="notice hidden" role="status" data-pro-panel="portfolio">
+          <svg class="icon notice-icon" aria-hidden="true"><use href="#i-lock"/></svg>
+          <div class="notice-body">
+            <div>
+              <p class="notice-title">Free shops can show 6 photos</p>
+              <p class="notice-text">Upgrade to Pro to add as many as you like. Your existing photos stay.</p>
+            </div>
+            <div><button type="button" class="btn-primary btn-sm" data-action="upgrade-pro">Upgrade to Pro</button></div>
+          </div>
+        </div>
+        <div id="portfolio-empty" class="empty-state hidden">
+          <svg class="icon icon-lg empty-state-icon" aria-hidden="true"><use href="#i-images"/></svg>
+          <p class="empty-state-title">No photos yet</p>
+          <p class="empty-state-text">Add a few recent cuts. Three or four good photos are enough to start.</p>
+          <button type="button" class="btn-primary btn-sm" data-open-modal="upload-work-modal">Upload your first photo</button>
+        </div>
+      </div>
+
+      <!-- Bookings -->
+      <div id="barber-schedule-tab-content" class="tab-content hidden">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Bookings</h1>
+            <p class="page-lead">Requests to confirm, and what's coming up.</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-end gap-3">
+          <div class="field w-full sm:w-56">
+            <label for="status-filter" class="field-label">Status</label>
+            <select id="status-filter" class="select">
+              <option value="all">All</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <button type="button" id="clear-filters" class="btn-ghost">Clear</button>
+        </div>
+
+        <div id="barber-appointments-container" class="stack"></div>
+        <div id="barber-no-appointments" class="empty-state hidden">
+          <svg class="icon icon-lg empty-state-icon" aria-hidden="true"><use href="#i-inbox"/></svg>
+          <p class="empty-state-title">No bookings match</p>
+          <p class="empty-state-text">New requests appear here as clients book. Try clearing the filter.</p>
+        </div>
+      </div>
+
+      <!-- Shop settings -->
+      <div id="barber-profile-tab-content" class="tab-content hidden">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Shop settings</h1>
+            <p class="page-lead">Business details, hours, services and packages.</p>
+          </div>
+        </div>
+
+        <section class="card" aria-labelledby="business-info-title">
+          <div class="card-header">
+            <h2 id="business-info-title" class="card-title">Business info</h2>
+          </div>
+          <form id="shop-info-form" class="form-grid" novalidate>
+            <div class="field">
+              <label for="shop-name" class="field-label">Shop name</label>
+              <input type="text" id="shop-name" class="input" autocomplete="organization" maxlength="80" placeholder="Eastside Barber Co.">
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label for="shop-phone" class="field-label">Phone</label>
+                <input type="tel" id="shop-phone" class="input" inputmode="tel" autocomplete="tel" placeholder="(404) 555-0134">
+                <p class="field-hint">Shown on your booking page.</p>
+              </div>
+              <div class="field">
+                <label for="shop-address" class="field-label">Address</label>
+                <input type="text" id="shop-address" class="input" autocomplete="street-address" placeholder="123 Main St, Atlanta, GA">
+              </div>
+            </div>
+            <p class="field-error" id="shop-info-error" hidden></p>
+            <div class="form-actions">
+              <button type="submit" id="save-shop-info" class="btn-primary">Save changes</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="hours-title">
+          <div class="card-header">
+            <div>
+              <h2 id="hours-title" class="card-title">Hours</h2>
+              <p class="card-text">When clients can book you.</p>
+            </div>
+            <button type="button" id="manage-availability-btn" class="btn-secondary btn-sm">Edit hours</button>
+          </div>
+          <div id="availability-preview" class="list text-sm"></div>
+        </section>
+
+        <section class="card" aria-labelledby="services-title">
+          <div class="card-header">
+            <div>
+              <h2 id="services-title" class="card-title">Services and prices</h2>
+              <p class="card-text">What you offer and what it costs.</p>
+            </div>
+            <button type="button" id="manage-services-btn" class="btn-secondary btn-sm">Edit services</button>
+          </div>
+          <div id="services-preview" class="list text-sm"></div>
+        </section>
+
+        <section class="card" aria-labelledby="clients-title" data-pro-panel="clients">
+          <div class="locked-overlay" data-pro-gate="clients">
+            <span class="plan-badge is-pro"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-lock"/></svg>Pro</span>
+            <p class="locked-title">Client notes and history are part of Pro</p>
+            <p class="locked-text">Keep guard sizes, products and visit history for every regular.</p>
+            <button type="button" class="btn-primary btn-sm" data-action="upgrade-pro">Upgrade to Pro</button>
+          </div>
+          <div class="card-header">
+            <div>
+              <h2 id="clients-title" class="card-title">Clients</h2>
+              <p class="card-text">Everyone who has booked with you.</p>
+            </div>
+            <button type="button" id="view-clients-btn" class="btn-secondary btn-sm">View all</button>
+          </div>
+          <div id="clients-preview" class="list text-sm"></div>
+        </section>
+
+        <section class="card" aria-labelledby="packages-title" data-pro-panel="packages">
+          <div class="locked-overlay" data-pro-gate="packages">
+            <span class="plan-badge is-pro"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-lock"/></svg>Pro</span>
+            <p class="locked-title">Packages are part of Pro</p>
+            <p class="locked-text">Sell prepaid bundles of cuts to regulars at a set price.</p>
+            <button type="button" class="btn-primary btn-sm" data-action="upgrade-pro">Upgrade to Pro</button>
+          </div>
+          <div class="card-header">
+            <div>
+              <h2 id="packages-title" class="card-title">Packages</h2>
+              <p class="card-text">Prepaid bundles of cuts at a set price.</p>
+            </div>
+            <button type="button" id="create-package-btn" class="btn-secondary btn-sm">
+              <svg class="icon icon-sm" aria-hidden="true"><use href="#i-plus"/></svg>
+              New package
+            </button>
+          </div>
+          <div id="subscription-packages-list" class="stack"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ============================== SHARED ============================== -->
+    <div id="community-tab-content" class="tab-content hidden">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Community</h1>
+          <p class="page-lead">Recent cuts from clients and barbers.</p>
+        </div>
+        <button type="button" id="add-post-button" class="btn-primary">
+          <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+          New post
         </button>
       </div>
-      <div id="clients-list" class="space-y-4">
-        <!-- Clients list will be populated by JavaScript -->
+      <div id="social-feed-container" class="stack max-w-reading"></div>
+      <div id="feed-empty" class="empty-state max-w-reading hidden">
+        <svg class="icon icon-lg empty-state-icon" aria-hidden="true"><use href="#i-message"/></svg>
+        <p class="empty-state-title">Nothing posted yet</p>
+        <p class="empty-state-text">Share a fresh cut to get the feed going.</p>
+        <button type="button" class="btn-primary btn-sm" data-open-modal="add-post-modal">New post</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom navigation. Buttons are injected by JS: <button class="tab-pill" data-tab="..." aria-current="page"> -->
+  <div class="bottom-nav-wrap">
+    <nav id="bottom-nav" class="bottom-nav" aria-label="Primary"></nav>
+  </div>
+
+  </div><!-- /#view-app -->
+
+  <!-- ============================== ACCOUNT (#/account) ============================== -->
+  <div id="view-account" class="view" hidden>
+    <main class="account-page" aria-labelledby="account-title">
+      <div class="page-header">
+        <div>
+          <h1 id="account-title" class="page-title">Account</h1>
+          <p class="page-lead">Your plan, credits and usage. Purchases are handled by Stripe; we never see your card.</p>
+        </div>
+        <a id="account-back" class="btn-secondary btn-sm" href="#/client/home"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back to app</a>
+      </div>
+
+      <div id="checkout-notice" class="notice notice-success hidden" role="status">
+        <svg class="icon notice-icon" aria-hidden="true"><use href="#i-check-circle"/></svg>
+        <div class="notice-body">
+          <div>
+            <p class="notice-title" id="checkout-notice-title">Payment received</p>
+            <p class="notice-text" id="checkout-notice-text">Your balance has been updated.</p>
+          </div>
+        </div>
+      </div>
+
+      <section class="card" aria-labelledby="identity-title">
+        <h2 id="identity-title" class="sr-only">Your details</h2>
+        <div class="account-head">
+          <div id="account-avatar" class="avatar avatar-xl" aria-hidden="true"><svg class="icon icon-lg" aria-hidden="true"><use href="#i-user"/></svg></div>
+          <div class="account-identity">
+            <p id="account-name" class="account-name">Not signed in</p>
+            <p id="account-email" class="account-email"></p>
+          </div>
+          <div class="account-badges">
+            <span id="account-role" class="chip-neutral">Client</span>
+            <span id="plan-badge" class="plan-badge is-free">Free</span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button type="button" id="manage-billing" class="btn-secondary btn-sm"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-credit-card"/></svg>Manage billing</button>
+          <button type="button" id="sign-out" class="btn-ghost btn-sm push-right"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-log-out"/></svg>Sign out</button>
+        </div>
+      </section>
+
+      <div class="account-grid">
+        <section id="credits-card" class="card" aria-labelledby="credits-title">
+          <div class="card-header">
+            <div>
+              <h2 id="credits-title" class="card-title">Credits</h2>
+              <p class="card-text">1 per analysis, 3 per preview, 1 per new barber search.</p>
+            </div>
+            <button type="button" id="refresh-billing" class="btn-ghost btn-icon btn-sm" aria-label="Refresh balance"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+          </div>
+          <div class="balance"><span id="credits-balance" class="balance-value">0</span><span class="balance-unit">credits</span></div>
+          <p class="eyebrow" style="margin:20px 0 10px">Buy more</p>
+          <!-- JS renders .pack-btn buttons from /billing/pricing here (data-action="buy-pack" data-pack-id). -->
+          <div id="credit-packs" class="pack-grid">
+            <button type="button" class="pack-btn" data-action="buy-pack" data-pack-id="starter"><span class="pack-btn-credits">10 credits</span><span class="pack-btn-price">$4.99</span><span class="pack-btn-name">Starter</span></button>
+            <button type="button" class="pack-btn is-featured" data-action="buy-pack" data-pack-id="plus"><span class="pack-btn-credits">30 credits</span><span class="pack-btn-price">$9.99</span><span class="pack-btn-name">Plus</span></button>
+            <button type="button" class="pack-btn" data-action="buy-pack" data-pack-id="studio"><span class="pack-btn-credits">100 credits</span><span class="pack-btn-price">$24.99</span><span class="pack-btn-name">Studio</span></button>
+          </div>
+          <p id="credits-note" class="field-hint" style="margin-top:10px">Credits never expire. Failed analyses are refunded automatically.</p>
+          <p class="field-error" id="billing-error" hidden></p>
+          <div class="form-actions">
+            <button type="button" id="dev-grant" class="btn-ghost btn-sm hidden">Add 10 test credits</button>
+          </div>
+        </section>
+
+        <section id="barber-pro-card" class="card hidden" aria-labelledby="pro-title">
+          <div class="card-header">
+            <div>
+              <h2 id="pro-title" class="card-title">Barber Pro</h2>
+              <p class="card-text">$19 a month. Cancel any time.</p>
+            </div>
+            <span id="pro-status-badge" class="plan-badge is-free">Free plan</span>
+          </div>
+          <ul class="feature-list">
+            <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Unlimited portfolio photos</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Prepaid packages for regulars</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Client notes and visit history</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Revenue and peak-time analytics</span></li>
+          </ul>
+          <div class="card-footer">
+            <button type="button" id="upgrade-pro" class="btn-primary">Upgrade to Pro</button>
+            <button type="button" id="dev-activate-pro" class="btn-ghost btn-sm hidden">Activate Pro (test)</button>
+          </div>
+          <p id="pro-status" class="field-hint" style="margin-top:10px"></p>
+        </section>
+      </div>
+
+      <section class="card" aria-labelledby="usage-title">
+        <div class="card-header">
+          <div>
+            <h2 id="usage-title" class="card-title">Usage</h2>
+            <p class="card-text">Every credit spent, refunded or added.</p>
+          </div>
+          <button type="button" id="refresh-usage" class="btn-ghost btn-sm"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-refresh"/></svg>Refresh</button>
+        </div>
+        <div id="usage-table-wrap" class="usage-table-wrap">
+          <table class="usage-table" id="usage-table">
+            <thead>
+              <tr><th scope="col">When</th><th scope="col">Action</th><th scope="col">Status</th><th scope="col" class="num">Credits</th><th scope="col" class="num">Balance</th></tr>
+            </thead>
+            <!-- JS: <tr><td class="time">…</td><td>Analysis</td><td><span class="chip-success">OK</span></td><td class="num is-debit">−1</td><td class="num">12</td></tr> -->
+            <tbody id="usage-table-body"></tbody>
+          </table>
+        </div>
+        <div id="usage-empty" class="empty-state" style="margin-top:12px">
+          <svg class="icon icon-lg empty-state-icon" aria-hidden="true"><use href="#i-zap"/></svg>
+          <p class="empty-state-title">No usage yet</p>
+          <p class="empty-state-text">Your first analysis will show up here with the credits it used.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============================== LEGAL (#/legal/terms, #/legal/privacy) ============================== -->
+  <div id="view-legal" class="view" hidden>
+    <header class="landing-nav">
+      <div class="landing-nav-inner">
+        <a class="brand" href="#/" aria-label="LineUp home">
+          <img src="images/logo.png" alt="" width="26" height="26">
+          <span class="wordmark">LineUp</span>
+        </a>
+        <nav class="landing-nav-links" aria-label="Site">
+          <a class="nav-link" href="#/pricing">Pricing</a>
+          <a class="nav-link" href="#/legal/terms" data-legal="terms">Terms</a>
+          <a class="nav-link" href="#/legal/privacy" data-legal="privacy">Privacy</a>
+        </nav>
+        <div class="landing-nav-actions">
+          <a class="btn-secondary btn-sm" href="#/">Home</a>
+        </div>
+      </div>
+    </header>
+    <main class="legal-page" aria-labelledby="legal-title">
+      <p class="eyebrow">Legal</p>
+      <h1 id="legal-title" class="display-2" style="margin-top:8px">Terms of service</h1>
+      <p id="legal-updated" class="legal-updated">Last updated 14 September 2026</p>
+      <!-- JS: clone #legal-terms-template or #legal-privacy-template into #legal-body and set #legal-title. -->
+      <div id="legal-body" class="legal-body"></div>
+    </main>
+  </div>
+
+  <template id="legal-terms-template">
+    <p>These terms cover your use of LineUp, the website and the API behind it. By creating an account you agree to them.</p>
+    <h2>Accounts</h2>
+    <p>You need an account to analyze photos, book or take bookings. Keep your sign-in details private; you are responsible for what happens under your account. One role (client or barber) is chosen at sign-up and is fixed for that account.</p>
+    <h2>Credits and subscriptions</h2>
+    <ul>
+      <li>Credits are prepaid and are spent per action at the rates shown on the pricing page. They do not expire.</li>
+      <li>If an action fails on our side, the credits are returned to your balance automatically.</li>
+      <li>Unused credit packs can be refunded within 14 days of purchase on request.</li>
+      <li>Barber Pro is billed monthly through Stripe and renews until you cancel from your account. Cancelling stops the next charge; you keep Pro until the end of the paid period.</li>
+    </ul>
+    <h2>Bookings</h2>
+    <p>LineUp passes booking requests between clients and barbers. Payment for services happens at the shop. We are not a party to the appointment and do not guarantee that a barber will accept a request or perform a specific cut.</p>
+    <h2>Content</h2>
+    <p>Photos you upload for analysis are processed and discarded. Photos you post to the community or a portfolio stay until you delete them and must be yours to share. We remove content that is abusive or unlawful.</p>
+    <h2>Recommendations</h2>
+    <p>Cut suggestions are generated automatically from a photo and are advice, not a promise about how a haircut will look. Talk to your barber before they pick up the clippers.</p>
+    <h2>Changes and contact</h2>
+    <p>We may update these terms; the date above changes when we do. Questions: <a href="mailto:support@lineup.app">support@lineup.app</a>.</p>
+  </template>
+
+  <template id="legal-privacy-template">
+    <p>This policy explains what LineUp collects, why, and what you can do about it.</p>
+    <h2>What we collect</h2>
+    <ul>
+      <li><strong>Account:</strong> email, display name and, with Google sign-in, your Google profile photo. Barbers also give a shop name, address and phone number, which are public on their booking page.</li>
+      <li><strong>Photos for analysis:</strong> resized in your browser, sent to our server and to the analysis provider once, then discarded. The text result is stored on your device only.</li>
+      <li><strong>Usage:</strong> a ledger of the credits each action used, with timestamps, so you can see what you paid for.</li>
+      <li><strong>Bookings and posts:</strong> what you submit, so the other party can see it.</li>
+    </ul>
+    <h2>Payments</h2>
+    <p>Stripe handles card details; we never receive them. We store your Stripe customer id and the outcome of each payment.</p>
+    <h2>Third parties</h2>
+    <p>Analysis and previews use Google Gemini and Replicate. Barber search uses Google Places. Sign-in uses Firebase Authentication. Each receives only what is needed for that request.</p>
+    <h2>Your choices</h2>
+    <p>You can delete posts and portfolio photos at any time, clear the saved analysis with “Start over”, and ask us to delete your account by email. We keep the payment ledger as long as tax law requires.</p>
+    <h2>Contact</h2>
+    <p><a href="mailto:support@lineup.app">support@lineup.app</a></p>
+  </template>
+
+  <!-- Toasts and modals sit outside every .view: router.js hides the non-active
+       views with display:none, which would make a toast or modal raised from the
+       landing, pricing, sign-in or account view invisible.
+       JS appends .toast elements into #toast-region. -->
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- ============================== MODALS ============================== -->
+
+  <!-- Add post -->
+  <div id="add-post-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-post-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="add-post-title" class="modal-title">New post</h2>
+          <p class="modal-lead">Share a cut with the community.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-post-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <form id="post-form" class="modal-body" novalidate>
+        <input type="file" id="post-image-input" class="sr-only" accept="image/jpeg,image/png,image/webp">
+        <div id="post-image-area" class="dropzone dropzone-sm">
+          <svg class="icon icon-lg dropzone-icon" aria-hidden="true"><use href="#i-image"/></svg>
+          <p class="dropzone-title"><label for="post-image-input">Choose a photo</label> or drop one here</p>
+          <p class="dropzone-hint">JPG, PNG or WebP, up to 5 MB.</p>
+        </div>
+        <img id="post-image-preview" class="preview-img hidden" alt="Selected photo" width="480" height="360">
+        <div class="field">
+          <label for="post-username" class="field-label">Your name</label>
+          <input type="text" id="post-username" class="input" autocomplete="name" maxlength="40" placeholder="Your name">
+          <p class="field-hint">Shown on the post and your comments.</p>
+        </div>
+        <div class="field">
+          <label for="post-caption" class="field-label">Caption</label>
+          <textarea id="post-caption" class="textarea" rows="3" maxlength="280" placeholder="Fresh taper from Marcus at Eastside"></textarea>
+          <p class="field-hint">Up to 280 characters.</p>
+          <p class="field-error" id="post-error" hidden></p>
+        </div>
+      </form>
+      <div class="modal-footer">
+        <button type="button" id="cancel-post" class="btn-secondary" data-modal-close>Cancel</button>
+        <button type="submit" form="post-form" id="submit-post" class="btn-primary">Post</button>
       </div>
     </div>
   </div>
 
-  <!-- Configuration (must load before main script) -->
+  <!-- Upload work (barber portfolio) -->
+  <div id="upload-work-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="upload-work-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="upload-work-title" class="modal-title">Add to portfolio</h2>
+          <p class="modal-lead">One photo per cut works best.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-work-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <form id="work-form" class="modal-body" novalidate>
+        <input type="file" id="work-image-input" class="sr-only" accept="image/jpeg,image/png,image/webp">
+        <div id="work-image-area" class="dropzone dropzone-sm">
+          <svg class="icon icon-lg dropzone-icon" aria-hidden="true"><use href="#i-camera"/></svg>
+          <p class="dropzone-title"><label for="work-image-input">Choose a photo</label> or drop one here</p>
+          <p class="dropzone-hint">JPG, PNG or WebP, up to 5 MB.</p>
+        </div>
+        <img id="work-image-preview" class="preview-img hidden" alt="Selected photo" width="480" height="360">
+        <div class="field">
+          <label for="work-style-name" class="field-label">Style name</label>
+          <input type="text" id="work-style-name" class="input" maxlength="60" placeholder="Mid fade with textured top">
+        </div>
+        <div class="field">
+          <label for="work-description" class="field-label">Notes <span class="optional">(optional)</span></label>
+          <textarea id="work-description" class="textarea" rows="3" maxlength="280" placeholder="Guard sizes, products used, how long it took"></textarea>
+          <p class="field-error" id="work-error" hidden></p>
+        </div>
+      </form>
+      <div class="modal-footer">
+        <button type="button" id="cancel-work" class="btn-secondary" data-modal-close>Cancel</button>
+        <button type="submit" form="work-form" id="submit-work" class="btn-primary">Add photo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Book appointment -->
+  <div id="book-appointment-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="booking-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="booking-title" class="modal-title">Book an appointment</h2>
+          <p class="modal-lead">The barber confirms your request, usually within a few hours.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-booking-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <form id="booking-form" class="modal-body" novalidate>
+        <div id="booking-barber-info" class="modal-section"></div>
+        <div class="field">
+          <label for="booking-client-name" class="field-label">Your name</label>
+          <input type="text" id="booking-client-name" class="input" autocomplete="name" maxlength="40" placeholder="Your name">
+          <p class="field-hint">Sent to the barber with your request.</p>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="appointment-date" class="field-label">Date</label>
+            <input type="date" id="appointment-date" class="input" required>
+          </div>
+          <div class="field">
+            <label for="appointment-time" class="field-label">Time</label>
+            <select id="appointment-time" class="select" required>
+              <option value="">Choose a time</option>
+              <option value="09:00">9:00 AM</option>
+              <option value="10:00">10:00 AM</option>
+              <option value="11:00">11:00 AM</option>
+              <option value="12:00">12:00 PM</option>
+              <option value="13:00">1:00 PM</option>
+              <option value="14:00">2:00 PM</option>
+              <option value="15:00">3:00 PM</option>
+              <option value="16:00">4:00 PM</option>
+              <option value="17:00">5:00 PM</option>
+            </select>
+            <p class="field-hint" id="appointment-time-hint" hidden></p>
+          </div>
+        </div>
+        <div class="field">
+          <label for="appointment-service" class="field-label">Service</label>
+          <select id="appointment-service" class="select" required>
+            <option value="">Choose a service</option>
+            <option value="haircut">Haircut – $45</option>
+            <option value="haircut-beard">Haircut and beard – $65</option>
+            <option value="beard-only">Beard trim – $25</option>
+          </select>
+          <p class="field-hint" id="appointment-service-hint">Prices are the shop's listed rates and may change on the day.</p>
+        </div>
+        <div class="field">
+          <label for="appointment-notes" class="field-label">Notes for the barber <span class="optional">(optional)</span></label>
+          <textarea id="appointment-notes" class="textarea" rows="3" maxlength="300" placeholder="Reference photo, allergies, anything they should know"></textarea>
+          <p class="field-error" id="booking-error" hidden></p>
+        </div>
+      </form>
+      <div class="modal-footer">
+        <button type="button" id="cancel-booking" class="btn-secondary" data-modal-close>Cancel</button>
+        <button type="submit" form="booking-form" id="confirm-booking" class="btn-primary">Request booking</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reschedule appointment -->
+  <div id="reschedule-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="reschedule-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="reschedule-title" class="modal-title">Reschedule</h2>
+          <p class="modal-lead" id="reschedule-subtitle">Pick a new date and time.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-reschedule-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <form id="reschedule-form" class="modal-body" novalidate>
+        <div id="reschedule-appointment-info" class="modal-section"></div>
+        <div class="form-row">
+          <div class="field">
+            <label for="reschedule-date" class="field-label">New date</label>
+            <input type="date" id="reschedule-date" class="input" required>
+          </div>
+          <div class="field">
+            <label for="reschedule-time" class="field-label">New time</label>
+            <select id="reschedule-time" class="select" required>
+              <option value="">Choose a time</option>
+              <option value="09:00">9:00 AM</option>
+              <option value="10:00">10:00 AM</option>
+              <option value="11:00">11:00 AM</option>
+              <option value="12:00">12:00 PM</option>
+              <option value="13:00">1:00 PM</option>
+              <option value="14:00">2:00 PM</option>
+              <option value="15:00">3:00 PM</option>
+              <option value="16:00">4:00 PM</option>
+              <option value="17:00">5:00 PM</option>
+            </select>
+            <p class="field-hint" id="reschedule-time-hint" hidden></p>
+          </div>
+        </div>
+        <div class="field">
+          <label for="reschedule-reason" class="field-label">Reason <span class="optional">(optional)</span></label>
+          <textarea id="reschedule-reason" class="textarea" rows="2" maxlength="200" placeholder="Running late, work conflict"></textarea>
+          <p class="field-hint">Sent to the other person with the new time.</p>
+          <p class="field-error" id="reschedule-error" hidden></p>
+        </div>
+      </form>
+      <div class="modal-footer">
+        <button type="button" id="cancel-reschedule" class="btn-secondary" data-modal-close>Keep current time</button>
+        <button type="submit" form="reschedule-form" id="confirm-reschedule" class="btn-primary">Reschedule</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic confirm dialog -->
+  <div id="confirm-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal modal-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title" aria-describedby="confirm-modal-body" tabindex="-1">
+      <div class="modal-header">
+        <h2 id="confirm-modal-title" class="modal-title">Are you sure?</h2>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-confirm-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-modal-body" class="text-sm text-text-2">This can't be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="confirm-modal-cancel" class="btn-secondary">Cancel</button>
+        <button type="button" id="confirm-modal-confirm" class="btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create package -->
+  <div id="create-package-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="package-modal-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="package-modal-title" class="modal-title">New package</h2>
+          <p class="modal-lead">A prepaid bundle of cuts, valid for a set number of months.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-package-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <form id="package-form" class="modal-body" novalidate>
+        <div class="field">
+          <label for="package-title" class="field-label">Name</label>
+          <input type="text" id="package-title" class="input" maxlength="60" placeholder="Monthly cuts">
+        </div>
+        <div class="field">
+          <label for="package-description" class="field-label">Description</label>
+          <textarea id="package-description" class="textarea" rows="2" maxlength="200" placeholder="Two haircuts a month, any day"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="package-num-cuts" class="field-label">Number of cuts</label>
+            <input type="number" id="package-num-cuts" class="input" inputmode="numeric" min="1" max="52" step="1" placeholder="2">
+          </div>
+          <div class="field">
+            <label for="package-duration" class="field-label">Valid for (months)</label>
+            <input type="number" id="package-duration" class="input" inputmode="numeric" min="1" max="24" step="1" placeholder="1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="package-price" class="field-label">Price</label>
+            <input type="text" id="package-price" class="input" inputmode="decimal" placeholder="$80">
+          </div>
+          <div class="field">
+            <label for="package-discount" class="field-label">Saving <span class="optional">(optional)</span></label>
+            <input type="text" id="package-discount" class="input" placeholder="20% off">
+            <p class="field-hint">Shown next to the price.</p>
+          </div>
+        </div>
+        <p class="field-error" id="package-error" hidden></p>
+      </form>
+      <div class="modal-footer">
+        <button type="button" id="cancel-package" class="btn-secondary" data-modal-close>Cancel</button>
+        <button type="submit" form="package-form" id="submit-package" class="btn-primary">Create package</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Virtual try-on -->
+  <div id="virtual-tryon-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal modal-xl" role="dialog" aria-modal="true" aria-labelledby="tryon-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="tryon-title" class="modal-title">Preview this cut</h2>
+          <p class="modal-lead" id="current-tryon-style"></p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-tryon-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="tryon-stage">
+          <video id="virtual-tryon-video" class="tryon-layer hidden" autoplay muted playsinline></video>
+          <img id="virtual-tryon-photo" class="tryon-layer hidden" alt="Your photo with the selected style applied">
+          <canvas id="virtual-tryon-canvas" class="tryon-layer hidden" aria-hidden="true"></canvas>
+          <div id="tryon-empty" class="tryon-overlay hidden"><p>Upload a photo on the Home tab, or use your camera.</p></div>
+          <div id="tryon-loading" class="tryon-overlay hidden" role="status">
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Rendering preview. This can take up to a minute.</p>
+          </div>
+        </div>
+        <div id="tryon-compare" class="tryon-compare hidden">
+          <figure>
+            <img id="tryon-before" alt="Before" loading="lazy">
+            <figcaption>Before</figcaption>
+          </figure>
+          <figure>
+            <img id="tryon-after" alt="After" loading="lazy">
+            <figcaption>After</figcaption>
+          </figure>
+        </div>
+        <p class="field-hint" id="tryon-note" hidden></p>
+        <p class="field-error" id="tryon-error" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="stop-tryon" class="btn-secondary hidden">Stop camera</button>
+        <button type="button" id="capture-photo" class="btn-primary hidden">
+          <svg class="icon icon-sm" aria-hidden="true"><use href="#i-camera"/></svg>
+          Take photo
+        </button>
+        <button type="button" id="use-camera" class="btn-secondary">
+          <svg class="icon icon-sm" aria-hidden="true"><use href="#i-camera"/></svg>
+          Use camera
+        </button>
+        <button type="button" id="take-screenshot" class="btn-secondary hidden">
+          <svg class="icon icon-sm" aria-hidden="true"><use href="#i-download"/></svg>
+          Save image
+        </button>
+        <button type="button" id="start-tryon" class="btn-primary">Start preview</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hours and availability -->
+  <div id="availability-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="availability-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="availability-title" class="modal-title">Hours</h2>
+          <p class="modal-lead">Set the days and times clients can book.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-availability-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <form id="hours-form" class="modal-body" novalidate>
+        <div id="availability-form" class="stack"></div>
+        <p class="field-error" id="availability-error" hidden></p>
+      </form>
+      <div class="modal-footer">
+        <button type="button" id="cancel-availability" class="btn-secondary" data-modal-close>Cancel</button>
+        <button type="submit" form="hours-form" id="save-availability" class="btn-primary">Save hours</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location prompt (before searching barbers for a style) -->
+  <div id="zipcode-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="zipcode-modal-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="zipcode-modal-title" class="modal-title">Where are you?</h2>
+          <p class="modal-lead" id="zipcode-modal-subtitle">We'll look for barbers near you who do this style.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-zipcode-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <form id="zipcode-form" class="modal-body" novalidate>
+        <div class="field">
+          <label for="zipcode-input" class="field-label">ZIP code or city</label>
+          <input type="text" id="zipcode-input" class="input" inputmode="text" autocomplete="postal-code" enterkeyhint="search" placeholder="30308 or Atlanta, GA">
+          <p class="field-error" id="zipcode-error" hidden></p>
+        </div>
+      </form>
+      <div class="modal-footer">
+        <button type="button" id="cancel-zipcode" class="btn-secondary" data-modal-close>Cancel</button>
+        <button type="submit" form="zipcode-form" id="confirm-zipcode" class="btn-primary">Find barbers</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Services and prices -->
+  <div id="services-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="services-modal-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="services-modal-title" class="modal-title">Services and prices</h2>
+          <p class="modal-lead">What clients can book, and what it costs.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-services-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="services-list" class="list"></div>
+        <button type="button" id="add-service-btn" class="btn-secondary btn-block">
+          <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+          Add a service
+        </button>
+        <form id="add-service-form" class="modal-section form-grid hidden" novalidate>
+          <div class="field">
+            <label for="service-name" class="field-label">Service name</label>
+            <input type="text" id="service-name" class="input" maxlength="60" placeholder="Skin fade">
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="service-price" class="field-label">Price ($)</label>
+              <input type="number" id="service-price" class="input" inputmode="decimal" min="0" step="1" placeholder="45">
+            </div>
+            <div class="field">
+              <label for="service-duration" class="field-label">Duration (minutes)</label>
+              <input type="number" id="service-duration" class="input" inputmode="numeric" min="5" step="5" placeholder="30">
+            </div>
+          </div>
+          <div class="field">
+            <label for="service-category" class="field-label">Category <span class="optional">(optional)</span></label>
+            <input type="text" id="service-category" class="input" maxlength="40" placeholder="Haircut, beard, colour">
+          </div>
+          <div class="field">
+            <label for="service-description" class="field-label">Description <span class="optional">(optional)</span></label>
+            <textarea id="service-description" class="textarea" rows="2" maxlength="200" placeholder="What's included"></textarea>
+            <p class="field-error" id="service-error" hidden></p>
+          </div>
+          <div class="form-actions">
+            <button type="button" id="cancel-service" class="btn-ghost btn-sm">Cancel</button>
+            <button type="submit" id="save-service" class="btn-primary btn-sm">Save service</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="close-services" class="btn-secondary" data-modal-close>Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clients -->
+  <div id="clients-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="clients-modal-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="clients-modal-title" class="modal-title">Clients</h2>
+          <p class="modal-lead">Everyone who has booked with you, with their history and notes.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-clients-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="clients-list" class="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reviews -->
+  <div id="reviews-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal modal-lg" role="dialog" aria-modal="true" aria-labelledby="reviews-modal-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="reviews-modal-title" class="modal-title">Reviews</h2>
+          <p class="modal-lead" id="reviews-modal-subtitle"></p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-reviews-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="reviews-summary" class="modal-section"></div>
+        <div id="reviews-list" class="list"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="close-reviews" class="btn-secondary" data-modal-close>Close</button>
+        <button type="button" id="reviews-book" class="btn-primary">Book</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Appointment note (barber) -->
+  <div id="note-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="note-modal-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="note-modal-title" class="modal-title">Add a note</h2>
+          <p class="modal-lead">Only you see notes. They stay with the booking.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-note-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <form id="note-form" class="modal-body" novalidate>
+        <div id="note-appointment-info" class="modal-section"></div>
+        <div class="field">
+          <label for="note-text" class="field-label">Note</label>
+          <textarea id="note-text" class="textarea" rows="3" maxlength="500" placeholder="Prefers a #2 on the sides, sensitive skin"></textarea>
+          <p class="field-error" id="note-error" hidden></p>
+        </div>
+      </form>
+      <div class="modal-footer">
+        <button type="button" id="cancel-note" class="btn-secondary" data-modal-close>Cancel</button>
+        <button type="submit" form="note-form" id="submit-note" class="btn-primary">Save note</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Out of credits (402 from a metered route) -->
+  <div id="credits-modal" class="modal-backdrop hidden" data-modal>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="credits-modal-title" tabindex="-1">
+      <div class="modal-header">
+        <div>
+          <h2 id="credits-modal-title" class="modal-title">Out of credits</h2>
+          <p class="modal-lead" id="credits-modal-lead">This action needs more credits than you have. Buy a pack to continue; credits never expire.</p>
+        </div>
+        <button type="button" class="btn-ghost btn-icon btn-sm" id="close-credits-modal" data-modal-close aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-section">
+          <div class="balance"><span id="credits-modal-balance" class="balance-value">0</span><span class="balance-unit">credits left</span></div>
+          <p class="card-text" id="credits-modal-needed">This action costs 1 credit.</p>
+        </div>
+        <!-- JS renders .pack-btn buttons from /billing/pricing here (data-action="buy-pack" data-pack-id). -->
+        <div id="credits-modal-packs" class="pack-grid" aria-label="Credit packs">
+          <button type="button" class="pack-btn" data-action="buy-pack" data-pack-id="starter"><span class="pack-btn-credits">10 credits</span><span class="pack-btn-price">$4.99</span><span class="pack-btn-name">Starter</span></button>
+          <button type="button" class="pack-btn is-featured" data-action="buy-pack" data-pack-id="plus"><span class="pack-btn-credits">30 credits</span><span class="pack-btn-price">$9.99</span><span class="pack-btn-name">Plus</span></button>
+          <button type="button" class="pack-btn" data-action="buy-pack" data-pack-id="studio"><span class="pack-btn-credits">100 credits</span><span class="pack-btn-price">$24.99</span><span class="pack-btn-name">Studio</span></button>
+        </div>
+        <p class="field-hint" id="credits-modal-note">You'll be sent to Stripe Checkout and back here when it's done.</p>
+        <p class="field-error" id="credits-modal-error" hidden></p>
+        <button type="button" id="credits-modal-dev-grant" class="btn-ghost btn-sm hidden" style="align-self:flex-start">Add 10 test credits (development)</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="credits-modal-cancel" class="btn-secondary" data-modal-close>Not now</button>
+        <a id="credits-modal-account" class="btn-primary" href="#/account">See all options</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configuration must load before the app script -->
   <script src="config.js"></script>
-  
-  <!-- Configuration (must load before main script) -->
-  <script src="config.js"></script>
-  
-  <!-- Main App Script -->
-  <script src="scripts-updated.js"></script>
+  <script type="module" src="src/js/main.js"></script>
 </body>
 </html>

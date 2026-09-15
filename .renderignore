@@ -1,43 +1,47 @@
-# CRITICAL: Exclude Python virtual environments
+# Paths Render leaves out of the published static site (lineup-frontend).
+# Build inputs (package.json, package-lock.json, tailwind.config.js, src/) are
+# deliberately NOT listed: the build command runs `npm ci && npm run build`.
+# The backend service ignores this file.
+
+# Python (the API is a separate service)
 .venv/
 venv/
 env/
 ENV/
 __pycache__/
+*.py
 *.pyc
 *.pyo
 *.pyd
-
-# Python-related
-*.py
 *.egg-info/
 .Python
 build/
 dist/
 .pytest_cache/
+.coverage
+htmlcov/
+requirements.txt
+requirements-dev.txt
+Procfile
+lineup_backend/
+tests/
+scripts/
 
-# Development files
+# Development-only files
+.context/
+src/tools/
 .git/
 .gitignore
 .DS_Store
 *.log
 node_modules/
-.coverage
-htmlcov/
+.static
+static-build.sh
 
-# Configuration and docs
-requirements.txt
-modal-requirements.txt
-Procfile
+# Docs and configuration
 *.md
-HAIRFAST_SETUP.md
-IMPLEMENTATION_SUMMARY.md
-README.md
-
-# Environment files
+render.yaml
 .env
+.env.example
 .env.local
 .env.*.local
-
-# Keep only static site files
-# HTML, CSS, JS, images will be deployed

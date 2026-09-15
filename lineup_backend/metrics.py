@@ -8,6 +8,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 import threading
+from functools import wraps
 
 
 class MetricsCollector:
@@ -255,6 +256,7 @@ def track_performance(endpoint_name: Optional[str] = None):
     def decorator(func):
         endpoint = endpoint_name or func.__name__
         
+        @wraps(func)
         def wrapper(*args, **kwargs):
             start_time = time.time()
             success = True

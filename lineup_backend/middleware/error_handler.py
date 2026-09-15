@@ -1,214 +1,86 @@
-"""Standardized error handling for the LineUp backend."""
+"""JSON error responses for every failure path.
+
+Route code raises :class:`ApiError` for expected client errors. Framework
+errors (404, 405, 413, 429, ...) and unexpected exceptions are converted to the
+same ``{"error": ..., "message": ...}`` shape so the frontend never sees HTML.
+"""
 
 from __future__ import annotations
 
 import logging
-import traceback
-from functools import wraps
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Dict
 
-from flask import Flask, jsonify, make_response, request
+from flask import Flask, Response, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 logger = logging.getLogger(__name__)
 
 
-class APIError(Exception):
-    """Base exception for API errors with standardized response format."""
+class ApiError(Exception):
+    """An expected error with an HTTP status and a JSON body."""
 
-    def __init__(
-        self,
-        message: str,
-        status_code: int = 400,
-        error_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-    ):
-        super().__init__(message)
-        self.message = message
-        self.status_code = status_code
-        self.error_code = error_code or f"ERR_{status_code}"
-        self.details = details or {}
+    def __init__(self, error: str, status: int = 400, **extra: Any) -> None:
+        super().__init__(error)
+        self.message = error  # the ``error`` field; a human ``message`` may be passed via extra
+        self.status = status
+        self.extra = extra
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert error to response dictionary."""
-        response = {
-            "success": False,
-            "error": {
-                "code": self.error_code,
-                "message": self.message,
-            },
-        }
-        if self.details:
-            response["error"]["details"] = self.details
-        return response
+    def payload(self) -> Dict[str, Any]:
+        body: Dict[str, Any] = {"error": self.message}
+        body.update(self.extra)
+        return body
 
 
-class ValidationError(APIError):
-    """Raised when request validation fails."""
-
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
-        super().__init__(
-            message=message,
-            status_code=400,
-            error_code="VALIDATION_ERROR",
-            details=details,
-        )
-
-
-class AuthenticationError(APIError):
-    """Raised when authentication fails."""
-
-    def __init__(self, message: str = "Authentication required"):
-        super().__init__(
-            message=message,
-            status_code=401,
-            error_code="AUTHENTICATION_ERROR",
-        )
-
-
-class AuthorizationError(APIError):
-    """Raised when user lacks permission."""
-
-    def __init__(self, message: str = "Permission denied"):
-        super().__init__(
-            message=message,
-            status_code=403,
-            error_code="AUTHORIZATION_ERROR",
-        )
-
-
-class NotFoundError(APIError):
-    """Raised when a resource is not found."""
-
-    def __init__(self, resource: str = "Resource", resource_id: Optional[str] = None):
-        message = f"{resource} not found"
-        if resource_id:
-            message = f"{resource} with ID '{resource_id}' not found"
-        super().__init__(
-            message=message,
-            status_code=404,
-            error_code="NOT_FOUND",
-        )
-
-
-class RateLimitError(APIError):
-    """Raised when rate limit is exceeded."""
-
-    def __init__(self, retry_after: int = 60):
-        super().__init__(
-            message="Rate limit exceeded. Please try again later.",
-            status_code=429,
-            error_code="RATE_LIMIT_EXCEEDED",
-            details={"retry_after": retry_after},
-        )
-
-
-class ExternalServiceError(APIError):
-    """Raised when an external service fails."""
-
-    def __init__(self, service: str, message: Optional[str] = None):
-        super().__init__(
-            message=message or f"External service '{service}' is unavailable",
-            status_code=503,
-            error_code="EXTERNAL_SERVICE_ERROR",
-            details={"service": service},
-        )
-
-
-def create_success_response(
-    data: Any = None,
-    message: Optional[str] = None,
-    status_code: int = 200,
-) -> Tuple[Any, int]:
-    """Create a standardized success response."""
-    response = {"success": True}
-    if data is not None:
-        response["data"] = data
-    if message:
-        response["message"] = message
-    
-    resp = make_response(jsonify(response), status_code)
-    resp.headers["Access-Control-Allow-Origin"] = "*"
-    return resp
-
-
-def create_error_response(
-    error: Union[APIError, Exception],
-    status_code: Optional[int] = None,
-) -> Tuple[Any, int]:
-    """Create a standardized error response."""
-    if isinstance(error, APIError):
-        response = error.to_dict()
-        code = error.status_code
-    else:
-        response = {
-            "success": False,
-            "error": {
-                "code": "INTERNAL_ERROR",
-                "message": "An unexpected error occurred",
-            },
-        }
-        code = status_code or 500
-    
-    resp = make_response(jsonify(response), code)
-    resp.headers["Access-Control-Allow-Origin"] = "*"
-    return resp
-
-
-def handle_errors(func: Callable) -> Callable:
-    """Decorator to handle errors in route handlers."""
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except APIError as e:
-            logger.warning(f"API Error in {func.__name__}: {e.message}")
-            return create_error_response(e)
-        except Exception as e:
-            logger.error(f"Unexpected error in {func.__name__}: {str(e)}")
-            logger.error(traceback.format_exc())
-            return create_error_response(e, 500)
-
-    return wrapper
+def _json(payload: Dict[str, Any], status: int) -> Response:
+    response = jsonify(payload)
+    response.status_code = status
+    return response
 
 
 def register_error_handlers(app: Flask) -> None:
-    """Register global error handlers with the Flask app."""
+    @app.errorhandler(ApiError)
+    def handle_api_error(error: ApiError) -> Response:
+        return _json(error.payload(), error.status)
 
-    @app.errorhandler(APIError)
-    def handle_api_error(error: APIError):
-        return create_error_response(error)
+    @app.errorhandler(HTTPException)
+    def handle_http_error(error: HTTPException) -> Response:
+        status = error.code or 500
+        if status == 404:
+            body = {"error": "Not found", "message": "The requested resource does not exist"}
+        elif status == 405:
+            allowed = sorted(getattr(error, "valid_methods", None) or [])
+            body = {
+                "error": "Method not allowed",
+                "message": f"{request.method} is not allowed for {request.path}",
+                "allowed": allowed,
+            }
+        elif status == 413:
+            body = {
+                "error": "Payload too large",
+                "message": "The request body exceeds the maximum allowed size",
+                "max_bytes": app.config.get("MAX_CONTENT_LENGTH"),
+            }
+        elif status == 429:
+            retry_after = getattr(error, "retry_after", None) or 60
+            body = {
+                "error": "Rate limit exceeded",
+                "message": "Too many requests. Please try again later.",
+                "retry_after": retry_after,
+                "limit": str(error.description or ""),
+            }
+        elif status == 400:
+            body = {"error": "Bad request", "message": str(error.description or "Invalid request")}
+        else:
+            body = {"error": error.name, "message": str(error.description or "")}
+        response = _json(body, status)
+        if status == 429:
+            response.headers.setdefault("Retry-After", str(body["retry_after"]))
+        return response
 
-    @app.errorhandler(400)
-    def handle_bad_request(error):
-        return create_error_response(
-            APIError("Bad request", 400, "BAD_REQUEST")
-        )
-
-    @app.errorhandler(404)
-    def handle_not_found(error):
-        return create_error_response(
-            NotFoundError("Endpoint")
-        )
-
-    @app.errorhandler(429)
-    def handle_rate_limit(error):
-        retry_after = getattr(error, "retry_after", 60)
-        return create_error_response(RateLimitError(retry_after))
-
-    @app.errorhandler(500)
-    def handle_internal_error(error):
-        logger.error(f"Internal server error: {str(error)}")
-        return create_error_response(
-            APIError(
-                "Internal server error. Please try again later.",
-                500,
-                "INTERNAL_ERROR",
-            )
-        )
-
-    @app.errorhandler(503)
-    def handle_service_unavailable(error):
-        return create_error_response(
-            ExternalServiceError("backend", "Service temporarily unavailable")
+    @app.errorhandler(Exception)
+    def handle_unexpected(error: Exception) -> Response:
+        logger.exception("Unhandled error on %s %s", request.method, request.path)
+        return _json(
+            {"error": "Internal server error", "message": "Something went wrong on our end. Please try again later."},
+            500,
         )

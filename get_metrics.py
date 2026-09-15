@@ -3,13 +3,18 @@
 
 import json
 import sys
+import os
 import requests
 from datetime import datetime
 
 def get_metrics(base_url="http://localhost:5000"):
     """Fetch metrics from the API."""
     try:
-        response = requests.get(f"{base_url}/metrics", timeout=10)
+        headers = {}
+        admin_token = os.environ.get("LINEUP_ADMIN_TOKEN")
+        if admin_token:
+            headers["X-Admin-Token"] = admin_token
+        response = requests.get(f"{base_url}/metrics", timeout=10, headers=headers)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:

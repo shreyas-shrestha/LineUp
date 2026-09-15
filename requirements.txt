@@ -1,33 +1,26 @@
-# LineUp Backend Dependencies
-# Production-ready package list
+# LineUp backend - production dependencies (Python 3.11 on Render, 3.12 locally)
 
-# Web Framework
+# Web framework
 Flask==2.3.3
 Flask-Cors==4.0.0
 Flask-Limiter==3.5.0
 gunicorn==21.2.0
 
-# Data Validation
-pydantic[email]==2.5.3
-
-# AI Services
-google-generativeai==0.3.2
+# AI services (optional at runtime; mock fallbacks when keys are absent)
+google-generativeai==0.8.5
 replicate==0.22.0
 
-# Storage & Database
+# Storage (optional at runtime)
 firebase-admin==6.4.0
 cloudinary==1.38.0
 
-# Image Processing
-Pillow==10.1.0
+# Auth (dev-login JWTs; Firebase ID tokens go through firebase-admin) and billing
+PyJWT==2.8.0
+stripe==15.6.1
 
-# Utilities
-python-dotenv==1.0.0
+# Image processing and HTTP
+Pillow==10.1.0
 requests==2.31.0
 
-# Security (for JWT tokens if using custom auth)
-PyJWT==2.8.0
-
-# Testing (optional, for development)
-pytest==7.4.3
-pytest-cov==4.1.0
+# Local .env loading
+python-dotenv==1.0.0

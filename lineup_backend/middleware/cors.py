@@ -1,4 +1,4 @@
-"""CORS configuration for the LineUp backend."""
+"""CORS configuration. Origins may be exact strings or regular expressions."""
 
 from __future__ import annotations
 
@@ -9,29 +9,13 @@ from flask_cors import CORS
 
 
 def configure_cors(app: Flask, allowed_origins: List[str]) -> None:
-    """Configure CORS for the Flask application.
-    
-    Args:
-        app: The Flask application instance
-        allowed_origins: List of allowed origins (use ["*"] for development only)
-    """
-    # Filter out wildcard in production-like environments
-    # Keep specific origins for better security
-    is_production = app.config.get("ENV") == "production"
-    
-    if is_production and "*" in allowed_origins:
-        # Remove wildcard in production, keep only specific origins
-        allowed_origins = [o for o in allowed_origins if o != "*"]
-        if not allowed_origins:
-            # Fallback to a safe default
-            allowed_origins = ["https://lineupai.onrender.com"]
-    
+    origins: List[str] = ["*"] if "*" in allowed_origins else list(allowed_origins)
     CORS(
         app,
-        origins=allowed_origins,
+        origins=origins,
         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Accept", "Authorization"],
+        expose_headers=["Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
         supports_credentials=False,
-        max_age=86400,  # Cache preflight for 24 hours
+        max_age=86400,
     )
-

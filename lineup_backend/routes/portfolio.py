@@ -1,142 +1,175 @@
-"""Portfolio management endpoints for barbers."""
+"""Barber portfolio and subscription commerce.
 
-import logging
-import uuid
-from datetime import datetime
+Reads are public. A barber can only write their own portfolio/packages; the
+7th portfolio photo and packages need Barber Pro (402 ``pro_required``).
+"""
 
-from flask import Blueprint, request
+from __future__ import annotations
 
-from lineup_backend.utils import cors_response, handle_options, api_response, safe_get_json
-from lineup_backend import storage as memory_store
+import re
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
-logger = logging.getLogger(__name__)
+from flask import Blueprint, g, jsonify, request
 
-portfolio_bp = Blueprint('portfolio', __name__)
+from lineup_backend.context import services
+from lineup_backend.extensions import limiter, rate
+from lineup_backend.http import clean_text, decode_base64_image, get_json_body, json_response, now_iso, to_int, today_str
+from lineup_backend.middleware.auth import assert_owner, require_auth, require_pro, require_role
+from lineup_backend.middleware.error_handler import ApiError
+from lineup_backend.pricing import FREE_PORTFOLIO_LIMIT
+from lineup_backend.services.billing import ProRequired
+from lineup_backend.services.users import is_pro
 
+bp = Blueprint("portfolio", __name__)
 
-@portfolio_bp.route('/portfolio', methods=['GET', 'POST', 'OPTIONS'])
-@portfolio_bp.route('/portfolio/<barber_id>', methods=['GET', 'POST', 'OPTIONS'])
-@handle_options("GET, POST, OPTIONS")
-def portfolio(barber_id=None):
-    """
-    Handle portfolio viewing and creation.
-    
-    GET: Retrieve portfolio items (optionally filtered by barber_id)
-    POST: Add new portfolio item
-    """
-    if request.method == 'GET':
-        return get_portfolio(barber_id)
-    elif request.method == 'POST':
-        return create_portfolio_item(barber_id)
+MAX_IMAGE_URL_LENGTH = 2000
 
 
-def get_portfolio(barber_id: str = None):
-    """Get portfolio items for a barber or all portfolios."""
-    try:
-        if barber_id:
-            portfolio = memory_store.barber_portfolios.get(barber_id, [])
-        else:
-            # Return all portfolios flattened
-            portfolio = []
-            for barber_portfolio in memory_store.barber_portfolios.values():
-                portfolio.extend(barber_portfolio)
-        
-        return api_response(data={"portfolio": portfolio})
-    except Exception as e:
-        logger.error(f"Error getting portfolio: {str(e)}")
-        return api_response(error="Failed to get portfolio", status=500)
+def _portfolio_image(value: Any) -> str:
+    """Accept an http(s) URL or a real base64 image; reject anything else so a
+    stored value can never be a script URL or arbitrary text rendered as <img src>."""
+    if not isinstance(value, str) or not value.strip():
+        raise ApiError("image is required", 400)
+    text = value.strip()
+    if re.match(r"^https?://", text, re.IGNORECASE):
+        if len(text) > MAX_IMAGE_URL_LENGTH or any(ch.isspace() for ch in text):
+            raise ApiError("image URL is not valid", 400)
+        return text
+    decode_base64_image(text, field="image")
+    return "".join(text.split())
 
 
-def create_portfolio_item(barber_id: str = None):
-    """Create a new portfolio item."""
-    try:
-        data = safe_get_json()
-        
-        # Get barber_id from URL or request body
-        bid = barber_id or data.get("barberId", "default_barber")
-        
-        # Validate required fields
-        if not data.get("styleName"):
-            return api_response(error="Style name is required", status=400)
-        
-        if not data.get("image"):
-            return api_response(error="Image is required", status=400)
-        
-        new_work = {
-            "id": str(uuid.uuid4()),
-            "styleName": data.get("styleName", ""),
-            "image": data.get("image", ""),
-            "description": data.get("description", ""),
+@bp.route("/portfolio", methods=["GET", "POST"], defaults={"barber_id": None})
+@bp.route("/portfolio/<barber_id>", methods=["GET", "POST"])
+@limiter.limit(rate("read"), methods=["GET"])
+@limiter.limit(rate("write"), methods=["POST"])
+def portfolio(barber_id):
+    collection = services().store.barber_portfolios
+    if request.method == "GET":
+        items = collection.list(barberId=barber_id) if barber_id else collection.list()
+        items.sort(key=lambda w: w.get("timestamp", ""), reverse=True)
+        return jsonify({"portfolio": items})
+
+    require_role("barber")(lambda: None)()
+    user = g.user
+    owner = user["uid"]
+    if barber_id and barber_id != owner:
+        assert_owner(barber_id, "You can only add to your own portfolio")
+    data = get_json_body()
+    image = _portfolio_image(data.get("image"))
+    existing = len(collection.list(barberId=owner))
+    if not is_pro(user) and existing >= FREE_PORTFOLIO_LIMIT:
+        raise ProRequired("portfolio")
+    work = collection.create(
+        {
+            "styleName": clean_text(data.get("styleName"), max_length=120),
+            "image": image,
+            "description": clean_text(data.get("description"), max_length=1000),
             "likes": 0,
-            "date": datetime.now().strftime("%Y-%m-%d"),
-            "barberId": bid,
-            "timestamp": datetime.now().isoformat()
+            "date": today_str(),
+            "barberId": owner,
+            "timestamp": now_iso(),
         }
-        
-        # Initialize barber portfolio if doesn't exist
-        if bid not in memory_store.barber_portfolios:
-            memory_store.barber_portfolios[bid] = []
-        
-        # Add to beginning of list (most recent first)
-        memory_store.barber_portfolios[bid].insert(0, new_work)
-        
-        logger.info(f"Portfolio item created: {new_work['id']} for barber {bid}")
-        return api_response(
-            data={"work": new_work},
-            message="Portfolio item added successfully",
-            status=201
-        )
-        
-    except Exception as e:
-        logger.error(f"Error adding portfolio work: {str(e)}")
-        return api_response(error="Failed to add portfolio item", status=500)
+    )
+    remaining = None if is_pro(user) else max(0, FREE_PORTFOLIO_LIMIT - existing - 1)
+    return json_response({"success": True, "work": work, "count": existing + 1, "remaining_free": remaining}, 201)
 
 
-@portfolio_bp.route('/portfolio/<barber_id>/<work_id>', methods=['DELETE', 'OPTIONS'])
-@handle_options("DELETE, OPTIONS")
-def delete_portfolio_item(barber_id: str, work_id: str):
-    """Delete a portfolio item."""
-    try:
-        if barber_id not in memory_store.barber_portfolios:
-            return api_response(error="Barber portfolio not found", status=404)
-        
-        portfolio = memory_store.barber_portfolios[barber_id]
-        original_length = len(portfolio)
-        
-        memory_store.barber_portfolios[barber_id] = [
-            item for item in portfolio if item.get("id") != work_id
-        ]
-        
-        if len(memory_store.barber_portfolios[barber_id]) == original_length:
-            return api_response(error="Portfolio item not found", status=404)
-        
-        logger.info(f"Portfolio item deleted: {work_id}")
-        return api_response(message="Portfolio item deleted successfully")
-        
-    except Exception as e:
-        logger.error(f"Error deleting portfolio item: {str(e)}")
-        return api_response(error="Failed to delete portfolio item", status=500)
+@bp.delete("/portfolio/<barber_id>/<work_id>")
+@limiter.limit(rate("write"))
+@require_role("barber")
+def delete_work(barber_id: str, work_id: str):
+    assert_owner(barber_id, "You can only edit your own portfolio")
+    collection = services().store.barber_portfolios
+    work = collection.get(work_id)
+    if not work or work.get("barberId") != barber_id:
+        raise ApiError("Work not found", 404)
+    collection.delete(work_id)
+    return jsonify({"success": True})
 
 
-@portfolio_bp.route('/portfolio/<barber_id>/<work_id>/like', methods=['POST', 'OPTIONS'])
-@handle_options("POST, OPTIONS")
-def like_portfolio_item(barber_id: str, work_id: str):
-    """Like a portfolio item."""
-    try:
-        if barber_id not in memory_store.barber_portfolios:
-            return api_response(error="Barber portfolio not found", status=404)
-        
-        for item in memory_store.barber_portfolios[barber_id]:
-            if item.get("id") == work_id:
-                item["likes"] = item.get("likes", 0) + 1
-                return api_response(
-                    data={"likes": item["likes"]},
-                    message="Portfolio item liked"
-                )
-        
-        return api_response(error="Portfolio item not found", status=404)
-        
-    except Exception as e:
-        logger.error(f"Error liking portfolio item: {str(e)}")
-        return api_response(error="Failed to like portfolio item", status=500)
+@bp.route("/subscription-packages", methods=["GET", "POST"])
+@limiter.limit(rate("read"), methods=["GET"])
+@limiter.limit(rate("write"), methods=["POST"])
+def subscription_packages():
+    collection = services().store.subscription_packages
+    if request.method == "GET":
+        barber_id = request.args.get("barber_id")
+        items = collection.list(barberId=barber_id) if barber_id else collection.list()
+        return jsonify({"packages": items})
 
+    require_role("barber")(lambda: None)()
+    user = require_pro("packages")
+    data = get_json_body()
+    title = clean_text(data.get("title"), max_length=120)
+    if not title:
+        raise ApiError("title is required", 400)
+    profile = services().store.barber_profiles.get(user["uid"]) or {}
+    package = collection.create(
+        {
+            "barberId": user["uid"],
+            "barberName": clean_text(data.get("barberName"), default=profile.get("name", user.get("name", "")), max_length=160),
+            "title": title,
+            "description": clean_text(data.get("description"), max_length=1000),
+            "price": clean_text(data.get("price"), max_length=20),
+            "numCuts": to_int(data.get("numCuts"), 0, minimum=0),
+            "durationMonths": to_int(data.get("durationMonths"), 0, minimum=0),
+            "discount": clean_text(data.get("discount"), max_length=40),
+            "timestamp": now_iso(),
+        }
+    )
+    return json_response({"success": True, "package": package}, 201)
+
+
+@bp.delete("/subscription-packages/<package_id>")
+@limiter.limit(rate("write"))
+@require_role("barber")
+def delete_package(package_id: str):
+    collection = services().store.subscription_packages
+    package = collection.get(package_id)
+    if not package or package.get("barberId") != g.user["uid"]:
+        raise ApiError("Package not found", 404)
+    collection.delete(package_id)
+    return jsonify({"success": True})
+
+
+@bp.route("/client-subscriptions", methods=["GET", "POST"])
+@limiter.limit(rate("read"), methods=["GET"])
+@limiter.limit(rate("write"), methods=["POST"])
+@require_auth
+def client_subscriptions():
+    svc = services()
+    collection = svc.store.client_subscriptions
+    user = g.user
+    if request.method == "GET":
+        return jsonify({"subscriptions": collection.list(clientId=user["uid"])})
+
+    data = get_json_body()
+    package_id = clean_text(data.get("packageId"), max_length=120)
+    if not package_id:
+        raise ApiError("packageId is required", 400)
+    package = svc.store.subscription_packages.get(package_id)
+    if not package:
+        raise ApiError("Package not found", 404)
+    num_cuts = to_int(data.get("numCuts", package.get("numCuts")), 0, minimum=0)
+    months = to_int(data.get("durationMonths", package.get("durationMonths")), 1, minimum=1)
+    now = datetime.now(timezone.utc)
+    subscription = collection.create(
+        {
+            "clientId": user["uid"],
+            "clientName": clean_text(user.get("name"), default="Client", max_length=120),
+            "packageId": package_id,
+            "packageTitle": package.get("title", ""),
+            "barberId": package.get("barberId", ""),
+            "barberName": package.get("barberName", ""),
+            "price": str(package.get("price", "")),
+            "numCuts": num_cuts,
+            "remainingCuts": num_cuts,
+            "purchaseDate": now.isoformat(),
+            "expiryDate": (now + timedelta(days=30 * months)).isoformat(),
+            "status": "active",
+            "timestamp": now.isoformat(),
+        }
+    )
+    return json_response({"success": True, "subscription": subscription}, 201)

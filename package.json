@@ -1,9 +1,14 @@
 {
   "name": "lineup-frontend",
   "version": "1.0.0",
-  "description": "LineUp Frontend Static Site",
+  "description": "LineUp frontend (static site, Tailwind v3 CLI build)",
+  "private": true,
   "scripts": {
-    "build": "echo 'Static site - no build needed'"
+    "build": "tailwindcss -i src/input.css -o styles.css --minify",
+    "watch": "tailwindcss -i src/input.css -o styles.css --watch",
+    "serve": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
   }
 }
-

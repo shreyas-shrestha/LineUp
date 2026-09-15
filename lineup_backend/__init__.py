@@ -1,34 +1,12 @@
-"""LineUp Backend Package - Production-ready modular backend."""
+"""LineUp backend package.
 
-from .config import AppConfig
-from .storage import (
-    social_posts,
-    post_comments,
-    user_follows,
-    barber_portfolios,
-    barber_profiles,
-    barber_reviews,
-    hair_trends,
-    appointments,
-    subscription_packages,
-    client_subscriptions,
-    reset_all,
-)
+The Flask application is built by :func:`create_app` (see ``factory.py``).
+Domain modules live in ``routes/`` (HTTP), ``services/`` (external APIs and
+business logic) and ``storage/`` (persistence behind one repository interface).
+"""
 
-__version__ = "2.0.0"
+__version__ = "3.1.0"
 
-__all__ = [
-    "AppConfig",
-    # Storage exports
-    "social_posts",
-    "post_comments", 
-    "user_follows",
-    "barber_portfolios",
-    "barber_profiles",
-    "barber_reviews",
-    "hair_trends",
-    "appointments",
-    "subscription_packages",
-    "client_subscriptions",
-    "reset_all",
-]
+from lineup_backend.factory import create_app  # noqa: E402
+
+__all__ = ["create_app", "__version__"]

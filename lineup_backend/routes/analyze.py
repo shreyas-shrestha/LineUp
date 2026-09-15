@@ -1,170 +1,123 @@
-"""AI Analysis endpoints."""
+"""Photo analysis, virtual try-on and style insights. Analysis and try-on are
+signed-in, metered actions (see ``pricing.py``)."""
 
-import base64
-import json
-import logging
-from io import BytesIO
+from __future__ import annotations
 
-from flask import Blueprint, request
-from PIL import Image
+from collections import Counter
+from typing import Any, Dict
 
-from lineup_backend.utils import cors_response, handle_options, api_response
+from flask import Blueprint, jsonify
 
-logger = logging.getLogger(__name__)
+from lineup_backend.context import services
+from lineup_backend.extensions import limiter, rate
+from lineup_backend.http import clean_text, decode_base64_image, get_json_body, open_image, query_list, strip_data_url
+from lineup_backend.metrics import track_performance
+from lineup_backend.middleware.auth import require_auth
+from lineup_backend.middleware.error_handler import ApiError
+from lineup_backend.services.billing import metered
+from lineup_backend.services.gemini import mock_analysis
 
-analyze_bp = Blueprint('analyze', __name__)
-
-
-def get_mock_analysis_data():
-    """Return mock analysis data when AI is unavailable."""
-    return {
-        "analysis": {
-            "faceShape": "oval",
-            "hairTexture": "wavy",
-            "hairColor": "brown",
-            "estimatedGender": "male",
-            "estimatedAge": "25-30"
-        },
-        "recommendations": [
-            {
-                "styleName": "Modern Fade",
-                "description": "A contemporary take on the classic fade with textured top",
-                "reason": "Complements oval face shapes perfectly"
-            },
-            {
-                "styleName": "Textured Quiff",
-                "description": "Voluminous style swept upward for a bold look",
-                "reason": "Works beautifully with wavy hair texture"
-            },
-            {
-                "styleName": "Classic Side Part",
-                "description": "Timeless and professional with clean lines",
-                "reason": "Enhances facial features and adds sophistication"
-            },
-            {
-                "styleName": "Messy Crop",
-                "description": "Effortlessly cool with natural texture",
-                "reason": "Low maintenance yet stylish option"
-            },
-            {
-                "styleName": "Short Buzz",
-                "description": "Clean, minimal, and masculine",
-                "reason": "Highlights facial structure beautifully"
-            }
-        ]
-    }
+bp = Blueprint("analyze", __name__)
 
 
-@analyze_bp.route('/analyze', methods=['POST', 'OPTIONS'])
-@handle_options("POST, OPTIONS")
+def _extract_image_field(data: Dict[str, Any]) -> str:
+    """Accept ``{"image": b64}`` or the Gemini-style ``payload.contents[0].parts[].inlineData.data``."""
+    if isinstance(data.get("image"), str) and data["image"].strip():
+        return data["image"]
+    payload = data.get("payload")
+    if not isinstance(payload, dict):
+        raise ApiError("Missing image: send {image: <base64>} or payload.contents[0].parts[].inlineData.data", 400)
+    contents = payload.get("contents")
+    if not isinstance(contents, list) or not contents or not isinstance(contents[0], dict):
+        raise ApiError("payload.contents must be a non-empty list", 400)
+    parts = contents[0].get("parts")
+    if not isinstance(parts, list):
+        raise ApiError("payload.contents[0].parts must be a list", 400)
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        inline = part.get("inlineData") or part.get("inline_data")
+        if isinstance(inline, dict) and isinstance(inline.get("data"), str) and inline["data"].strip():
+            return inline["data"]
+    raise ApiError("No image data provided", 400)
+
+
+def _analysis_is_free() -> bool:
+    """Mock analysis is free in production; locally it is charged so the credit flow can be demoed."""
+    svc = services()
+    return svc.gemini.status() != "ready" and not svc.config.charge_for_mock
+
+
+def _tryon_is_free() -> bool:
+    svc = services()
+    return not svc.tryon.available and not svc.config.charge_for_mock
+
+
+@bp.post("/analyze")
+@limiter.limit(rate("ai"))
+@track_performance("analyze")
+@require_auth
+@metered("analysis", free_when=_analysis_is_free)
 def analyze():
-    """
-    Analyze uploaded photo and provide haircut recommendations.
-    Uses Gemini AI when available, falls back to mock data.
-    """
-    import os
-    
-    logger.info("ANALYZE endpoint called")
-    
-    # Try to import and use Gemini
-    model = None
-    try:
-        import google.generativeai as genai
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if api_key:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-2.0-flash')
-    except Exception as e:
-        logger.warning(f"Gemini not available: {e}")
-    
-    if not model:
-        logger.info("Using mock data (Gemini not configured)")
-        return cors_response(get_mock_analysis_data())
-    
-    try:
-        data = request.get_json(force=True)
-        
-        # Extract image data from request
-        try:
-            payload = data.get("payload", {})
-            contents = payload.get("contents", [{}])[0]
-            parts = contents.get("parts", [])
-            
-            if len(parts) < 2:
-                raise ValueError("No image data provided")
-            
-            image_data = parts[1].get("inlineData", {})
-            base64_image = image_data.get("data", "")
-            
-            if not base64_image:
-                raise ValueError("Empty image data")
-            
-        except (KeyError, IndexError) as e:
-            raise ValueError(f"Invalid request format: {str(e)}")
-        
-        # Decode and validate image
-        try:
-            image_bytes = base64.b64decode(base64_image)
-            image = Image.open(BytesIO(image_bytes))
-        except Exception as e:
-            raise ValueError(f"Invalid image data: {str(e)}")
-        
-        # Create analysis prompt
-        prompt = """You are an expert hairstylist and facial analysis AI. Analyze this person's face and hair in the photo and provide personalized haircut recommendations.
+    data = get_json_body()
+    image_bytes = decode_base64_image(_extract_image_field(data), field="image")
 
-IMPORTANT: Return ONLY a valid JSON response with NO additional text, NO markdown formatting, NO code blocks.
+    svc = services()
+    status = svc.gemini.status()
+    if status != "ready":
+        return jsonify(mock_analysis("gemini_not_configured" if status == "not_configured" else "daily_quota_reached"))
 
-Return this EXACT JSON structure:
-{
-    "analysis": {
-        "faceShape": "[one of: oval, round, square, heart, oblong, diamond, triangle]",
-        "hairTexture": "[one of: straight, wavy, curly, coily, kinky]",
-        "hairColor": "[one of: black, dark-brown, brown, light-brown, blonde, red, gray, white, other]",
-        "estimatedGender": "[one of: male, female, non-binary]",
-        "estimatedAge": "[one of: under-20, 20-25, 25-30, 30-35, 35-40, 40-45, 45-50, 50-55, 55-60, over-60]"
-    },
-    "recommendations": [
-        {
-            "styleName": "[Specific haircut name]",
-            "description": "[2-3 sentence description of the haircut style and how it's achieved]",
-            "reason": "[1-2 sentences explaining why this works for their specific face shape, hair texture, and features]"
-        }
-    ]
-}
+    result = svc.gemini.analyze_face(open_image(image_bytes))
+    if result is None:
+        return jsonify(mock_analysis("gemini_error"))
+    result.update({"mock": False, "source": "gemini"})
+    return jsonify(result)
 
-Provide exactly 6 haircut recommendations that would work best for this person's features."""
 
-        # Call Gemini API
-        try:
-            response = model.generate_content([prompt, image])
-            response_text = response.text.strip()
-        except Exception as e:
-            logger.error(f"Gemini API error: {str(e)}")
-            return cors_response(get_mock_analysis_data())
-        
-        # Clean and parse response
-        if "```json" in response_text:
-            start = response_text.find("```json") + 7
-            end = response_text.rfind("```")
-            if end > start:
-                response_text = response_text[start:end].strip()
-        
-        try:
-            analysis_data = json.loads(response_text)
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse Gemini response, using mock data")
-            return cors_response(get_mock_analysis_data())
-        
-        # Validate response structure
-        if "analysis" not in analysis_data or "recommendations" not in analysis_data:
-            return cors_response(get_mock_analysis_data())
-        
-        return cors_response(analysis_data)
-        
-    except ValueError as e:
-        logger.error(f"Validation error: {str(e)}")
-        return api_response(error=str(e), status=400)
-    except Exception as e:
-        logger.error(f"Error in analyze endpoint: {str(e)}")
-        return cors_response(get_mock_analysis_data())
+@bp.post("/virtual-tryon")
+@limiter.limit(rate("tryon"))
+@track_performance("virtual_tryon")
+@require_auth
+@metered("tryon", free_when=_tryon_is_free)
+def virtual_tryon():
+    data = get_json_body()
+    photo = data.get("userPhoto")
+    description = clean_text(data.get("styleDescription"), max_length=200)
+    if not isinstance(photo, str) or not photo.strip():
+        raise ApiError("User photo required", 400)
+    if not description:
+        raise ApiError("Style description required", 400)
 
+    image_bytes = decode_base64_image(photo, field="userPhoto")
+    original_b64 = "".join(strip_data_url(photo.strip()).split())
+    svc = services()
+    return jsonify(svc.tryon.transform(image_bytes, original_b64, description))
+
+
+@bp.get("/ai-insights")
+@limiter.limit(rate("read"))
+def ai_insights():
+    svc = services()
+    styles = query_list("styles")
+    trends = svc.store.hair_trends.get("global") or {}
+
+    tag_counts: Counter = Counter()
+    for post in svc.store.social_posts.list():
+        tag_counts.update(tag for tag in post.get("hashtags", []) if isinstance(tag, str))
+    trending_hashtags = [f"#{tag}" for tag, count in tag_counts.most_common(5) if count > 1]
+
+    insights = {
+        "trending_styles": (trends.get("trending_styles") or [])[:5],
+        "trending_hashtags": trending_hashtags or (trends.get("trending_hashtags") or [])[:5],
+        "popular_colors": (trends.get("popular_colors") or [])[:4],
+        "seasonal_tips": trends.get("seasonal_tips", ""),
+        "personalized_recommendations": [],
+    }
+    if styles:
+        first = styles[0]
+        insights["personalized_recommendations"] = [
+            f"Since you like {first}, ask your barber about complementary variations.",
+            f"{first} holds its shape best with a trim every 3-4 weeks.",
+            f"Bring a reference photo of {first} to your appointment.",
+        ]
+    return jsonify(insights)

@@ -24,6 +24,23 @@ const SAMPLE_RESULT = {
   ],
 };
 
+// Why the server sent a fixed example instead of a real read. "No Gemini key"
+// is only one of the reasons, and saying it when a key IS configured sends
+// you looking in the wrong place.
+const MOCK_REASONS = {
+  gemini_not_configured: 'This deployment has no Gemini key, so these suggestions are a fixed example rather than a read of your photo.',
+  daily_quota_reached: "This deployment's Gemini budget for today is spent, so these are sample results. Real analysis resumes tomorrow.",
+  gemini_error: 'The analysis service refused the request, so these are sample results. The key may be wrong, or the model may not be available to it.',
+  request_failed: 'The analysis service could not be reached, so these are sample results.',
+};
+
+function mockReasonText(reason) {
+  if (MOCK_REASONS[reason]) return MOCK_REASONS[reason];
+  return reason
+    ? `These are sample results rather than a read of your photo (${reason}).`
+    : 'These are sample results rather than a read of your photo.';
+}
+
 const els = {};
 let photo = null; // { dataUrl, base64 }
 let result = null;
@@ -163,7 +180,7 @@ function renderResults() {
   els.grid.innerHTML = html`${rows.map(([label, value]) => html`<div class="kv"><p class="kv-label">${label}</p><p class="kv-value">${value}</p></div>`)}`;
 
   els.notice.innerHTML = result.mock
-    ? html`<div class="notice" role="status">${icon('info', { className: 'notice-icon' })}<div class="notice-body"><div><p class="notice-title">Sample results</p><p class="notice-text">${result.reason === 'request_failed' ? 'The analysis service was unreachable, so these are sample results. Connect a Gemini key for real analysis.' : 'Connect a Gemini key for real analysis. These suggestions are a fixed example, not a read of your photo.'}</p></div></div></div>`
+    ? html`<div class="notice" role="status">${icon('info', { className: 'notice-icon' })}<div class="notice-body"><div><p class="notice-title">Sample results</p><p class="notice-text">${mockReasonText(result.reason)}</p></div></div></div>`
     : '';
 
   els.recs.innerHTML = html`${result.recommendations.map((rec) => html`

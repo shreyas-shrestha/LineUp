@@ -334,5 +334,39 @@ def test_describe_match_uses_gemini_evidence_first():
     assert match["level"] == "strong" and match["top_style"] == "Taper Fade" and match["score"] == 0.7
     assert match["reasons"][0] == "Taper Fade: three reviews praise their tapers"
     assert len(match["reasons"]) <= 3
+    # No evidence for the need: say so, rather than a generic rating line.
     nothing = BarberMatcher.describe_match({"name": "Shop", "rating": 3.9, "user_ratings_total": 4}, ["Quiff"], {}, 0.0)
-    assert nothing == {"score": 0.0, "level": None, "top_style": None, "reasons": []}
+    assert nothing == {
+        "score": 0.0,
+        "level": None,
+        "top_style": None,
+        "reasons": ["No reviews mention quiff yet, so this one is ranked on its rating"],
+        "evidence": False,
+    }
+    assert match["evidence"] is True
+
+
+def test_hair_texture_is_part_of_the_need(client):
+    from lineup_backend.services.barber_matcher import BarberMatcher, describe_need
+
+    data = client.get("/barbers?location=Austin,%20TX&styles=Modern%20Fade&hair=curly").get_json()
+    assert data["ranked_by_style"] is True
+    assert data["ranked_for"] == {"styles": ["Modern Fade"], "hair": "curly", "summary": "A barber who does modern fade on curly hair"}
+    top = data["barbers"][0]
+    assert top["name"] == "Austin Style Studio" and top["match"]["level"] == "good" and top["match"]["evidence"] is True
+    assert "1 review mentions curly hair" in top["match"]["reasons"]
+    assert "2 reviews mention modern fade" in top["match"]["reasons"]
+    # A shop with nothing for this need says so first; the rating comes after.
+    miss = next(b for b in data["barbers"] if b["name"] == "The Austin Barber")
+    assert miss["match"]["evidence"] is False
+    assert miss["match"]["reasons"][0] == "No reviews mention modern fade yet, so this one is ranked on its rating"
+    # Hair alone is enough to rank for.
+    only_hair = client.get("/barbers?location=Austin,%20TX&hair=curly").get_json()
+    assert only_hair["ranked_for"]["summary"] == "A barber who does your recommended cuts on curly hair"
+    assert only_hair["barbers"][0]["name"] == "Austin Style Studio"
+    # Google is asked for the texture too.
+    assert BarberMatcher().build_search_keywords(["Modern Fade"], "curly").startswith("barber barbershop mens haircut curly hair")
+    assert describe_need([], None) == "" and describe_need(["Quiff", "Buzz", "Crop"], None) == "A barber who does quiff or buzz"
+    # A plain search (no analysis) is not "for you" and says nothing about a need.
+    plain = client.get("/barbers?location=Austin,%20TX").get_json()
+    assert plain["ranked_by_style"] is False and plain["ranked_for"] is None

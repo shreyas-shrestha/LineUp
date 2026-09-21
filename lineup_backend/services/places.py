@@ -16,7 +16,7 @@ from urllib.parse import quote
 import requests
 
 from lineup_backend.metrics import metrics
-from lineup_backend.services.barber_matcher import BarberMatcher
+from lineup_backend.services.barber_matcher import BarberMatcher, describe_need
 from lineup_backend.services.cache import TTLCache
 from lineup_backend.services.quota import DailyQuota
 
@@ -134,7 +134,7 @@ def mock_barbers(location: str) -> List[Dict[str, Any]]:
             "price_source": "sample",
             "reviews": [
                 {"username": "Sam R.", "rating": 5, "text": "Modern fade with a hard part, $65. Booked online, no wait.", "date": "2026-09-10"},
-                {"username": "Ali K.", "rating": 4, "text": "Great curly fade, they know how to handle texture.", "date": "2026-08-21"},
+                {"username": "Ali K.", "rating": 4, "text": "Great curly fade, they actually know how to cut curly hair.", "date": "2026-08-21"},
             ],
             "address": f"Midtown {city}",
             "photo": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop",
@@ -227,17 +227,26 @@ class PlacesService:
 
     # -- search ------------------------------------------------------------
 
-    def _mock_payload(self, location: str, reason: str, styles: Optional[List[str]] = None) -> Dict[str, Any]:
+    def _mock_payload(self, location: str, reason: str, styles: Optional[List[str]] = None, hair: Optional[str] = None) -> Dict[str, Any]:
         # Sample shops go through the same ranker so the cards carry a match
         # and its reasons; no Gemini call, since the reviews are made up.
-        ranked = self.matcher.rank_barbers(mock_barbers(location), list(styles or []), use_ai_analysis=False)
+        ranked = self.matcher.rank_barbers(mock_barbers(location), list(styles or []), use_ai_analysis=False, hair=hair)
         return {
             "barbers": ranked,
             "location": location,
             "mock": True,
             "real_data": False,
             "reason": reason,
-            "ranked_by_style": bool(styles),
+            **self._ranked_for(styles or [], hair),
+        }
+
+    @staticmethod
+    def _ranked_for(styles: List[str], hair: Optional[str]) -> Dict[str, Any]:
+        """What the list was ranked for, so the page can say it in one line."""
+        ranked = bool(styles or hair)
+        return {
+            "ranked_by_style": ranked,
+            "ranked_for": {"styles": list(styles), "hair": hair, "summary": describe_need(styles, hair)} if ranked else None,
         }
 
     @staticmethod
@@ -248,7 +257,14 @@ class PlacesService:
         """True when a search for ``location`` would hit Google (not cached, key present, budget left)."""
         return self.available and self.cache.get(self.cache_key(location)) is None and self.quota.can_call()
 
-    def search(self, location: str, styles: List[str], photo_base_url: Optional[str] = None, allow_fetch: bool = True) -> Dict[str, Any]:
+    def search(
+        self,
+        location: str,
+        styles: List[str],
+        photo_base_url: Optional[str] = None,
+        allow_fetch: bool = True,
+        hair: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Return the ``/barbers`` payload: real (cached or fresh) or mock data.
 
         With ``allow_fetch=False`` (anonymous callers) only cached results are
@@ -259,7 +275,7 @@ class PlacesService:
         cached = self.cache.get(cache_key)
         if cached is not None:
             metrics.record_cache_hit("places_api", response_time_ms=(time.time() - started) * 1000)
-            ranked = self._rank(cached, styles)
+            ranked = self._rank(cached, styles, hair)
             return {
                 "barbers": ranked[:10],
                 "location": location,
@@ -267,25 +283,25 @@ class PlacesService:
                 "mock": False,
                 "real_data": True,
                 "total_found": len(cached),
-                "ranked_by_style": bool(styles),
+                **self._ranked_for(styles, hair),
             }
         metrics.record_cache_miss("places_api")
 
         if not self.available:
-            return self._mock_payload(location, "places_not_configured", styles)
+            return self._mock_payload(location, "places_not_configured", styles, hair)
         if not allow_fetch:
-            return self._mock_payload(location, "sign_in_required", styles)
+            return self._mock_payload(location, "sign_in_required", styles, hair)
         if not self.quota.can_call():
             logger.warning("Places daily budget spent; returning sample data")
-            return self._mock_payload(location, "daily_quota_reached", styles)
+            return self._mock_payload(location, "daily_quota_reached", styles, hair)
 
         calls = 0
         try:
-            barbers, calls = self._fetch(location, styles, photo_base_url)
+            barbers, calls = self._fetch(location, styles, photo_base_url, hair)
         except Exception as exc:  # noqa: BLE001
             detail = _redact(str(exc), self.api_key)
             logger.error("Places search failed for %r: %s", location, detail)
-            payload = self._mock_payload(location, "places_error", styles)
+            payload = self._mock_payload(location, "places_error", styles, hair)
             payload["error"] = detail
             return payload
         finally:
@@ -295,7 +311,7 @@ class PlacesService:
 
         metrics.record_api_call_time("places_api", (time.time() - started) * 1000)
         self.cache.set(cache_key, barbers)
-        ranked = self._rank(barbers, styles)
+        ranked = self._rank(barbers, styles, hair)
         return {
             "barbers": ranked[:10],
             "location": location,
@@ -303,13 +319,13 @@ class PlacesService:
             "mock": False,
             "real_data": True,
             "total_found": len(barbers),
-            "ranked_by_style": bool(styles),
+            **self._ranked_for(styles, hair),
         }
 
-    def _rank(self, barbers: List[Dict[str, Any]], styles: List[str]) -> List[Dict[str, Any]]:
-        return self.matcher.rank_barbers(list(barbers), styles, use_ai_analysis=True)
+    def _rank(self, barbers: List[Dict[str, Any]], styles: List[str], hair: Optional[str] = None) -> List[Dict[str, Any]]:
+        return self.matcher.rank_barbers(list(barbers), styles, use_ai_analysis=True, hair=hair)
 
-    def _fetch(self, location: str, styles: List[str], photo_base_url: Optional[str]) -> Tuple[List[Dict[str, Any]], int]:
+    def _fetch(self, location: str, styles: List[str], photo_base_url: Optional[str], hair: Optional[str] = None) -> Tuple[List[Dict[str, Any]], int]:
         """Return the shops and the number of Google API calls they cost."""
         geo_started = time.time()
         geocode = self._get(GEOCODE_URL, {"address": location, "key": self.api_key}).json()
@@ -325,7 +341,7 @@ class PlacesService:
                 "location": f"{center['lat']},{center['lng']}",
                 "radius": 10000,
                 "type": "hair_care",
-                "keyword": self.matcher.build_search_keywords(styles),
+                "keyword": self.matcher.build_search_keywords(styles, hair),
                 "key": self.api_key,
             },
         ).json()

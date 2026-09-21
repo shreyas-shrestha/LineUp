@@ -5,7 +5,7 @@
 import { byId, html, delegate, setFieldError, clearFieldError, errorNotice } from '../dom.js';
 import { icon } from '../icons.js';
 import { api, ApiError } from '../api.js';
-import { getIdentity, updateIdentity } from '../state.js';
+import { getIdentity, updateIdentity, getSavedAnalysis } from '../state.js';
 import { openModal, closeModal } from '../ui/modal.js';
 import { showSkeleton, skeletonCards, skeletonRows, clearBusy } from '../ui/skeleton.js';
 import { navigate, onTabShow } from '../nav.js';
@@ -15,15 +15,29 @@ import { UI, debug } from '../env.js';
 const els = {};
 let results = [];
 let currentStyles = [];
+
+// What this person needs, from their saved analysis: the recommended cuts and
+// their hair texture. Every search on this tab ranks for it, so a plain
+// location search is still "for you" once a photo has been analysed.
+function savedNeed() {
+  const saved = getSavedAnalysis();
+  if (!saved || saved.mock || !saved.analysis) return { styles: [], hair: '' };
+  const styles = (saved.recommendations || []).map((rec) => rec.styleName).filter(Boolean).slice(0, 6);
+  const hair = String(saved.analysis.hairTexture || '').trim().toLowerCase();
+  return { styles, hair };
+}
 let pendingStyle = null;
 let requestSeq = 0;
 let searched = false;
 let reviewsBarber = null;
 
-function describeQuery(location, styles, count, mock, rankedByStyle) {
+function describeQuery(location, count, mock, rankedFor) {
   const where = location ? ` near ${location}` : '';
-  const forStyles = styles.length ? `, ranked for ${styles.slice(0, 2).join(' and ')}` : ', best rated first';
-  return html`${plural(count, 'barbershop')}${where}${rankedByStyle || !styles.length ? forStyles : ''}.${mock ? html` <span class="chip-neutral ml-1">Sample data</span>` : ''}`;
+  const summary = rankedFor && rankedFor.summary;
+  const need = summary
+    ? html`<p class="ranked-for">${icon('zap', { size: 'sm' })}<span><strong>Ranked for you.</strong> ${summary}.</span></p>`
+    : html`<p class="ranked-for is-empty">${icon('info', { size: 'sm' })}<span>These are ranked by rating. <button type="button" class="link-inline" data-tab="ai">Analyze a photo</button> and we'll rank them for your cut and hair.</span></p>`;
+  return html`<span>${plural(count, 'barbershop')}${where}.${mock ? html` <span class="chip-neutral ml-1">Sample data</span>` : ''}</span>${need}`;
 }
 
 // A price the card can stand behind: what reviewers paid, or Google's tier.
@@ -39,25 +53,32 @@ function priceLabel(barber) {
 
 const LEVEL_LABEL = { strong: 'Strong match', good: 'Good match', some: 'Some match' };
 
-function matchBadge(match, index, rankedByStyle) {
+// The badge only claims a match when the data shows one. A top card with no
+// evidence for the need is "top rated", and the why-list says why.
+function matchBadge(match, index, rankedFor) {
+  const evidence = Boolean(rankedFor && match && match.evidence);
   if (index === 0) {
-    if (rankedByStyle && match && match.level) return html`<span class="best-badge">${icon('zap', { size: 'sm' })}Best match for you</span>`;
-    if (!rankedByStyle) return html`<span class="best-badge">${icon('star', { size: 'sm' })}Top rated nearby</span>`;
+    if (evidence) {
+      const what = match.top_style || (rankedFor.styles && rankedFor.styles[0]) || 'you';
+      return html`<span class="best-badge">${icon('zap', { size: 'sm' })}Best match for your ${what}</span>`;
+    }
+    return html`<span class="best-badge is-rating">${icon('star', { size: 'sm' })}Top rated nearby</span>`;
   }
-  if (rankedByStyle && match && match.level) {
+  if (!rankedFor || !match) return '';
+  if (match.level) {
     const label = LEVEL_LABEL[match.level] || 'Match';
     return html`<span class="chip-neutral chip-match is-${match.level}">${label}${match.top_style ? html` · ${match.top_style}` : ''}</span>`;
   }
-  return '';
+  return html`<span class="chip-neutral chip-match">Ranked on rating</span>`;
 }
 
-function whyBlock(match) {
+function whyBlock(match, rankedFor) {
   const reasons = match && Array.isArray(match.reasons) ? match.reasons.filter(Boolean).slice(0, 3) : [];
   if (!reasons.length) return '';
   return html`
     <div class="why">
-      <p class="why-title">Why it ranks here</p>
-      <ul class="why-list">${reasons.map((reason) => html`<li>${icon('check', { size: 'sm' })}<span>${reason}</span></li>`)}</ul>
+      <p class="why-title">${rankedFor ? "Why it's ranked for you" : 'Why it ranks here'}</p>
+      <ul class="why-list">${reasons.map((reason) => html`<li class="${/^No reviews mention/.test(reason) ? 'is-gap' : ''}">${icon(/^No reviews mention/.test(reason) ? 'info' : 'check', { size: 'sm' })}<span>${reason}</span></li>`)}</ul>
     </div>`;
 }
 
@@ -71,13 +92,13 @@ function todaysHours(hours) {
   return line ? line.slice(weekday.length + 1).trim() : '';
 }
 
-function barberCard(barber, index, rankedByStyle) {
+function barberCard(barber, index, rankedFor) {
   const rating = Number(barber.rating) || 0;
   const reviews = Number(barber.user_ratings_total) || 0;
   const specialties = Array.isArray(barber.specialties) ? barber.specialties.slice(0, 5) : [];
   const hours = todaysHours(barber.hours);
   const match = barber.match || null;
-  const best = index === 0 && (rankedByStyle ? Boolean(match && match.level) : true);
+  const best = index === 0;
   return html`
     <article class="card split-card ${best ? 'is-best' : ''}" data-index="${index}">
       <div class="split-media">
@@ -87,7 +108,7 @@ function barberCard(barber, index, rankedByStyle) {
           : icon('scissors', { size: 'lg' })}
       </div>
       <div class="min-w-0">
-        ${matchBadge(match, index, rankedByStyle)}
+        ${matchBadge(match, index, rankedFor)}
         <div class="card-header">
           <div class="min-w-0"><h3 class="card-title">${barber.name}</h3><p class="card-text">${barber.address || 'Address not listed'}</p></div>
           ${rating ? html`<span class="chip-accent">${icon('star')}${rating.toFixed(1)}</span>` : ''}
@@ -98,7 +119,7 @@ function barberCard(barber, index, rankedByStyle) {
           ${hours ? html`<span class="meta-item">${icon('clock')}${hours}</span>` : ''}
           ${barber.phone ? html`<a class="meta-item link-quiet" href="tel:${String(barber.phone).replace(/[^+\d]/g, '')}">${icon('phone')}${barber.phone}</a>` : ''}
         </div>
-        ${whyBlock(match)}
+        ${whyBlock(match, rankedFor)}
         ${specialties.length ? html`<div class="chip-row mt-3">${specialties.map((item) => html`<span class="chip-neutral">${item}</span>`)}</div>` : ''}
         <div class="card-footer">
           ${barber.bookingUrl || barber.booking_url
@@ -112,21 +133,25 @@ function barberCard(barber, index, rankedByStyle) {
     </article>`;
 }
 
-function renderResults(data, location, styles) {
+function renderResults(data, location) {
   const mock = Boolean(data.mock) || data.real_data === false;
-  const rankedByStyle = Boolean(data.ranked_by_style) && styles.length > 0;
-  els.intro.innerHTML = describeQuery(location, styles, results.length, mock, rankedByStyle);
+  const rankedFor = data.ranked_by_style && data.ranked_for ? data.ranked_for : null;
+  els.intro.innerHTML = describeQuery(location, results.length, mock, rankedFor);
   if (!results.length) {
     els.list.innerHTML = html`<div class="empty-state">${icon('search', { size: 'lg', className: 'empty-state-icon' })}<p class="empty-state-title">No barbershops found</p><p class="empty-state-text">Try a ZIP code, or a larger nearby city.</p><button type="button" class="btn-secondary btn-sm" data-action="focus-search">Change location</button></div>`;
     return;
   }
-  els.list.innerHTML = html`${results.map((barber, index) => barberCard(barber, index, rankedByStyle))}`;
+  els.list.innerHTML = html`${results.map((barber, index) => barberCard(barber, index, rankedFor))}`;
 }
 
 export async function searchBarbers(location, styles = []) {
   const query = String(location || '').trim();
   if (!query) return;
-  currentStyles = styles;
+  // Rank for what the person needs even when they only typed a location:
+  // the cuts they were recommended, and their hair texture.
+  const need = savedNeed();
+  currentStyles = styles.length ? styles : need.styles;
+  const hair = need.hair;
   searched = true;
   updateIdentity({ lastLocation: query });
   if (els.input.value.trim() !== query) els.input.value = query;
@@ -135,11 +160,11 @@ export async function searchBarbers(location, styles = []) {
   els.intro.textContent = `Searching near ${query}…`;
   showSkeleton(els.list, skeletonCards(3));
   try {
-    const data = await api.barbers(query, styles);
+    const data = await api.barbers(query, currentStyles, hair);
     if (seq !== requestSeq) return;
     results = Array.isArray(data.barbers) ? data.barbers : [];
     clearBusy(els.list);
-    renderResults(data, query, styles);
+    renderResults(data, query);
   } catch (err) {
     if (seq !== requestSeq) return;
     debug('barber search failed', err);
@@ -148,7 +173,7 @@ export async function searchBarbers(location, styles = []) {
     els.list.replaceChildren(errorNotice({
       title: 'Search did not finish',
       text: err instanceof ApiError ? err.message : 'Something went wrong.',
-      onRetry: () => searchBarbers(query, styles),
+      onRetry: () => searchBarbers(query, currentStyles),
     }));
   }
 }

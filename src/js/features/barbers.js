@@ -20,10 +20,45 @@ let requestSeq = 0;
 let searched = false;
 let reviewsBarber = null;
 
-function describeQuery(location, styles, count, mock) {
+function describeQuery(location, styles, count, mock, rankedByStyle) {
   const where = location ? ` near ${location}` : '';
-  const forStyles = styles.length ? ` who do ${styles.slice(0, 2).join(' or ')}` : '';
-  return html`${plural(count, 'barbershop')}${where}${forStyles}.${mock ? html` <span class="chip-neutral ml-1">Sample data</span>` : ''}`;
+  const forStyles = styles.length ? `, ranked for ${styles.slice(0, 2).join(' and ')}` : ', best rated first';
+  return html`${plural(count, 'barbershop')}${where}${rankedByStyle || !styles.length ? forStyles : ''}.${mock ? html` <span class="chip-neutral ml-1">Sample data</span>` : ''}`;
+}
+
+// A price the card can stand behind: what reviewers paid, or Google's tier.
+// The old "$55 for everyone" came from defaulting a tier Google never sent.
+function priceLabel(barber) {
+  if (barber.avgCost != null && barber.avgCost !== '') {
+    const from = barber.price_source === 'reviews' ? 'per reviews' : (barber.price_source === 'sample' ? 'sample' : '');
+    return html`<span class="meta-item">About <span class="meta-strong">${money(barber.avgCost)}</span>${from ? html`<span class="price-hint">${from}</span>` : ''}</span>`;
+  }
+  if (barber.price_tier) return html`<span class="meta-item"><span class="meta-strong">${barber.price_tier}</span><span class="price-hint">on Google</span></span>`;
+  return '';
+}
+
+const LEVEL_LABEL = { strong: 'Strong match', good: 'Good match', some: 'Some match' };
+
+function matchBadge(match, index, rankedByStyle) {
+  if (index === 0) {
+    if (rankedByStyle && match && match.level) return html`<span class="best-badge">${icon('zap', { size: 'sm' })}Best match for you</span>`;
+    if (!rankedByStyle) return html`<span class="best-badge">${icon('star', { size: 'sm' })}Top rated nearby</span>`;
+  }
+  if (rankedByStyle && match && match.level) {
+    const label = LEVEL_LABEL[match.level] || 'Match';
+    return html`<span class="chip-neutral chip-match is-${match.level}">${label}${match.top_style ? html` · ${match.top_style}` : ''}</span>`;
+  }
+  return '';
+}
+
+function whyBlock(match) {
+  const reasons = match && Array.isArray(match.reasons) ? match.reasons.filter(Boolean).slice(0, 3) : [];
+  if (!reasons.length) return '';
+  return html`
+    <div class="why">
+      <p class="why-title">Why it ranks here</p>
+      <ul class="why-list">${reasons.map((reason) => html`<li>${icon('check', { size: 'sm' })}<span>${reason}</span></li>`)}</ul>
+    </div>`;
 }
 
 // Google Places returns `hours` as `weekday_text` (seven "Monday: 9:00 AM - 8:00 PM"
@@ -36,28 +71,34 @@ function todaysHours(hours) {
   return line ? line.slice(weekday.length + 1).trim() : '';
 }
 
-function barberCard(barber, index) {
+function barberCard(barber, index, rankedByStyle) {
   const rating = Number(barber.rating) || 0;
   const reviews = Number(barber.user_ratings_total) || 0;
   const specialties = Array.isArray(barber.specialties) ? barber.specialties.slice(0, 5) : [];
-  const price = barber.avgCost != null && barber.avgCost !== '' ? money(barber.avgCost) : '';
   const hours = todaysHours(barber.hours);
+  const match = barber.match || null;
+  const best = index === 0 && (rankedByStyle ? Boolean(match && match.level) : true);
   return html`
-    <article class="card split-card" data-index="${index}">
-      <div class="split-media">${barber.photo
-        ? html`<img src="${barber.photo}" alt="${barber.name}" loading="lazy" width="400" height="300">`
-        : icon('scissors', { size: 'lg' })}</div>
+    <article class="card split-card ${best ? 'is-best' : ''}" data-index="${index}">
+      <div class="split-media">
+        <span class="rank-badge" aria-label="Rank ${index + 1}">${index + 1}</span>
+        ${barber.photo
+          ? html`<img src="${barber.photo}" alt="${barber.name}" loading="lazy" width="400" height="300">`
+          : icon('scissors', { size: 'lg' })}
+      </div>
       <div class="min-w-0">
+        ${matchBadge(match, index, rankedByStyle)}
         <div class="card-header">
           <div class="min-w-0"><h3 class="card-title">${barber.name}</h3><p class="card-text">${barber.address || 'Address not listed'}</p></div>
           ${rating ? html`<span class="chip-accent">${icon('star')}${rating.toFixed(1)}</span>` : ''}
         </div>
         <div class="meta">
           ${reviews ? html`<span class="meta-item">${plural(reviews, 'review')}</span>` : ''}
-          ${price ? html`<span class="meta-item">From <span class="meta-strong">${price}</span></span>` : ''}
+          ${priceLabel(barber)}
           ${hours ? html`<span class="meta-item">${icon('clock')}${hours}</span>` : ''}
           ${barber.phone ? html`<a class="meta-item link-quiet" href="tel:${String(barber.phone).replace(/[^+\d]/g, '')}">${icon('phone')}${barber.phone}</a>` : ''}
         </div>
+        ${whyBlock(match)}
         ${specialties.length ? html`<div class="chip-row mt-3">${specialties.map((item) => html`<span class="chip-neutral">${item}</span>`)}</div>` : ''}
         <div class="card-footer">
           ${barber.bookingUrl || barber.booking_url
@@ -73,12 +114,13 @@ function barberCard(barber, index) {
 
 function renderResults(data, location, styles) {
   const mock = Boolean(data.mock) || data.real_data === false;
-  els.intro.innerHTML = describeQuery(location, styles, results.length, mock);
+  const rankedByStyle = Boolean(data.ranked_by_style) && styles.length > 0;
+  els.intro.innerHTML = describeQuery(location, styles, results.length, mock, rankedByStyle);
   if (!results.length) {
     els.list.innerHTML = html`<div class="empty-state">${icon('search', { size: 'lg', className: 'empty-state-icon' })}<p class="empty-state-title">No barbershops found</p><p class="empty-state-text">Try a ZIP code, or a larger nearby city.</p><button type="button" class="btn-secondary btn-sm" data-action="focus-search">Change location</button></div>`;
     return;
   }
-  els.list.innerHTML = html`${results.map(barberCard)}`;
+  els.list.innerHTML = html`${results.map((barber, index) => barberCard(barber, index, rankedByStyle))}`;
 }
 
 export async function searchBarbers(location, styles = []) {

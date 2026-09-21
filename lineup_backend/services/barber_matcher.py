@@ -18,6 +18,19 @@ logger = logging.getLogger(__name__)
 
 TextGenerator = Callable[[str], Optional[str]]
 
+# Relevance thresholds for the badge on a card. Below "some" nothing is claimed.
+# "strong" needs Gemini's read of the reviews (keywords alone cap at 0.5);
+# "some" is reachable from reviews mentioning one recommended style.
+MATCH_LEVELS = ((0.55, "strong"), (0.3, "good"), (0.08, "some"))
+
+
+def _style_words(style: str) -> List[str]:
+    return [w.lower() for w in str(style).split() if len(w) > 2]
+
+
+def _plural(n: int, noun: str) -> str:
+    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
+
 
 class BarberMatcher:
     MAX_CACHE_ENTRIES = 500  # review analyses are keyed per shop+styles; keep the process bounded
@@ -126,10 +139,58 @@ class BarberMatcher:
     def rating_score(barber: Dict[str, Any]) -> float:
         return float(barber.get("rating", 0) or 0) * min(int(barber.get("user_ratings_total", 0) or 0), 100) / 100
 
+    @staticmethod
+    def describe_match(barber: Dict[str, Any], styles: List[str], analysis: Dict[str, Any], relevance: float) -> Dict[str, Any]:
+        """The ``match`` block a card renders: a level, the best style, and up
+        to three plain reasons. Reasons come from evidence, strongest first:
+        Gemini's read of the reviews, then the shop name, then review
+        keywords, then the rating. Nothing is claimed that the data does not
+        support, so a shop with no signal gets an empty list."""
+        reasons: List[str] = []
+        top_style: Optional[str] = None
+
+        matches = [m for m in (analysis or {}).get("matches", []) if isinstance(m, dict)]
+        matches.sort(key=lambda m: -float(m.get("confidence") or 0))
+        for m in matches[:2]:
+            style, evidence = str(m.get("style") or "").strip(), str(m.get("evidence") or "").strip()
+            if style and top_style is None:
+                top_style = style
+            if evidence:
+                reasons.append(f"{style}: {evidence}" if style else evidence)
+
+        name_lower = str(barber.get("name", "")).lower()
+        for style in styles:
+            hit = next((w for w in _style_words(style) if w in name_lower), None)
+            if hit:
+                reasons.append(f"The name says {hit}")
+                top_style = top_style or style
+                break
+
+        reviews = [str(r.get("text") or "").lower() for r in barber.get("reviews", [])[:10]]
+        for style in styles:
+            words = _style_words(style)
+            count = sum(1 for text in reviews if any(w in text for w in words))
+            if count:
+                verb = "mentions" if count == 1 else "mention"
+                reasons.append(f"{_plural(count, 'review')} {verb} {style.lower()}")
+                top_style = top_style or style
+                break
+
+        rating = float(barber.get("rating", 0) or 0)
+        total = int(barber.get("user_ratings_total", 0) or 0)
+        if rating >= 4.5 and total >= 20:
+            reasons.append(f"Rated {rating:.1f} by {total} people")
+
+        level = next((name for floor, name in MATCH_LEVELS if relevance >= floor), None) if styles else None
+        deduped = list(dict.fromkeys(r for r in reasons if r))[:3]
+        return {"score": round(relevance, 2) if styles else None, "level": level, "top_style": top_style, "reasons": deduped}
+
     def rank_barbers(self, barbers: List[Dict[str, Any]], styles: List[str], use_ai_analysis: bool = True) -> List[Dict[str, Any]]:
         styles = [s for s in styles if isinstance(s, str) and s.strip()]
         if not styles:
             barbers.sort(key=self.rating_score, reverse=True)
+            for barber in barbers:
+                barber["match"] = self.describe_match(barber, [], {}, 0.0)
             return barbers
 
         if use_ai_analysis and self.generate_text:
@@ -148,9 +209,11 @@ class BarberMatcher:
                         barber["style_analysis"] = {}
 
         for barber in barbers:
-            relevance = self.calculate_style_relevance(barber, styles, barber.get("style_analysis", {}))
+            analysis = barber.get("style_analysis", {})
+            relevance = self.calculate_style_relevance(barber, styles, analysis)
             barber["style_relevance_score"] = relevance
             barber["composite_score"] = (relevance * 0.7) + (self.rating_score(barber) / 5.0 * 0.3)
+            barber["match"] = self.describe_match(barber, styles, analysis, relevance)
 
         barbers.sort(key=lambda b: b.get("composite_score", 0), reverse=True)
         return barbers

@@ -7,6 +7,7 @@ endpoint which redirects to Google's CDN.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -41,6 +42,42 @@ def _redact(text: str, api_key: Optional[str]) -> str:
     return text
 
 
+# Google's price_level is a 0-4 tier, not a dollar amount.
+PRICE_TIERS = {0: "Free", 1: "$", 2: "$$", 3: "$$$", 4: "$$$$"}
+# "$30 for a fade", "paid $ 45": a dollar sign then two or three digits.
+PRICE_MENTION = re.compile(r"\$\s?(\d{2,3})(?!\d)")
+PLAUSIBLE_PRICE = (10, 250)
+
+
+def price_tier(level: Any) -> Optional[str]:
+    """``"$$"`` for Google's price_level 2; None when Google did not report one."""
+    try:
+        return PRICE_TIERS.get(int(level))
+    except (TypeError, ValueError):
+        return None
+
+
+def estimate_price_from_reviews(reviews: List[Dict[str, Any]]) -> Optional[int]:
+    """The median of the dollar amounts reviewers quote, or None.
+
+    Google rarely reports a price level for barbershops, but people write
+    "$30 for a skin fade" in reviews all the time, and that is a price a
+    customer actually paid rather than a tier. Amounts outside a plausible
+    haircut range (tips, "$100s of dollars") are ignored.
+    """
+    amounts: List[int] = []
+    low, high = PLAUSIBLE_PRICE
+    for review in reviews or []:
+        for match in PRICE_MENTION.finditer(str(review.get("text") or "")):
+            value = int(match.group(1))
+            if low <= value <= high:
+                amounts.append(value)
+    if not amounts:
+        return None
+    amounts.sort()
+    return amounts[len(amounts) // 2]
+
+
 def mock_barbers(location: str) -> List[Dict[str, Any]]:
     city = location.split(",")[0].strip() or "Downtown"
     maps = "https://www.google.com/maps/search/?api=1&query=33.7490,-84.3880"
@@ -52,6 +89,12 @@ def mock_barbers(location: str) -> List[Dict[str, Any]]:
             "rating": 4.9,
             "user_ratings_total": 127,
             "avgCost": 45,
+            "price_tier": "$$",
+            "price_source": "sample",
+            "reviews": [
+                {"username": "Marcus T.", "rating": 5, "text": "Cleanest skin fade I've had, $45 and worth every cent.", "date": "2026-08-30"},
+                {"username": "Dev P.", "rating": 5, "text": "Asked for a textured crop from a photo and he nailed it.", "date": "2026-08-12"},
+            ],
             "address": f"Downtown {city}",
             "photo": "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=400&h=300&fit=crop",
             "phone": "(555) 123-4567",
@@ -67,6 +110,11 @@ def mock_barbers(location: str) -> List[Dict[str, Any]]:
             "rating": 4.8,
             "user_ratings_total": 89,
             "avgCost": 55,
+            "price_tier": "$$",
+            "price_source": "sample",
+            "reviews": [
+                {"username": "Jordan L.", "rating": 5, "text": "Best pompadour in town. $55 with a beard trim.", "date": "2026-09-02"},
+            ],
             "address": f"Uptown {city}",
             "photo": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=400&h=300&fit=crop",
             "phone": "(555) 123-4568",
@@ -82,6 +130,12 @@ def mock_barbers(location: str) -> List[Dict[str, Any]]:
             "rating": 4.9,
             "user_ratings_total": 156,
             "avgCost": 65,
+            "price_tier": "$$$",
+            "price_source": "sample",
+            "reviews": [
+                {"username": "Sam R.", "rating": 5, "text": "Modern fade with a hard part, $65. Booked online, no wait.", "date": "2026-09-10"},
+                {"username": "Ali K.", "rating": 4, "text": "Great curly fade, they know how to handle texture.", "date": "2026-08-21"},
+            ],
             "address": f"Midtown {city}",
             "photo": "https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=400&h=300&fit=crop",
             "phone": "(555) 123-4569",
@@ -173,8 +227,18 @@ class PlacesService:
 
     # -- search ------------------------------------------------------------
 
-    def _mock_payload(self, location: str, reason: str) -> Dict[str, Any]:
-        return {"barbers": mock_barbers(location), "location": location, "mock": True, "real_data": False, "reason": reason}
+    def _mock_payload(self, location: str, reason: str, styles: Optional[List[str]] = None) -> Dict[str, Any]:
+        # Sample shops go through the same ranker so the cards carry a match
+        # and its reasons; no Gemini call, since the reviews are made up.
+        ranked = self.matcher.rank_barbers(mock_barbers(location), list(styles or []), use_ai_analysis=False)
+        return {
+            "barbers": ranked,
+            "location": location,
+            "mock": True,
+            "real_data": False,
+            "reason": reason,
+            "ranked_by_style": bool(styles),
+        }
 
     @staticmethod
     def cache_key(location: str) -> str:
@@ -208,12 +272,12 @@ class PlacesService:
         metrics.record_cache_miss("places_api")
 
         if not self.available:
-            return self._mock_payload(location, "places_not_configured")
+            return self._mock_payload(location, "places_not_configured", styles)
         if not allow_fetch:
-            return self._mock_payload(location, "sign_in_required")
+            return self._mock_payload(location, "sign_in_required", styles)
         if not self.quota.can_call():
             logger.warning("Places daily budget spent; returning sample data")
-            return self._mock_payload(location, "daily_quota_reached")
+            return self._mock_payload(location, "daily_quota_reached", styles)
 
         calls = 0
         try:
@@ -221,7 +285,7 @@ class PlacesService:
         except Exception as exc:  # noqa: BLE001
             detail = _redact(str(exc), self.api_key)
             logger.error("Places search failed for %r: %s", location, detail)
-            payload = self._mock_payload(location, "places_error")
+            payload = self._mock_payload(location, "places_error", styles)
             payload["error"] = detail
             return payload
         finally:
@@ -297,11 +361,12 @@ class PlacesService:
             photo_url = f"{photo_base_url}/places/photo?ref={quote(photos[0]['photo_reference'])}&maxwidth=400"
 
         reviews = format_google_reviews(details.get("reviews", []))
-        price_level = place.get("price_level", 2)
-        try:
-            avg_cost = 25 + int(price_level) * 15
-        except (TypeError, ValueError):
-            avg_cost = 55
+        # Never invent a price. Google seldom sets price_level for barbershops;
+        # defaulting it produced the same "$55" on every card. Prefer what
+        # reviewers actually paid, then Google's tier, otherwise nothing.
+        price_level = place.get("price_level", details.get("price_level"))
+        tier = price_tier(price_level)
+        quoted = estimate_price_from_reviews(reviews)
 
         return {
             "id": place["place_id"],
@@ -311,7 +376,9 @@ class PlacesService:
             "rating": place.get("rating", 0),
             "user_ratings_total": place.get("user_ratings_total", 0),
             "price_level": price_level,
-            "avgCost": avg_cost,
+            "price_tier": tier,
+            "avgCost": quoted,
+            "price_source": "reviews" if quoted is not None else ("google" if tier else None),
             "phone": details.get("formatted_phone_number", ""),
             "website": details.get("website", ""),
             "bookingUrl": details.get("website", ""),

@@ -7,7 +7,9 @@ def test_barbers_mock_without_places_key(client):
     assert data["mock"] is True and data["real_data"] is False
     assert data["reason"] == "places_not_configured"
     assert data["location"] == "Atlanta, GA"
-    assert [b["id"] for b in data["barbers"]] == ["barber_1", "barber_2", "barber_3"]
+    # Sample shops are ranked like real ones (by rating without styles): the
+    # two 4.9s lead, ties keep their order.
+    assert [b["id"] for b in data["barbers"]] == ["barber_1", "barber_3", "barber_2"]
     assert data["barbers"][0]["name"] == "Elite Cuts Atlanta"
     assert "billing" not in data  # anonymous: nothing metered
 
@@ -27,7 +29,17 @@ def test_barbers_real_data_then_cache(as_client, client, svc):
     assert "key=" not in top["photo"]
     assert top["reviews"][0]["username"] == "Sam" and top["reviews"][0]["date"] == "2023-11-14"
     assert "Fade Specialist" in top["specialties"]
-    assert top["avgCost"] == 55
+    # Google reported price_level 2 and no reviewer quoted a price: show the
+    # tier, never an invented dollar figure.
+    assert top["price_tier"] == "$$" and top["avgCost"] is None and top["price_source"] == "google"
+    second = data["barbers"][1]
+    assert second["price_tier"] == "$" and second["avgCost"] is None
+    # The ranker explains itself: name + review keyword + rating.
+    assert top["match"]["level"] in ("strong", "good", "some")
+    assert top["match"]["top_style"] == "Modern Fade"
+    assert "The name says fade" in top["match"]["reasons"]
+    assert "1 review mentions modern fade" in top["match"]["reasons"]
+    assert "Rated 4.7 by 210 people" in top["match"]["reasons"]
     assert len(calls) == 4  # geocode + nearby + 2 details
     assert svc.places_quota.used == 4  # the budget counts Google calls, not searches
 
@@ -284,3 +296,43 @@ def test_places_errors_never_leak_the_api_key(client, svc, monkeypatch):
     assert key not in _redact(message, key)
     assert "<redacted>" in _redact(message, key)
     assert _redact(message, None) == message
+
+
+# --- prices and the ranking rationale -------------------------------------------------
+
+
+def test_prices_come_from_reviews_or_google_never_invented():
+    from lineup_backend.services.places import estimate_price_from_reviews, price_tier
+
+    assert estimate_price_from_reviews([]) is None
+    assert estimate_price_from_reviews([{"text": "Great cut, friendly staff"}]) is None
+    assert estimate_price_from_reviews([{"text": "$30 for a skin fade, worth it"}]) == 30
+    # median of what people quote; tips and out-of-range numbers are ignored
+    reviews = [{"text": "Paid $ 40"}, {"text": "$35 plus a $5 tip"}, {"text": "$60 with beard"}, {"text": "$2000 for a suit next door"}]
+    assert estimate_price_from_reviews(reviews) == 40
+    assert price_tier(2) == "$$" and price_tier("3") == "$$$" and price_tier(None) is None and price_tier("x") is None
+
+
+def test_sample_shops_have_distinct_prices_and_reasons(client):
+    data = client.get("/barbers?location=Austin,%20TX&styles=Textured%20Crop,Modern%20Fade").get_json()
+    shops = data["barbers"]
+    assert len({b["avgCost"] for b in shops}) == 3 and all(b["price_source"] == "sample" for b in shops)
+    assert all(b["match"]["reasons"] for b in shops)
+    assert shops[0]["match"]["level"] is not None
+    # Without styles the list is by rating and only the rating is claimed.
+    plain = client.get("/barbers?location=Austin,%20TX").get_json()["barbers"]
+    assert all(b["match"]["level"] is None and b["match"]["score"] is None for b in plain)
+    assert plain[0]["match"]["reasons"] == ["Rated 4.9 by 127 people"]
+
+
+def test_describe_match_uses_gemini_evidence_first():
+    from lineup_backend.services.barber_matcher import BarberMatcher
+
+    barber = {"name": "Corner Shop", "rating": 4.9, "user_ratings_total": 300, "reviews": [{"text": "lovely taper"}]}
+    analysis = {"overall_match_score": 0.8, "matches": [{"style": "Taper Fade", "confidence": 0.9, "evidence": "three reviews praise their tapers"}]}
+    match = BarberMatcher.describe_match(barber, ["Taper Fade", "Buzz Cut"], analysis, 0.7)
+    assert match["level"] == "strong" and match["top_style"] == "Taper Fade" and match["score"] == 0.7
+    assert match["reasons"][0] == "Taper Fade: three reviews praise their tapers"
+    assert len(match["reasons"]) <= 3
+    nothing = BarberMatcher.describe_match({"name": "Shop", "rating": 3.9, "user_ratings_total": 4}, ["Quiff"], {}, 0.0)
+    assert nothing == {"score": 0.0, "level": None, "top_style": None, "reasons": []}

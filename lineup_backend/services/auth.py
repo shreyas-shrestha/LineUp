@@ -74,6 +74,16 @@ class AuthService:
         self._verify_id_token = verify_id_token
         self.mode = self._detect_mode()
         logger.info("Auth mode: %s", self.mode)
+        if self.mode == "firebase":
+            status = config.firebase_web_status()
+            if status != "ok":
+                logger.error(
+                    "FIREBASE_WEB_CONFIG is %s: the browser cannot sign in and the page will say "
+                    "'Sign-in is not configured on this server'. It must be the config object as strict "
+                    'JSON with quoted keys, e.g. {"apiKey": "...", "authDomain": "...", "projectId": "...", '
+                    '"appId": "..."} - not the `const firebaseConfig = {...}` snippet the console shows.',
+                    status,
+                )
 
     # -- setup -------------------------------------------------------------
 

@@ -89,6 +89,8 @@ def health():
                 "stripe": svc.stripe.available,
             },
             "auth_mode": svc.auth.mode,
+            # Named so a bad paste is diagnosable; the web config is public.
+            "firebase_web_config": cfg.firebase_web_status(),
             "cors_enabled": True,
             "gemini_configured": svc.gemini.available,
             "places_api_configured": svc.places.available,

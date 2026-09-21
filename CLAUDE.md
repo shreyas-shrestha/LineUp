@@ -132,6 +132,6 @@ routes and auth rules.
 - No emoji in UI text or code output; plain, specific copy in sentence case.
 - After adding a component class to `src/input.css`, run
   `node src/tools/gen-safelist.js && npm run build` and commit `styles.css`.
-- Python 3.12 is the tested version (3.11 also supported); do not run on 3.14.
+- Python 3.12 is the tested version; the dependencies also install on 3.14.
 - Do not commit `.env`, `node_modules/`, `.venv/`. `styles.css` and
   `images/screens/*.png` are committed.

@@ -29,8 +29,8 @@ services:
     startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 120
     healthCheckPath: /health
     envVars:
-      # Pinned to the version the test suite was run on. Render's current
-      # default (3.14) is not supported by the pinned dependencies.
+      # Pinned to the version the test suite runs on. The dependencies also
+      # install on 3.14, but 3.12 is what has been verified end to end.
       - key: PYTHON_VERSION
         value: 3.12.0
       - key: FLASK_ENV

@@ -319,27 +319,6 @@
   .link:hover { text-decoration: underline; text-underline-offset: 3px; }
   .muted { color: var(--color-text-2); }
 
-  /* Segmented control (role switcher) -------------------------------- */
-  .segmented {
-    display: inline-flex;
-    padding: 3px;
-    gap: 2px;
-    background: var(--glass-1);
-    border: 1px solid var(--color-border);
-    border-radius: 9999px;
-  }
-  .role-button {
-    min-height: 32px;
-    padding: 0 14px;
-    border-radius: 9999px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--color-text-2);
-    transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
-  }
-  .role-button:hover { color: var(--color-text-1); }
-  .role-button.is-active { background: #FFFFFF; color: #000000; }
-
   /* Buttons ---------------------------------------------------------- */
   .btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger {
     display: inline-flex;
@@ -471,32 +450,6 @@
   .card-media img { width: 100%; height: 100%; object-fit: cover; }
   .card-media-square { aspect-ratio: 1; }
 
-  /* Pro-gated panel: blurred content + centred upgrade CTA. Add .locked to
-     the .card (or any positioned block) and keep a .locked-overlay inside. */
-  .locked-overlay { display: none; }
-  .locked { position: relative; overflow: hidden; min-height: 236px; }
-  .locked > :not(.locked-overlay) { filter: blur(6px); pointer-events: none; user-select: none; opacity: 0.6; }
-  .locked > .locked-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 20px;
-    text-align: center;
-    background: rgba(0, 0, 0, 0.35);
-    filter: none;
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .locked-overlay .locked-title { font-size: 15px; font-weight: 600; }
-  .locked-overlay .locked-text { font-size: 13px; color: var(--color-text-2); max-width: 36ch; }
-  .locked-overlay .btn-primary, .locked-overlay .btn-secondary { margin-top: 8px; }
-  .locked > .locked-overlay .plan-badge { margin-bottom: 4px; }
-
   /* Key/value strip (analysis) --------------------------------------- */
   .kv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   @media (min-width: 640px) { .kv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -510,33 +463,6 @@
   }
   .kv-label { font-size: 12px; color: var(--color-text-2); font-family: theme('fontFamily.mono'); letter-spacing: 0.02em; }
   .kv-value { margin-top: 2px; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
-
-  /* Stats ------------------------------------------------------------ */
-  .stat {
-    background: var(--glass-1);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--glass-highlight);
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-  }
-  .stat-label { font-size: 13px; font-weight: 500; color: var(--color-text-2); }
-  .stat-value {
-    font-size: 28px;
-    font-weight: 600;
-    line-height: 1.1;
-    letter-spacing: -0.03em;
-    font-variant-numeric: tabular-nums;
-    font-family: theme('fontFamily.mono');
-  }
-  .stat-delta { font-size: 13px; color: var(--color-text-2); }
-  .stat-delta-up { color: var(--color-success); }
-  .stat-delta-down { color: var(--color-danger-text); }
-  .stat-compact { padding: 14px; }
-  .stat-compact .stat-value { font-size: 22px; }
 
   /* Fields ----------------------------------------------------------- */
   .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -1099,16 +1025,13 @@
   /* CTA row ---------------------------------------------------------- */
   .cta-row { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 24px; border-top: 1px solid var(--color-border); }
 
-  /* Meters (dashboard bars, neutral) ---------------------------------- */
-  .meter { flex: none; width: 96px; height: 6px; background: var(--glass-3); border-radius: 9999px; overflow: hidden; }
-  .meter-wide { width: auto; flex: 1; }
-  .meter-fill { height: 100%; background: var(--color-text-1); border-radius: inherit; transition: width var(--dur-enter) var(--ease-out); }
-
   /* Meta rows (date, time, price) -------------------------------------- */
   .meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; color: var(--color-text-2); }
   .meta-item { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
   .meta-item .icon { width: 16px; height: 16px; color: var(--color-text-2); }
   .meta-strong { color: var(--color-text-1); font-weight: 500; font-variant-numeric: tabular-nums; font-family: theme('fontFamily.mono'); font-size: 13px; }
+  .link-quiet { color: inherit; text-decoration: none; }
+  .link-quiet:hover { color: var(--color-text-1); text-decoration: underline; text-underline-offset: 3px; }
 
   /* Split card (image left on wide screens) ----------------------------- */
   .split-card { display: grid; gap: 16px; }
@@ -1117,27 +1040,8 @@
   .split-media img { width: 100%; height: 100%; object-fit: cover; }
   .split-media.is-broken img { display: none; }
 
-  /* Feed --------------------------------------------------------------- */
-  .row { display: flex; align-items: center; gap: 12px; min-width: 0; }
-  .post-actions { display: flex; align-items: center; gap: 2px; margin-top: 12px; margin-left: -8px; }
-  .action-button { font-variant-numeric: tabular-nums; }
-  .action-button[aria-pressed="true"] { color: var(--color-text-1); }
-  .action-button[aria-pressed="true"] .icon { fill: currentColor; }
-  .comments { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--color-border); }
-  .comment { display: flex; gap: 8px; font-size: 14px; line-height: 1.45; }
-  .comment-author { font-weight: 600; white-space: nowrap; }
-  .comment-text { color: var(--color-text-2); overflow-wrap: anywhere; }
-
-  /* Hours editor rows -------------------------------------------------- */
-  .hours-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; padding: 12px 0; border-top: 1px solid var(--color-border); }
-  .hours-row:first-child { border-top: 0; padding-top: 0; }
-  .hours-day { flex: 1 0 96px; font-size: 15px; font-weight: 500; }
-  .hours-times { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; font-size: 14px; color: var(--color-text-2); }
-  @media (min-width: 520px) { .hours-times { flex: 0 0 auto; } }
-  .hours-times .input { width: 124px; min-height: 36px; padding: 6px 10px; font-size: 14px; font-family: theme('fontFamily.mono'); }
-  .hours-row.is-off .hours-times { opacity: 0.45; }
-
   /* Rating summary ----------------------------------------------------- */
+  .row { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .rating-big { font-size: 32px; font-weight: 600; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; font-family: theme('fontFamily.mono'); }
 
   /* ==================================================================
@@ -1341,10 +1245,6 @@
   .step-title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
   .step-text { margin-top: 6px; font-size: 14px; color: var(--color-text-2); line-height: 1.55; }
 
-  /* For barbers: split section. */
-  .split { display: grid; gap: 32px; align-items: center; }
-  @media (min-width: 900px) { .split { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; } }
-  .split-copy { display: flex; flex-direction: column; gap: 16px; }
   .feature-list { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
   .feature-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--color-text-2); line-height: 1.5; }
   .feature-list li strong { color: var(--color-text-1); font-weight: 500; }
@@ -1478,29 +1378,6 @@
   .dev-card { border-style: dashed; box-shadow: var(--glass-highlight); margin-top: 16px; gap: 14px; }
   .dev-card .auth-title { font-size: 16px; }
 
-  /* Onboarding role cards */
-  .role-grid { display: grid; gap: 10px; }
-  @media (min-width: 480px) { .role-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
-  .role-card {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 18px;
-    text-align: left;
-    border-radius: var(--radius-lg);
-    background: var(--glass-1);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-1);
-    transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
-  }
-  .role-card:hover { border-color: var(--color-border-hover); background: var(--glass-2); }
-  .role-card[aria-pressed="true"] { border-color: #FFFFFF; background: var(--glass-2); box-shadow: 0 0 0 1px #FFFFFF inset; }
-  .role-card .icon { width: 22px; height: 22px; color: var(--color-text-2); }
-  .role-card[aria-pressed="true"] .icon { color: var(--color-text-1); }
-  .role-card-title { font-size: 15px; font-weight: 600; }
-  .role-card-text { font-size: 13px; color: var(--color-text-2); line-height: 1.5; }
-
   /* Account page */
   .account-page { max-width: var(--content-max); margin: 0 auto; padding: 24px var(--gutter) calc(64px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 24px; }
   @media (min-width: 640px) { .account-page { padding-top: 32px; gap: 32px; } }
@@ -1551,13 +1428,11 @@
   /* Touch screens: every control gets a 44px hit area. Compact header pills keep
      their visual size and grow an invisible hit box instead. */
   @media (pointer: coarse) {
-    .credit-pill, .avatar-button, .role-button { position: relative; }
-    .credit-pill::after, .avatar-button::after, .role-button::after { content: ""; position: absolute; inset: -7px -2px; }
+    .credit-pill, .avatar-button { position: relative; }
+    .credit-pill::after, .avatar-button::after { content: ""; position: absolute; inset: -7px -2px; }
     .avatar-button::after { inset: -7px; }
-    .role-button::after { inset: -8px 0; }
     .nav-link, .menu-item, .footer-link { min-height: 44px; }
     .footer-link { min-width: 44px; }
-    .hours-times .input { min-height: 44px; }
     .footer-col { gap: 0; }
     .auth-foot button { padding: 10px 4px; margin: -10px -4px; }
   }

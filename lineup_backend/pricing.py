@@ -58,13 +58,21 @@ def provider_cost(action: str) -> float:
     return float(ESTIMATED_PROVIDER_COST_USD.get(action, 0.0))
 
 
-def pricing_payload(price_ids: Optional[Dict[str, Optional[str]]] = None, stripe_configured: bool = False) -> Dict[str, Any]:
-    """Public ``GET /billing/pricing`` body. Never includes Stripe secrets."""
+def pricing_payload(
+    price_ids: Optional[Dict[str, Optional[str]]] = None,
+    stripe_configured: bool = False,
+    barber_side: bool = True,
+) -> Dict[str, Any]:
+    """Public ``GET /billing/pricing`` body. Never includes Stripe secrets.
+
+    ``barber_pro`` is ``None`` while the barber side is switched off so the
+    site never advertises a plan nobody can buy.
+    """
     price_ids = price_ids or {}
     packs = []
     for pack in CREDIT_PACKS:
         packs.append({**pack, "currency": CURRENCY, "purchasable": stripe_configured and bool(price_ids.get(pack["id"]))})
-    pro = {**BARBER_PRO, "currency": CURRENCY, "purchasable": stripe_configured and bool(price_ids.get("barber_pro"))}
+    pro = {**BARBER_PRO, "currency": CURRENCY, "purchasable": stripe_configured and bool(price_ids.get("barber_pro"))} if barber_side else None
     return {
         "currency": CURRENCY,
         "credit_costs": dict(CREDIT_COSTS),

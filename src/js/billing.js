@@ -1,8 +1,7 @@
-// Credits and plans: pricing cards (landing, pricing page, account, the
-// out-of-credits modal), the header credits pill / plan badge, Pro locks on
-// barber panels, Stripe Checkout / portal redirects, the usage ledger, and
-// the 402 handling (insufficient_credits -> modal, pro_required -> upgrade CTA).
-import { $$, byId, html, setBusy, setFieldError, clearFieldError, delegate } from './dom.js';
+// Credits: pricing cards (landing, pricing page, account, the out-of-credits
+// modal), the header credits pill, Stripe Checkout / portal redirects, the
+// usage ledger, and the 402 handling (insufficient_credits -> modal).
+import { byId, html, setBusy, setFieldError, clearFieldError, delegate } from './dom.js';
 import { icon } from './icons.js';
 import { api, ApiError } from './api.js';
 import { store } from './state.js';
@@ -16,7 +15,7 @@ const DEFAULT_COSTS = { analysis: 1, tryon: 3, barber_search: 1 };
 const ACTION_LABELS = { analysis: 'Analysis', tryon: 'Preview', barber_search: 'Barber search' };
 const PACK_COPY = {
   starter: 'Enough for a few analyses and one preview.',
-  plus: 'Try several cuts on your photo before you book.',
+  plus: 'Try several cuts on your photo before you commit.',
   studio: 'For stylists and people who change their cut often.',
 };
 
@@ -35,25 +34,6 @@ export function getCreditCost(action) {
     || (pricing && pricing.credit_costs)
     || DEFAULT_COSTS;
   return Number(costs[action] ?? DEFAULT_COSTS[action] ?? 0);
-}
-
-export function isPro() {
-  if (billing) return Boolean(billing.pro || billing.plan === 'pro');
-  const user = getUser();
-  return Boolean(user && user.plan === 'pro');
-}
-
-export function hasFeature(name) {
-  const features = billing && billing.entitlements && billing.entitlements.features;
-  if (features && name in features) return Boolean(features[name]);
-  return isPro();
-}
-
-export function getPortfolioLimit() {
-  const features = billing && billing.entitlements && billing.entitlements.features;
-  if (features && 'portfolio_limit' in features) return features.portfolio_limit;
-  if (pricing && pricing.free_portfolio_limit != null) return isPro() ? null : pricing.free_portfolio_limit;
-  return isPro() ? null : 6;
 }
 
 function devToolsEnabled() {
@@ -98,21 +78,6 @@ function packCard(pack) {
     </article>`;
 }
 
-function proCard(pro) {
-  const features = Array.isArray(pro.features) && pro.features.length ? pro.features : [
-    'Unlimited portfolio photos', 'Prepaid packages for regulars', 'Client notes and visit history', 'Revenue and peak-time analytics',
-  ];
-  return html`
-    <article class="pricing-card" data-plan="barber_pro">
-      <div class="pricing-card-head"><h3 class="pricing-name">${pro.name || 'Barber Pro'}</h3><span class="plan-badge is-pro">Pro</span></div>
-      <p class="pricing-price"><span class="pricing-amount">${cents(pro.price_cents)}</span><span class="pricing-period">per ${pro.interval || 'month'}</span></p>
-      <p class="pricing-desc">For barbers. Everything in the free shop tools, plus the paid ones.</p>
-      <ul class="feature-list">${features.map((feature) => html`<li>${icon('check')}<span>${feature}</span></li>`)}</ul>
-      <button type="button" class="btn-secondary" data-action="upgrade-pro">Start Pro</button>
-      <p class="pricing-meta">Cancel any time from your account</p>
-    </article>`;
-}
-
 function packButton(pack) {
   return html`<button type="button" class="pack-btn ${pack.highlight ? 'is-featured' : ''}" data-action="buy-pack" data-pack-id="${pack.id}"><span class="pack-btn-credits">${pack.credits} credits</span><span class="pack-btn-price">${cents(pack.price_cents)}</span><span class="pack-btn-name">${pack.name || pack.id}</span></button>`;
 }
@@ -124,7 +89,7 @@ function renderPricing() {
     return;
   }
   const packs = Array.isArray(pricing.credit_packs) ? pricing.credit_packs : [];
-  const cards = html`${packs.map(packCard)}${pricing.barber_pro ? proCard(pricing.barber_pro) : ''}`;
+  const cards = html`${packs.map(packCard)}`;
   els.pricingGrid.innerHTML = cards;
   els.pricingPageGrid.innerHTML = cards;
   const buttons = html`${packs.map(packButton)}`;
@@ -161,7 +126,7 @@ function paintCostHints() {
   }
 }
 
-// -- balance, plan, locks -----------------------------------------------------
+// -- balance and billing state ------------------------------------------------
 
 function paintCredits(credits) {
   const value = Math.max(0, Number(credits) || 0);
@@ -176,33 +141,13 @@ function paintCredits(credits) {
   if (user && user.credits !== value) store.set('user', { ...user, credits: value });
 }
 
-function paintPlan() {
-  const pro = isPro();
-  const user = getUser();
-  const barber = Boolean(user && user.role === 'barber');
+function paintBillingState() {
   const signedIn = isSignedIn();
-
-  els.headerCredits.classList.toggle('hidden', !signedIn || barber);
-  els.headerPlan.classList.toggle('hidden', !signedIn || !barber);
-  [els.headerPlan, els.planBadge].forEach((badge) => {
-    badge.classList.toggle('is-pro', pro);
-    badge.classList.toggle('is-free', !pro);
-    badge.textContent = pro ? 'Pro' : 'Free';
-  });
-  els.proStatusBadge.classList.toggle('is-pro', pro);
-  els.proStatusBadge.classList.toggle('is-free', !pro);
-  els.proStatusBadge.textContent = pro ? 'Pro' : 'Free plan';
-  els.proCard.classList.toggle('hidden', !barber);
-  els.upgradePro.classList.toggle('hidden', pro);
-  els.proStatus.textContent = pro
-    ? (billing && billing.stripe && billing.stripe.configured && billing.stripe.subscription ? 'Billed monthly through Stripe. Manage or cancel under Manage billing.' : 'Pro is active on this account.')
-    : 'Pro adds unlimited portfolio photos, packages, client history and analytics.';
+  els.headerCredits.classList.toggle('hidden', !signedIn);
 
   const dev = devToolsEnabled();
   els.devGrant.classList.toggle('hidden', !dev);
   els.modalDevGrant.classList.toggle('hidden', !dev);
-  els.devActivatePro.classList.toggle('hidden', !dev || !barber);
-  els.devActivatePro.textContent = pro ? 'Deactivate Pro (test)' : 'Activate Pro (test)';
 
   const stripeReady = Boolean(billing && billing.stripe && billing.stripe.configured);
   els.manageBilling.classList.toggle('hidden', !stripeReady || !(billing && billing.stripe.customer));
@@ -212,41 +157,16 @@ function paintPlan() {
   els.modalNote.textContent = stripeReady
     ? "You'll be sent to Stripe Checkout and back here when it's done."
     : 'Payments are not set up on this server yet.';
-
-  applyLocks();
-}
-
-function applyLocks() {
-  $$('[data-pro-panel]').forEach((panel) => {
-    const key = panel.dataset.proPanel;
-    if (key === 'portfolio') return;
-    panel.classList.toggle('locked', !hasFeature(key));
-  });
-  paintPortfolioLimit(store.get('portfolio') || []);
-}
-
-function paintPortfolioLimit(items) {
-  const limit = getPortfolioLimit();
-  const notice = byId('portfolio-limit');
-  if (!notice) return;
-  const atLimit = limit != null && Array.isArray(items) && items.length >= limit;
-  notice.classList.toggle('hidden', !atLimit);
-  // Both entry points into the upload modal, or the dashboard one lets a free
-  // barber compress and name a photo just to hit a 402 on submit.
-  for (const id of ['upload-work-button', 'add-portfolio-btn']) {
-    const button = byId(id);
-    if (button) button.disabled = atLimit;
-  }
 }
 
 export async function refreshBilling({ silent = true } = {}) {
-  if (!isSignedIn()) { billing = null; paintPlan(); return null; }
+  if (!isSignedIn()) { billing = null; paintBillingState(); return null; }
   try {
     const data = await api.billingMe();
     billing = data;
     store.set('billing', data);
     paintCredits(data.credits);
-    paintPlan();
+    paintBillingState();
     paintCostHints();
     clearFieldError(els.billingError);
     return data;
@@ -278,7 +198,7 @@ function usageRow(event) {
     status = html`<span class="chip-success">Added</span>`;
     amount = html`<td class="num is-credit">+${Math.abs(delta)}</td>`;
   } else if (kind === 'plan') {
-    label = `Plan changed to ${event.action === 'pro' ? 'Pro' : 'Free'}`;
+    label = 'Plan changed';
     status = html`<span class="chip-neutral">Plan</span>`;
   }
   return html`<tr><td class="time">${formatWhen(event.ts)}</td><td>${label}</td><td>${status}</td>${amount}<td class="num">${Number(event.balance_after) || 0}</td></tr>`;
@@ -341,28 +261,6 @@ async function buyPack(button) {
   }
 }
 
-async function upgradePro(button) {
-  if (!requireSignIn()) return;
-  const user = getUser();
-  if (!user.role) { go('#/onboarding'); return; }
-  if (user.role !== 'barber') { notify.info('Barber Pro is for barber accounts', 'Create a barber account to sell packages and see analytics.'); return; }
-  if (isPro()) { notify.info('You are already on Pro'); return; }
-  const target = errorTargetFor(button) || (button.closest('#view-app') ? null : els.billingError);
-  clearFieldError(target);
-  setBusy(button, true, 'Opening checkout…');
-  try {
-    const data = await api.checkout({ plan: 'barber_pro' });
-    if (!data || !data.url) throw new ApiError('Checkout did not return a payment page.');
-    window.location.assign(data.url);
-  } catch (err) {
-    debug('pro checkout failed', err);
-    setBusy(button, false);
-    const message = err instanceof ApiError ? err.message : 'Could not start checkout.';
-    if (target && button.closest('#view-account')) setFieldError(target, message);
-    else notify.error('Could not start checkout', message, devToolsEnabled() ? { action: { label: 'Account', onClick: () => go('#/account') } } : {});
-  }
-}
-
 async function managePortal() {
   clearFieldError(els.billingError);
   setBusy(els.manageBilling, true, 'Opening…');
@@ -398,26 +296,6 @@ async function devGrant(button) {
   }
 }
 
-async function devTogglePro() {
-  clearFieldError(els.billingError);
-  const activate = !isPro();
-  setBusy(els.devActivatePro, true, activate ? 'Activating…' : 'Deactivating…');
-  try {
-    const data = await api.devActivatePro(activate);
-    if (!data || data.success === false) throw new ApiError((data && data.error) || 'The plan was not changed.');
-    const user = getUser();
-    if (user) store.set('user', { ...user, plan: data.plan });
-    await refreshBilling();
-    notify.success(activate ? 'Pro is active' : 'Back on the free plan', activate ? 'Packages, clients and analytics are unlocked.' : 'Pro panels are locked again.');
-    if (usageLoaded || store.get('view') === 'account') loadUsage();
-  } catch (err) {
-    debug('dev pro toggle failed', err);
-    setFieldError(els.billingError, err instanceof ApiError ? err.message : 'The plan was not changed.');
-  } finally {
-    setBusy(els.devActivatePro, false);
-  }
-}
-
 // -- 402 handling -------------------------------------------------------------
 
 export function openCreditsModal({ needed, credits, action } = {}) {
@@ -433,16 +311,7 @@ export function openCreditsModal({ needed, credits, action } = {}) {
 
 function onPaymentRequired(event) {
   const detail = event.detail || {};
-  if (detail.code === 'insufficient_credits') {
-    openCreditsModal(detail);
-    return;
-  }
-  if (detail.code === 'pro_required') {
-    const user = getUser();
-    const barber = user && user.role === 'barber';
-    notify.info('That is part of Barber Pro', barber ? 'Upgrade from your account to unlock it.' : 'Pro is available to barber accounts.', barber ? { action: { label: 'See Pro', onClick: () => go('#/account') } } : {});
-    applyLocks();
-  }
+  if (detail.code === 'insufficient_credits') openCreditsModal(detail);
 }
 
 // -- account page + routing ---------------------------------------------------
@@ -466,7 +335,6 @@ export function initBilling() {
   Object.assign(els, {
     headerCredits: byId('header-credits'),
     headerCreditsValue: byId('header-credits-value'),
-    headerPlan: byId('header-plan'),
     pricingGrid: byId('pricing-grid'),
     pricingPageGrid: byId('pricing-page-grid'),
     accountPacks: byId('credit-packs'),
@@ -474,18 +342,12 @@ export function initBilling() {
     checkoutNotice: byId('checkout-notice'),
     checkoutNoticeTitle: byId('checkout-notice-title'),
     checkoutNoticeText: byId('checkout-notice-text'),
-    planBadge: byId('plan-badge'),
     manageBilling: byId('manage-billing'),
     refreshBilling: byId('refresh-billing'),
     balance: byId('credits-balance'),
     creditsNote: byId('credits-note'),
     billingError: byId('billing-error'),
     devGrant: byId('dev-grant'),
-    proCard: byId('barber-pro-card'),
-    proStatusBadge: byId('pro-status-badge'),
-    upgradePro: byId('upgrade-pro'),
-    devActivatePro: byId('dev-activate-pro'),
-    proStatus: byId('pro-status'),
     refreshUsage: byId('refresh-usage'),
     usageTable: byId('usage-table'),
     usageWrap: byId('usage-table-wrap'),
@@ -501,29 +363,26 @@ export function initBilling() {
   });
 
   renderPricing();
-  paintPlan();
+  paintBillingState();
   paintCostHints();
   const user = getUser();
   if (user && typeof user.credits === 'number') paintCredits(user.credits);
 
   delegate(document, 'click', '[data-action="buy-pack"]', (event, button) => buyPack(button));
-  delegate(document, 'click', '[data-action="upgrade-pro"], #upgrade-pro', (event, button) => upgradePro(button));
   els.manageBilling.addEventListener('click', managePortal);
   els.refreshBilling.addEventListener('click', () => { refreshBilling({ silent: false }); loadUsage(); });
   els.refreshUsage.addEventListener('click', loadUsage);
   els.devGrant.addEventListener('click', () => devGrant(els.devGrant));
   els.modalDevGrant.addEventListener('click', () => devGrant(els.modalDevGrant));
-  els.devActivatePro.addEventListener('click', devTogglePro);
 
   document.addEventListener('lineup:credits', (event) => { if (event.detail && typeof event.detail.credits === 'number') paintCredits(event.detail.credits); });
   document.addEventListener('lineup:payment-required', onPaymentRequired);
 
-  store.subscribe('portfolio', paintPortfolioLimit);
-  store.subscribe('capabilities', () => paintPlan());
+  store.subscribe('capabilities', () => paintBillingState());
   onSessionChange((nextUser) => {
     if (!nextUser) { billing = null; usageLoaded = false; }
     else if (typeof nextUser.credits === 'number' && !billing) paintCredits(nextUser.credits);
-    paintPlan();
+    paintBillingState();
   });
 
   onRoute((route, { viewChanged }) => {

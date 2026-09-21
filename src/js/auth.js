@@ -1,13 +1,14 @@
 // Identity: sign in (Firebase Google/email when the server has a Firebase web
-// config, the developer sign-in otherwise), onboarding (role chosen once),
-// the account menu in the app header, the account page identity block, and
-// sign-out. The session itself lives in session.js; api.js sends the token.
-import { $$, byId, setBusy, setFieldError, clearFieldError, clearFormErrors } from './dom.js';
+// config, the developer sign-in otherwise), the account menu in the app
+// header, the account page identity block, and sign-out. There is no
+// onboarding step: every account is a client. The session itself lives in
+// session.js; api.js sends the token.
+import { byId, setBusy, setFieldError, clearFieldError, clearFormErrors } from './dom.js';
 import { api, ApiError, setTokenRefresher } from './api.js';
 import { store, clearUserState } from './state.js';
-import { getSession, getUser, isSignedIn, authMode, setSession, updateToken, clearSession, onSessionChange, homeHashFor } from './session.js';
-import { go, onRoute, rememberNext, signInHash, continueAfterAuth, refreshRoute, currentView } from './router.js';
-import { notify, toastAfterReload } from './ui/toast.js';
+import { getSession, getUser, isSignedIn, authMode, setSession, updateToken, clearSession, onSessionChange } from './session.js';
+import { onRoute, rememberNext, signInHash, continueAfterAuth } from './router.js';
+import { toastAfterReload } from './ui/toast.js';
 import { initials } from './format.js';
 import { debug } from './env.js';
 
@@ -19,7 +20,6 @@ const els = {};
 let capabilities = null;
 let firebase = null; // { app, auth, mod } once loaded
 let createMode = false;
-let onboardingRole = null;
 
 // -- capabilities -> which sign-in UI to show ---------------------------------
 
@@ -140,7 +140,7 @@ export async function signInAsDeveloper(email, name) {
   return data.user;
 }
 
-// Ask the server who we are (refreshes role/credits/plan after a reload).
+// Ask the server who we are (refreshes credits after a reload).
 export async function refreshSession() {
   if (!isSignedIn()) return null;
   try {
@@ -170,7 +170,7 @@ function setCreateMode(value) {
   createMode = value;
   els.title.textContent = value ? 'Create your LineUp account' : 'Sign in to LineUp';
   els.lead.textContent = value
-    ? 'Use your Google account or pick an email and password. You choose client or barber on the next step.'
+    ? 'Use your Google account or pick an email and password. You start with 3 free credits.'
     : 'Use your Google account or your email. New here? Create an account below.';
   els.submit.textContent = value ? 'Create account' : 'Sign in';
   els.modeText.textContent = value ? 'Already have an account?' : 'New to LineUp?';
@@ -232,57 +232,6 @@ async function submitDevForm(event) {
   }
 }
 
-// -- onboarding ---------------------------------------------------------------
-
-function pickRole(role) {
-  onboardingRole = role;
-  els.roleCards.forEach((card) => card.setAttribute('aria-pressed', card.dataset.role === role ? 'true' : 'false'));
-  els.shopField.classList.toggle('hidden', role !== 'barber');
-  els.onboardingSubmit.disabled = !role;
-  clearFieldError(els.onboardingError, els.shopName);
-  if (role === 'barber') {
-    const user = getUser();
-    if (!els.shopName.value && user && user.name) els.shopName.value = `${user.name}'s shop`;
-    els.shopName.focus({ preventScroll: true });
-  }
-}
-
-function resetOnboarding() {
-  onboardingRole = null;
-  els.roleCards.forEach((card) => card.setAttribute('aria-pressed', 'false'));
-  els.shopField.classList.add('hidden');
-  els.shopName.value = '';
-  els.onboardingSubmit.disabled = true;
-  clearFormErrors(els.onboardingForm);
-}
-
-async function submitOnboarding(event) {
-  event.preventDefault();
-  clearFormErrors(els.onboardingForm);
-  if (!onboardingRole) { setFieldError(els.onboardingError, 'Pick one to continue.'); return; }
-  const shopName = els.shopName.value.trim();
-  if (onboardingRole === 'barber' && shopName.length < 2) { setFieldError(els.onboardingError, 'Enter your shop name.', els.shopName); return; }
-  setBusy(els.onboardingSubmit, true, 'Saving…');
-  try {
-    const data = await api.onboarding(onboardingRole === 'barber' ? { role: 'barber', shopName } : { role: 'client' });
-    if (!data || !data.user) throw new ApiError('The server did not confirm your role.');
-    setSession({ token: getSession().token, user: data.user });
-    if (data.barber) store.set('barberProfile', data.barber);
-    notify.success(onboardingRole === 'barber' ? 'Shop created' : 'You are set', onboardingRole === 'barber' ? `${shopName} is ready for bookings.` : 'You start with 3 free credits.');
-    continueAfterAuth({ preferHome: onboardingRole === 'barber' });
-  } catch (err) {
-    debug('onboarding failed', err);
-    if (err instanceof ApiError && err.status === 409) {
-      await refreshSession();
-      continueAfterAuth();
-      return;
-    }
-    setFieldError(els.onboardingError, err instanceof ApiError ? err.message : 'Could not save your choice. Try again.');
-  } finally {
-    setBusy(els.onboardingSubmit, false);
-  }
-}
-
 // -- header menu + account identity -------------------------------------------
 
 function paintAvatar(node, user, { size = 'sm' } = {}) {
@@ -309,14 +258,10 @@ function paintIdentity(user) {
   els.menuName.textContent = signedIn ? (user.name || user.email || 'Signed in') : 'Not signed in';
   els.menuEmail.textContent = signedIn ? (user.email || '') : '';
   paintAvatar(els.menuAvatar, user);
-  els.roleSwitch.classList.toggle('hidden', !(signedIn && user.role === 'barber'));
 
   els.accountName.textContent = signedIn ? (user.name || 'Member') : 'Not signed in';
   els.accountEmail.textContent = signedIn ? (user.email || '') : '';
-  els.accountRole.textContent = signedIn && user.role === 'barber' ? 'Barber' : 'Client';
   paintAvatar(els.accountAvatar, user, { size: 'xl' });
-  els.accountBack.setAttribute('href', homeHashFor(user));
-  byId('app-header').querySelector('.brand').setAttribute('href', homeHashFor(user));
 }
 
 function toggleMenu(open) {
@@ -357,23 +302,14 @@ export function initAuth() {
     devName: byId('dev-name'),
     devError: byId('dev-signin-error'),
     devSubmit: byId('dev-signin-submit'),
-    onboardingForm: byId('onboarding-form'),
-    roleCards: $$('#onboarding-form .role-card'),
-    shopField: byId('onboarding-shop-field'),
-    shopName: byId('onboarding-shop-name'),
-    onboardingError: byId('onboarding-error'),
-    onboardingSubmit: byId('onboarding-submit'),
     menuButton: byId('account-menu'),
     menuPanel: byId('account-menu-panel'),
     menuAvatar: byId('account-menu-avatar'),
     menuName: byId('menu-name'),
     menuEmail: byId('menu-email'),
-    roleSwitch: byId('role-switch'),
     accountAvatar: byId('account-avatar'),
     accountName: byId('account-name'),
     accountEmail: byId('account-email'),
-    accountRole: byId('account-role'),
-    accountBack: byId('account-back'),
   });
 
   getSession();
@@ -392,9 +328,6 @@ export function initAuth() {
   els.modeToggle.addEventListener('click', () => setCreateMode(!createMode));
   els.devForm.addEventListener('submit', submitDevForm);
 
-  els.roleCards.forEach((card) => card.addEventListener('click', () => pickRole(card.dataset.role)));
-  els.onboardingForm.addEventListener('submit', submitOnboarding);
-
   els.menuButton.addEventListener('click', () => toggleMenu());
   document.addEventListener('click', (event) => {
     if (!(event.target instanceof Element)) return;
@@ -407,17 +340,15 @@ export function initAuth() {
 
   document.addEventListener('lineup:unauthorized', () => {
     const hash = window.location.hash || '#/';
-    const gated = /^#\/(client|barber|account|onboarding)/.test(hash);
+    const gated = /^#\/(client|account)/.test(hash);
     if (gated) rememberNext(hash);
     toastAfterReload({ type: 'info', title: 'Signed out', text: 'Your session ended. Sign in to continue.' });
     clearUserState();
     window.location.replace(`${window.location.pathname}${window.location.search}${gated ? signInHash(hash) : '#/'}`);
     window.location.reload();
   });
-  document.addEventListener('lineup:onboarding-required', () => { if (currentView() !== 'onboarding') go('#/onboarding'); });
 
   onRoute((route, { viewChanged }) => {
-    if (route.name === 'onboarding' && viewChanged) resetOnboarding();
     if (route.name === 'signin' && viewChanged) {
       setCreateMode(false);
       clearFormErrors(els.devForm);
@@ -427,15 +358,6 @@ export function initAuth() {
     if (route.name !== 'app' && route.name !== 'account') closeMenu();
   });
 
-  // Keep the stored user fresh (role, credits, plan) after a reload, and let
-  // the guards re-run in case the role changed on another device.
-  if (isSignedIn()) {
-    const before = getUser();
-    refreshSession().then((me) => {
-      if (!me) return;
-      if (me.barber) store.set('barberProfile', me.barber);
-      const after = getUser();
-      if (!before || before.role !== after.role) refreshRoute();
-    });
-  }
+  // Keep the stored user fresh (name, credits) after a reload.
+  if (isSignedIn()) refreshSession();
 }

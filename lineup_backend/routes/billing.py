@@ -31,11 +31,15 @@ def _stripe_or_503():
     return svc
 
 
+def _not_found() -> ApiError:
+    return ApiError("Not found", 404, message="The requested resource does not exist")
+
+
 @bp.get("/pricing")
 @limiter.limit(rate("health"))
 def pricing():
     svc = services()
-    return jsonify(pricing_payload(svc.stripe.price_ids, svc.stripe.available))
+    return jsonify(pricing_payload(svc.stripe.price_ids, svc.stripe.available, barber_side=svc.config.barber_side))
 
 
 @bp.get("/me")
@@ -56,7 +60,7 @@ def billing_me():
                 "customer": bool(user.get("stripeCustomerId")),
                 "subscription": bool(user.get("stripeSubscriptionId")),
             },
-            "dev": {"grant": svc.auth.dev_login_enabled, "activatePro": svc.auth.dev_login_enabled},
+            "dev": {"grant": svc.auth.dev_login_enabled, "activatePro": svc.auth.dev_login_enabled and svc.config.barber_side},
         }
     )
 
@@ -81,6 +85,8 @@ def checkout():
     pack_id = clean_text(data.get("packId"), max_length=40)
 
     if plan == "barber_pro":
+        if svc.config.consumer_only:
+            raise ApiError("plan_not_available", 400, message="Barber Pro is not available yet")
         if user.get("role") != "barber":
             raise ApiError("Barber Pro is for barber accounts", 403, code="forbidden")
         if is_pro(user):
@@ -182,7 +188,20 @@ def dev_only_route(view: Any) -> Any:
     @wraps(view)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         if not services().auth.dev_login_enabled:
-            raise ApiError("Not found", 404, message="The requested resource does not exist")
+            raise _not_found()
+        return view(*args, **kwargs)
+
+    return wrapper
+
+
+def barber_side_only(view: Any) -> Any:
+    """404 the route while the barber side is switched off. Ordered above the
+    role check so a client account sees the same 404 as an unknown path."""
+
+    @wraps(view)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        if services().config.consumer_only:
+            raise _not_found()
         return view(*args, **kwargs)
 
     return wrapper
@@ -204,6 +223,7 @@ def dev_grant():
 @bp.post("/dev-activate-pro")
 @limiter.limit(rate("billing"))
 @dev_only_route
+@barber_side_only
 @require_role("barber")
 def dev_activate_pro():
     data = get_json_body(required=False)

@@ -21,6 +21,11 @@ BARBER_EMAIL = "barber@lineup.dev"
 
 BASE_OVERRIDES = dict(
     env="testing",
+    # The suite covers the whole two-sided app; tests/test_consumer_mode.py
+    # builds the shipped consumer-only configuration explicitly.
+    barber_side=True,
+    # Production-mode tests still run on the in-memory store.
+    allow_memory_store=True,
     log_level="WARNING",
     ratelimit_enabled=False,
     seed_mock_data=True,

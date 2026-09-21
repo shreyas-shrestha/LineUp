@@ -5,6 +5,7 @@ import { store } from './state.js';
 import { debug } from './env.js';
 
 const KEY = 'lineup.session.v1';
+export const HOME_HASH = '#/client/home';
 const listeners = new Set();
 let session = null;
 let loaded = false;
@@ -69,9 +70,4 @@ export function clearSession() {
 export function onSessionChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
-}
-
-// Where this user's app lives.
-export function homeHashFor(user = getUser()) {
-  return user && user.role === 'barber' ? '#/barber/dashboard' : '#/client/home';
 }

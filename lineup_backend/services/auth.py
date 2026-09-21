@@ -19,6 +19,7 @@ import logging
 import secrets
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import jwt
@@ -162,30 +163,38 @@ class AuthService:
     # -- users -------------------------------------------------------------
 
     def get_or_create_user(self, principal: Principal) -> Tuple[Dict[str, Any], bool]:
-        """Load the user document, creating it (with signup credits) on first sight."""
+        """Load the user document, creating it (with signup credits) on first sight.
+
+        Consumer-only mode has no onboarding step: every account is a client
+        from its first request, and accounts created before the cut are
+        promoted the same way.
+        """
         existing = self.store.users.get(principal.uid)
         if existing is not None and not self._profile_patch(existing, principal):
             return existing, False  # hot path: no write per request
         created = {"value": False}
+        default_role = "client" if self.config.consumer_only else None
 
         def mutate(current: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
             if current is not None:
                 return self._profile_patch(current, principal) or None
             created["value"] = True
-            return new_user_doc(principal.uid, principal.email, principal.name, principal.photo_url, provider=principal.provider)
+            return new_user_doc(principal.uid, principal.email, principal.name, principal.photo_url, role=default_role, provider=principal.provider)
 
         user = self.store.users.modify(principal.uid, mutate)
         if created["value"]:
             self.ledger.record_signup(principal.uid, int(user.get("credits", 0) or 0))
         return user, created["value"]
 
-    @staticmethod
-    def _profile_patch(current: Dict[str, Any], principal: Principal) -> Dict[str, Any]:
+    def _profile_patch(self, current: Dict[str, Any], principal: Principal) -> Dict[str, Any]:
         patch: Dict[str, Any] = {}
         if principal.email and not current.get("email"):
             patch["email"] = principal.email.lower()
         if principal.photo_url and principal.photo_url != current.get("photoUrl"):
             patch["photoUrl"] = principal.photo_url
+        if self.config.consumer_only and not current.get("role"):
+            patch["role"] = "client"
+            patch["onboardedAt"] = datetime.now(timezone.utc).isoformat()
         return patch
 
     def find_by_email(self, email: str) -> Optional[Dict[str, Any]]:

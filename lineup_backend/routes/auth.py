@@ -78,6 +78,8 @@ def onboarding():
     role = clean_text(data.get("role"), max_length=20).lower()
     if role not in ROLES:
         raise ApiError("role must be 'client' or 'barber'", 400)
+    if role == "barber" and svc.config.consumer_only:
+        raise ApiError("barber_signups_closed", 403, message="Barber accounts are not open yet")
     if user.get("role"):
         raise ApiError("already_onboarded", 409, role=user["role"], message="Your role is already set")
 

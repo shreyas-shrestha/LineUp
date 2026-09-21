@@ -97,6 +97,12 @@ class AppConfig:
 
     # Runtime
     env: str = "production"
+    # Consumer launch: barber accounts, bookings, portfolios, packages and the
+    # community feed stay off until LINEUP_BARBER_SIDE=true.
+    barber_side: bool = False
+    # Production refuses to boot on the in-memory store (a restart would wipe
+    # every purchase). Set only for throwaway demo deploys.
+    allow_memory_store: bool = False
     port: int = 5000
     log_level: str = "INFO"
     log_format: str = "text"
@@ -160,6 +166,8 @@ class AppConfig:
 
         values: Dict[str, Any] = dict(
             env=(_env("FLASK_ENV") or _env("ENV") or "production").lower(),
+            barber_side=_env_bool("LINEUP_BARBER_SIDE", False),
+            allow_memory_store=_env_bool("LINEUP_ALLOW_MEMORY_STORE", False),
             port=_env_int("PORT", 5000),
             log_level=(_env("LOG_LEVEL") or "INFO").upper(),
             log_format=(_env("LOG_FORMAT") or "text").lower(),
@@ -228,8 +236,17 @@ class AppConfig:
         return bool(self.cloudinary_cloud_name and self.cloudinary_api_key and self.cloudinary_api_secret)
 
     @property
+    def consumer_only(self) -> bool:
+        return not self.barber_side
+
+    @property
     def has_firestore(self) -> bool:
         return bool(self.firebase_credentials)
+
+    @property
+    def require_persistent_store(self) -> bool:
+        """Production must not run on memory: credits bought through Stripe would vanish on restart."""
+        return self.is_production and not self.allow_memory_store
 
     @property
     def should_seed(self) -> bool:

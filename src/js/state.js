@@ -1,6 +1,6 @@
 // Tiny store plus localStorage persistence for per-user preferences and the
 // last analysis. Identity comes from the signed-in user (session.js keeps
-// store['user'] current): clientId and barberId are both the account uid.
+// store['user'] current).
 import { debug } from './env.js';
 
 const KEYS = {
@@ -49,33 +49,23 @@ function createStore(initial) {
 }
 
 export const store = createStore({
-  mode: 'client',
   tab: 'ai',
   user: null,
   billing: null,
   pricing: null,
   capabilities: null,
-  clientAppointments: [],
-  barberAppointments: [],
-  portfolio: [],
 });
 
 // Device-local preferences, kept per account so two people sharing a browser
-// do not see each other's search location or notification switches.
+// do not see each other's search location.
 const PREF_DEFAULTS = {
-  displayName: '',
   lastLocation: '',
-  notifyBookings: true,
-  notifyReminders: true,
-  following: [],
 };
 
 function prefsKey(uid) { return `${KEYS.prefs}.${uid || 'anonymous'}`; }
 
 function readPrefs(uid) {
-  const prefs = { ...PREF_DEFAULTS, ...read(prefsKey(uid), {}) };
-  if (!Array.isArray(prefs.following)) prefs.following = [];
-  return prefs;
+  return { ...PREF_DEFAULTS, ...read(prefsKey(uid), {}) };
 }
 
 export function getIdentity() {
@@ -85,13 +75,9 @@ export function getIdentity() {
   return {
     ...prefs,
     uid,
-    clientId: uid,
-    barberId: uid,
-    role: user ? user.role : null,
     email: user ? user.email : '',
     photoUrl: user ? user.photoUrl : null,
-    displayName: prefs.displayName || (user && user.name) || '',
-    accountName: (user && user.name) || '',
+    displayName: (user && user.name) || '',
   };
 }
 

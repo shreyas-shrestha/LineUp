@@ -1,12 +1,11 @@
 // Hash router for the whole site. Exactly one `.view` is visible at a time;
 // #app-header only for the app and account views. Public: landing, pricing,
-// legal, sign-in. Gated: the app (#/client/*, #/barber/*), onboarding and the
-// account page need a session; a user without a role is sent to onboarding;
-// a client asking for #/barber/* lands on their own home.
+// legal, sign-in. Gated: the app (#/client/*) and the account page need a
+// session; a signed-out visitor is sent to sign-in and brought back after.
 import { $$, byId } from './dom.js';
 import { store } from './state.js';
-import { getUser, isSignedIn, homeHashFor } from './session.js';
-import { parseAppHash, applyTab, defaultTab } from './nav.js';
+import { isSignedIn, HOME_HASH } from './session.js';
+import { parseAppHash, applyTab } from './nav.js';
 import { debug } from './env.js';
 
 const NEXT_KEY = 'lineup.next';
@@ -14,7 +13,6 @@ const TITLES = {
   landing: 'LineUp – Find a cut that fits your face',
   pricing: 'Pricing · LineUp',
   signin: 'Sign in · LineUp',
-  onboarding: 'Choose how you use LineUp · LineUp',
   account: 'Account · LineUp',
   legal: { terms: 'Terms of service · LineUp', privacy: 'Privacy policy · LineUp' },
 };
@@ -35,12 +33,11 @@ export function parseRoute(hash) {
   if (path === '#' || path === '#/') return { name: 'landing', query };
   if (path === '#/pricing') return { name: 'pricing', query };
   if (path === '#/signin') return { name: 'signin', query };
-  if (path === '#/onboarding') return { name: 'onboarding', query };
   if (path === '#/account') return { name: 'account', query };
   const legal = /^#\/legal\/(terms|privacy)$/.exec(path);
   if (legal) return { name: 'legal', page: legal[1], query };
   const app = parseAppHash(path);
-  if (app) return { name: 'app', mode: app.mode, tab: app.tab, query };
+  if (app) return { name: 'app', tab: app.tab, query };
   return null;
 }
 
@@ -56,7 +53,7 @@ export function go(hash, { replace = false } = {}) {
 
 export function rememberNext(hash) {
   try {
-    if (hash && /^#\/(client|barber|account|onboarding)/.test(hash)) sessionStorage.setItem(NEXT_KEY, hash);
+    if (hash && /^#\/(client|account)/.test(hash)) sessionStorage.setItem(NEXT_KEY, hash);
     else sessionStorage.removeItem(NEXT_KEY);
   } catch (err) { debug('next write failed', err); }
 }
@@ -73,33 +70,18 @@ export function signInHash(next) {
   return next ? `#/signin?next=${encodeURIComponent(next)}` : '#/signin';
 }
 
-// Where a signed-in user should go after sign-in/onboarding.
-// preferHome (after onboarding): a brand-new account starts on its own home
-// rather than whatever app tab the deep link pointed at; non-app targets
-// such as #/account are still honoured.
-export function continueAfterAuth({ replace = true, preferHome = false } = {}) {
-  const user = getUser();
-  if (!user) { go('#/signin', { replace }); return; }
-  if (!user.role) { go('#/onboarding', { replace }); return; }
-  const next = takeNext();
-  const route = next ? parseRoute(next) : null;
-  const useNext = route && allowed(route, user) && !(preferHome && route.name === 'app');
-  go(useNext ? next : homeHashFor(user), { replace });
-}
-
-function allowed(route, user) {
-  if (!route) return false;
-  if (route.name === 'app') return route.mode !== 'barber' || (user && user.role === 'barber');
-  return true;
+// Where a signed-in user should go after sign-in: the page they were heading
+// for, otherwise home.
+export function continueAfterAuth({ replace = true } = {}) {
+  if (!isSignedIn()) { go('#/signin', { replace }); return; }
+  go(takeNext() || HOME_HASH, { replace });
 }
 
 function setAuthVisibility() {
   const signedIn = isSignedIn();
-  const home = homeHashFor(getUser());
   $$('[data-auth]').forEach((node) => {
     const wants = node.dataset.auth === 'signed-in';
     node.classList.toggle('hidden', wants !== signedIn);
-    if (wants && node instanceof HTMLAnchorElement && /^#\/(client|barber)\//.test(node.getAttribute('href') || '')) node.setAttribute('href', home);
   });
 }
 
@@ -143,25 +125,18 @@ function scrollAfterRoute(viewChanged) {
 
 // Resolve guards for the requested route. Returns the hash to redirect to, or null.
 function redirectFor(route) {
-  const user = getUser();
   const signedIn = isSignedIn();
   const hash = window.location.hash || '#/';
-  if (!route) return signedIn && user && user.role ? homeHashFor(user) : '#/';
+  if (!route) return signedIn ? HOME_HASH : '#/';
   switch (route.name) {
     case 'app':
     case 'account':
       if (!signedIn) { rememberNext(hash); return signInHash(hash); }
-      if (!user.role) { rememberNext(hash); return '#/onboarding'; }
-      if (route.name === 'app' && !allowed(route, user)) return homeHashFor(user);
-      return null;
-    case 'onboarding':
-      if (!signedIn) { rememberNext(hash); return signInHash(hash); }
-      if (user.role) return takeNext() || homeHashFor(user);
       return null;
     case 'signin': {
       const next = route.query.get('next');
       if (next) rememberNext(next);
-      if (signedIn) return user.role ? (takeNext() || homeHashFor(user)) : '#/onboarding';
+      if (signedIn) return takeNext() || HOME_HASH;
       return null;
     }
     default:
@@ -185,7 +160,7 @@ export function applyRoute({ initial = false } = {}) {
   showView(resolved.name);
 
   if (resolved.name === 'app') {
-    applyTab(resolved.mode, resolved.tab, { initial: initial || viewChanged });
+    applyTab(resolved.tab, { initial: initial || viewChanged });
   } else if (resolved.name === 'legal') {
     fillLegal(resolved.page);
     document.title = TITLES.legal[resolved.page];
@@ -212,8 +187,8 @@ function handleScrollLinks(event) {
   }
 }
 
-// Re-run the guards when the session changes (sign-out on a gated page, or
-// onboarding completing) without touching the hash.
+// Re-run the guards when the session changes (sign-out on a gated page)
+// without touching the hash.
 export function refreshRoute() { applyRoute(); }
 
 export function initRouter() {
@@ -221,4 +196,3 @@ export function initRouter() {
   window.addEventListener('hashchange', () => applyRoute());
   applyRoute({ initial: true });
 }
-

@@ -34,8 +34,8 @@ trap cleanup INT TERM EXIT
 
 echo "Backend:  http://localhost:$PORT/health"
 echo "Frontend: http://localhost:$FRONTEND_PORT/"
-echo "Dev sign-in (no Firebase keys): POST /auth/dev-login {email}. Seeded accounts:"
-echo "  client@lineup.dev  (uid client_1, role client, 3 credits)"
-echo "  barber@lineup.dev  (uid barber_1, role barber, shop \"Mike's Cuts\", free plan)"
+echo "Dev sign-in (no Firebase keys): POST /auth/dev-login {email}. Any email works;"
+echo "every account is a client with 3 credits. Seeded: client@lineup.dev (uid client_1)."
+echo "Barber-side routes are off unless LINEUP_BARBER_SIDE=true (API only)."
 echo "Set LINEUP_DEV_SECRET in .env to keep dev tokens valid across restarts."
 wait

@@ -447,6 +447,9 @@
 
   <!-- ============================== APP (#/client/*) ============================== -->
   <div id="view-app" class="view" hidden>
+  <!-- Soft light behind the app. Glass only reads as glass with a light
+       source to diffuse; on flat black it reads as a grey panel. -->
+  <div class="app-ambient" aria-hidden="true"><span class="app-ambient-blob is-a"></span><span class="app-ambient-blob is-b"></span></div>
   <main id="main-content" class="app-main" tabindex="-1">
     <div id="api-notice" class="notice notice-warning mt-6 hidden" role="status">
       <svg class="icon notice-icon" aria-hidden="true"><use href="#i-alert"/></svg>

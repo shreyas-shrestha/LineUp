@@ -183,8 +183,8 @@ function renderResults() {
     ? html`<div class="notice" role="status">${icon('info', { className: 'notice-icon' })}<div class="notice-body"><div><p class="notice-title">Sample results</p><p class="notice-text">${mockReasonText(result.reason)}</p></div></div></div>`
     : '';
 
-  els.recs.innerHTML = html`${result.recommendations.map((rec) => html`
-    <article class="card">
+  els.recs.innerHTML = html`${result.recommendations.map((rec, index) => html`
+    <article class="card card-in" style="--i:${index}">
       <div class="card-header"><div><h3 class="card-title">${rec.styleName}</h3><p class="card-text">${rec.description}</p></div></div>
       ${rec.reason ? html`<p class="text-sm text-text-2"><span class="text-text-1 font-medium">Why it fits:</span> ${rec.reason}</p>` : ''}
       <div class="card-footer">

@@ -32,6 +32,32 @@ def _plural(n: int, noun: str) -> str:
     return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
 
 
+# Hair textures a barber's reviews talk about, and the words that mean them.
+HAIR_WORDS = {
+    "curly": ["curly", "curls", "curl"],
+    "coily": ["coily", "coils", "kinky", "4c", "afro", "natural hair"],
+    "wavy": ["wavy", "waves"],
+    "straight": ["straight hair", "fine hair", "thin hair"],
+    "thick": ["thick hair", "dense"],
+}
+
+
+def _hair_words(hair: Optional[str]) -> List[str]:
+    key = str(hair or "").strip().lower()
+    return HAIR_WORDS.get(key, [key] if key else [])
+
+
+def describe_need(styles: List[str], hair: Optional[str]) -> str:
+    """One line the results page leads with: what kind of barber this person needs."""
+    cuts = [s for s in styles if s][:2]
+    if not cuts and not hair:
+        return ""
+    text = "A barber who does " + (" or ".join(c.lower() for c in cuts) if cuts else "your recommended cuts")
+    if hair:
+        text += f" on {str(hair).lower()} hair"
+    return text
+
+
 class BarberMatcher:
     MAX_CACHE_ENTRIES = 500  # review analyses are keyed per shop+styles; keep the process bounded
 
@@ -59,8 +85,10 @@ class BarberMatcher:
                     del self._cache[min(self._cache, key=lambda k: self._cache[k]["timestamp"])]
             self._cache[key] = {"data": data, "timestamp": now}
 
-    def build_search_keywords(self, recommended_styles: List[str]) -> str:
+    def build_search_keywords(self, recommended_styles: List[str], hair: Optional[str] = None) -> str:
         base_keywords = "barber barbershop mens haircut"
+        if hair and str(hair).strip():
+            base_keywords += f" {str(hair).strip().lower()} hair"
         if not recommended_styles:
             return base_keywords
         style_keywords: List[str] = []
@@ -74,12 +102,12 @@ class BarberMatcher:
         unique = list(dict.fromkeys(style_keywords))[:8]
         return " ".join([base_keywords] + unique)
 
-    def analyze_barber_reviews(self, barber_name: str, reviews: List[Dict[str, Any]], styles: List[str]) -> Dict[str, Any]:
+    def analyze_barber_reviews(self, barber_name: str, reviews: List[Dict[str, Any]], styles: List[str], hair: Optional[str] = None) -> Dict[str, Any]:
         empty = {"overall_match_score": 0.0, "matches": []}
         if not self.generate_text or not styles or not reviews:
             return empty
 
-        cache_key = f"{barber_name}:{','.join(sorted(styles))}"
+        cache_key = f"{barber_name}:{','.join(sorted(styles))}:{hair or ''}"
         cached = self._recall(cache_key)
         if cached is not None:
             return cached
@@ -88,13 +116,16 @@ class BarberMatcher:
         if not snippets:
             return empty
 
+        hair_line = f"CLIENT HAIR TEXTURE: {hair}\n" if hair else ""
         prompt = (
-            "Analyze these barbershop reviews to determine expertise in specific haircut styles.\n\n"
-            f"BARBERSHOP: {barber_name}\nSTYLES TO MATCH: {', '.join(styles)}\n"
+            "Analyze these barbershop reviews to determine expertise in specific haircut styles"
+            + (" and with the client's hair texture" if hair else "")
+            + ".\n\n"
+            f"BARBERSHOP: {barber_name}\nSTYLES TO MATCH: {', '.join(styles)}\n{hair_line}"
             f"REVIEWS: {' | '.join(snippets)[:2000]}\n\n"
             "Return ONLY valid JSON (no markdown):\n"
-            '{"overall_match_score": 0.0-1.0, "matches": [{"style": "style name", "confidence": 0.0-1.0, "evidence": "brief reason"}]}\n'
-            "Rules: overall_match_score 0.0 (no evidence) to 1.0 (strong evidence); empty matches if none."
+            '{"overall_match_score": 0.0-1.0, "matches": [{"style": "style name", "confidence": 0.0-1.0, "evidence": "brief reason, quoting the review where possible"}]}\n'
+            "Rules: overall_match_score 0.0 (no evidence) to 1.0 (strong evidence); a match may name the hair texture instead of a style; empty matches if none."
         )
         result = parse_json_block(self.generate_text(prompt))
         if not result:
@@ -109,11 +140,12 @@ class BarberMatcher:
         return analysis
 
     @staticmethod
-    def calculate_style_relevance(barber: Dict[str, Any], styles: List[str], style_analysis: Dict[str, Any]) -> float:
-        if not styles:
+    def calculate_style_relevance(barber: Dict[str, Any], styles: List[str], style_analysis: Dict[str, Any], hair: Optional[str] = None) -> float:
+        if not styles and not hair:
             return 0.0
         score = 0.0
         name_lower = barber.get("name", "").lower()
+        styles = styles or []
 
         name_match = 0.0
         for style in styles:
@@ -131,8 +163,12 @@ class BarberMatcher:
             for style in styles:
                 words = [w.lower() for w in style.split() if len(w) > 2]
                 if any(w in reviews_text for w in words):
-                    keyword_match += 0.2 / len(styles)
+                    keyword_match += 0.2 / max(1, len(styles))
             score += min(keyword_match, 0.2)
+            # Reviews that talk about the client's hair texture are evidence
+            # the shop knows how to cut it, which is half of "the right barber".
+            if hair and any(w in reviews_text for w in _hair_words(hair)):
+                score += 0.15
         return min(score, 1.0)
 
     @staticmethod
@@ -140,14 +176,23 @@ class BarberMatcher:
         return float(barber.get("rating", 0) or 0) * min(int(barber.get("user_ratings_total", 0) or 0), 100) / 100
 
     @staticmethod
-    def describe_match(barber: Dict[str, Any], styles: List[str], analysis: Dict[str, Any], relevance: float) -> Dict[str, Any]:
+    def describe_match(
+        barber: Dict[str, Any],
+        styles: List[str],
+        analysis: Dict[str, Any],
+        relevance: float,
+        hair: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """The ``match`` block a card renders: a level, the best style, and up
-        to three plain reasons. Reasons come from evidence, strongest first:
-        Gemini's read of the reviews, then the shop name, then review
-        keywords, then the rating. Nothing is claimed that the data does not
-        support, so a shop with no signal gets an empty list."""
+        to three plain reasons about what this person needs. Reasons come from
+        evidence, strongest first: Gemini's read of the reviews, then the shop
+        name, then reviews mentioning the cut, then reviews mentioning the
+        hair texture. When a shop has no evidence for the need, the first
+        reason says so rather than falling back to a generic rating line -
+        the match is the product, so its absence is worth stating."""
         reasons: List[str] = []
         top_style: Optional[str] = None
+        styles = styles or []
 
         matches = [m for m in (analysis or {}).get("matches", []) if isinstance(m, dict)]
         matches.sort(key=lambda m: -float(m.get("confidence") or 0))
@@ -176,27 +221,52 @@ class BarberMatcher:
                 top_style = top_style or style
                 break
 
+        if hair:
+            words = _hair_words(hair)
+            count = sum(1 for text in reviews if any(w in text for w in words))
+            if count:
+                verb = "mentions" if count == 1 else "mention"
+                reasons.append(f"{_plural(count, 'review')} {verb} {str(hair).lower()} hair")
+
+        need_based = len(reasons)
         rating = float(barber.get("rating", 0) or 0)
         total = int(barber.get("user_ratings_total", 0) or 0)
+        ranked_for_need = bool(styles or hair)
+        if ranked_for_need and not need_based:
+            what = (styles[0].lower() if styles else f"{str(hair).lower()} hair")
+            reasons.append(f"No reviews mention {what} yet, so this one is ranked on its rating")
         if rating >= 4.5 and total >= 20:
             reasons.append(f"Rated {rating:.1f} by {total} people")
 
-        level = next((name for floor, name in MATCH_LEVELS if relevance >= floor), None) if styles else None
+        level = next((name for floor, name in MATCH_LEVELS if relevance >= floor), None) if ranked_for_need else None
         deduped = list(dict.fromkeys(r for r in reasons if r))[:3]
-        return {"score": round(relevance, 2) if styles else None, "level": level, "top_style": top_style, "reasons": deduped}
+        return {
+            "score": round(relevance, 2) if ranked_for_need else None,
+            "level": level,
+            "top_style": top_style,
+            "reasons": deduped,
+            "evidence": need_based > 0,
+        }
 
-    def rank_barbers(self, barbers: List[Dict[str, Any]], styles: List[str], use_ai_analysis: bool = True) -> List[Dict[str, Any]]:
+    def rank_barbers(
+        self,
+        barbers: List[Dict[str, Any]],
+        styles: List[str],
+        use_ai_analysis: bool = True,
+        hair: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
         styles = [s for s in styles if isinstance(s, str) and s.strip()]
-        if not styles:
+        hair = str(hair).strip().lower() if hair else None
+        if not styles and not hair:
             barbers.sort(key=self.rating_score, reverse=True)
             for barber in barbers:
                 barber["match"] = self.describe_match(barber, [], {}, 0.0)
             return barbers
 
-        if use_ai_analysis and self.generate_text:
+        if use_ai_analysis and self.generate_text and styles:
             with ThreadPoolExecutor(max_workers=10) as executor:
                 futures = {
-                    executor.submit(self.analyze_barber_reviews, b.get("name", ""), b.get("reviews", []), styles): b
+                    executor.submit(self.analyze_barber_reviews, b.get("name", ""), b.get("reviews", []), styles, hair): b
                     for b in barbers
                     if b.get("reviews")
                 }
@@ -210,10 +280,10 @@ class BarberMatcher:
 
         for barber in barbers:
             analysis = barber.get("style_analysis", {})
-            relevance = self.calculate_style_relevance(barber, styles, analysis)
+            relevance = self.calculate_style_relevance(barber, styles, analysis, hair)
             barber["style_relevance_score"] = relevance
             barber["composite_score"] = (relevance * 0.7) + (self.rating_score(barber) / 5.0 * 0.3)
-            barber["match"] = self.describe_match(barber, styles, analysis, relevance)
+            barber["match"] = self.describe_match(barber, styles, analysis, relevance, hair)
 
         barbers.sort(key=lambda b: b.get("composite_score", 0), reverse=True)
         return barbers

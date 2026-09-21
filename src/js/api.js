@@ -183,6 +183,6 @@ export const api = {
   tryOn: (base64, styleDescription) => post('/virtual-tryon', { userPhoto: base64, styleDescription }, { timeout: 120000 }),
 
   // barbers
-  barbers: (location, styles = []) => request('/barbers', { query: { location, styles: styles.join(',') }, timeout: 25000 }),
+  barbers: (location, styles = [], hair = '') => request('/barbers', { query: { location, styles: styles.join(','), hair }, timeout: 25000 }),
   reviews: (barberId) => request(`/barbers/${enc(barberId)}/reviews`),
 };

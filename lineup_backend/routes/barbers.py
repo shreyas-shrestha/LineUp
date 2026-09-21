@@ -48,7 +48,8 @@ def search_barbers():
     callers get cached results or sample data."""
     location = _search_location()
     styles = query_list("styles")
-    payload = services().places.search(location, styles, photo_base_url=_public_base_url(), allow_fetch=g.user is not None)
+    hair = clean_text(request.args.get("hair"), max_length=30).lower() or None
+    payload = services().places.search(location, styles, photo_base_url=_public_base_url(), allow_fetch=g.user is not None, hair=hair)
     return jsonify(payload)
 
 

@@ -6,8 +6,12 @@
 (function() {
   'use strict';
 
+  // The deployed API. Single source of truth: both the default and
+  // detectApiUrl() read it, so a backend rename is a one-line change.
+  const PRODUCTION_API_URL = 'https://lineupai-api.onrender.com';
+
   const defaults = {
-    API_URL: 'https://lineup-fjpn.onrender.com',
+    API_URL: PRODUCTION_API_URL,
     UI: {
       defaultLocation: 'Atlanta, GA',
       maxImageSizeMB: 5,
@@ -21,10 +25,7 @@
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:5000';
     }
-    if (hostname.includes('onrender.com')) {
-      return 'https://lineup-fjpn.onrender.com';
-    }
-    return defaults.API_URL;
+    return PRODUCTION_API_URL;
   }
 
   function deepMerge(target, source) {

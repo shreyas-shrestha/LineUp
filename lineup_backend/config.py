@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 DEFAULT_ALLOWED_ORIGINS: List[str] = [
     "https://lineupai.onrender.com",
-    "https://lineup-fjpn.onrender.com",
+    "https://lineupai-api.onrender.com",
     r"^http://localhost(:\d+)?$",
     r"^http://127\.0\.0\.1(:\d+)?$",
 ]

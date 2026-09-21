@@ -19,7 +19,7 @@
 services:
   # ---------------------------------------------------------------- Backend API
   - type: web
-    name: lineup-backend
+    name: lineupai-api
     runtime: python
     buildCommand: pip install -r requirements.txt
     # One worker on purpose: the default store is in-memory, so extra workers
@@ -43,8 +43,10 @@ services:
       - key: LINEUP_BARBER_SIDE
         value: "false"
       # Public base URL of this service (used in /places/photo links).
+      # Matches `name: lineupai-api` above; Render appends a suffix only if the
+      # name is taken, in which case correct these three and config.js.
       - key: LINEUP_PUBLIC_URL
-        value: https://lineup-fjpn.onrender.com
+        value: https://lineupai-api.onrender.com
       # Comma-separated CORS origins (exact or regex). Must include the static site.
       - key: LINEUP_ALLOWED_ORIGINS
         value: https://lineupai.onrender.com
@@ -92,7 +94,7 @@ services:
 
   # ------------------------------------------------------------ Frontend site
   - type: web
-    name: lineup-frontend
+    name: lineupai
     runtime: static
     # styles.css is committed, so the site also works without this build; the
     # build just guarantees the published stylesheet matches src/input.css.

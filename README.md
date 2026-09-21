@@ -263,7 +263,7 @@ is not a dependency: `npm i --no-save playwright` when needed).
 
 `render.yaml` is a Blueprint with two services:
 
-- `lineup-backend` (Python 3.12.0): `pip install -r requirements.txt`, then
+- `lineupai-api` (Python 3.12.0): `pip install -r requirements.txt`, then
   `gunicorn app:app --workers 1 --threads 4 --timeout 120`, health check
   `/health`. The 120 s timeout covers Replicate try-on calls. Sets
   `FLASK_ENV=production`, `LINEUP_BARBER_SIDE=false`, `LOG_FORMAT=json`,
@@ -272,15 +272,19 @@ is not a dependency: `npm i --no-save playwright` when needed).
   `sync: false` and entered in the dashboard. `FIREBASE_CREDENTIALS` must be
   set or the service fails its health check on purpose. Move to `--workers 2`
   only with `RATELIMIT_STORAGE_URI=redis://...`.
-- `lineup-frontend` (static, Node 22.20.0): `npm ci && npm run build`, publish
+- `lineupai` (static, Node 22.20.0): `npm ci && npm run build`, publish
   path `.`, SPA rewrite `/* -> /index.html`, `no-cache` for `index.html`,
   five-minute cache for `styles.css`, `config.js` and `src/*`, one day for
   `images/*`. `.renderignore` lists the files kept out of the published site.
 
-After the first deploy, point `LINEUP_PUBLIC_URL`, `LINEUP_ALLOWED_ORIGINS` and
-`LINEUP_FRONTEND_URL` at the assigned hostnames, make sure `config.js`
-`API_URL` is the backend URL, add the frontend host to Firebase's authorized
-domains and the backend host to the Stripe webhook. `/health` should report
+The service names are chosen so the hostnames are predictable:
+`https://lineupai.onrender.com` (site) and `https://lineupai-api.onrender.com`
+(API). `LINEUP_PUBLIC_URL`, `LINEUP_ALLOWED_ORIGINS`, `LINEUP_FRONTEND_URL` and
+`config.js` are already set to those, so nothing needs correcting after the
+first deploy. If Render appends a suffix because a name is taken, fix those
+three variables and the `PRODUCTION_API_URL` constant in `config.js`. Add the
+frontend host to Firebase's authorized domains and the backend host to the
+Stripe webhook. `/health` should report
 `storage: firestore`, `auth_mode: firebase` and `integrations.stripe: true`.
 `Procfile` carries the same gunicorn command for other hosts.
 

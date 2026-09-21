@@ -100,10 +100,17 @@ function firebaseMessage(err) {
     'auth/network-request-failed': 'Could not reach Google. Check your connection.',
     'auth/too-many-requests': 'Too many attempts. Wait a minute and try again.',
     'auth/operation-not-allowed': 'This sign-in method is switched off for this project.',
+    'auth/unauthorized-domain': "This site's domain is not on the Firebase project's authorised list, so sign-in was refused. Whoever runs this deployment adds it under Authentication, Settings, Authorized domains.",
+    'auth/configuration-not-found': 'Sign-in is not finished being set up on the Firebase project for this site.',
+    'auth/internal-error': 'Firebase returned an internal error. Try again in a moment.',
+    'auth/timeout': 'Sign-in timed out. Check the connection and try again.',
+    'auth/web-storage-unsupported': 'This browser is blocking the storage sign-in needs. Allow cookies for this site, or leave private browsing.',
   };
   if (map[code]) return map[code];
   if (err instanceof ApiError) return err.message;
-  return 'Sign-in did not finish. Try again.';
+  // Naming the code beats a dead end: an unmapped failure is almost always a
+  // console setting, and the code is the only thing that says which one.
+  return code ? `Sign-in did not finish (${code}). Try again.` : 'Sign-in did not finish. Try again.';
 }
 
 async function completeFirebaseSignIn(credential) {

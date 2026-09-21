@@ -14,13 +14,6 @@ import { initBilling } from './billing.js';
 import { initAnalysis } from './features/analysis.js';
 import { initTryOn } from './features/tryon.js';
 import { initBarbers } from './features/barbers.js';
-import { initBooking } from './features/booking.js';
-import { initAppointments } from './features/appointments.js';
-import { initCommunity } from './features/community.js';
-import { initDashboard } from './features/barber-dashboard.js';
-import { initPortfolio } from './features/portfolio.js';
-import { initShop } from './features/shop.js';
-import { initProfile } from './features/profile.js';
 import { initLanding } from './features/landing.js';
 import { debug } from './env.js';
 
@@ -58,13 +51,6 @@ function boot() {
   initAnalysis();
   initTryOn();
   initBarbers();
-  initBooking();
-  initAppointments();
-  initCommunity();
-  initDashboard();
-  initPortfolio();
-  initShop();
-  initProfile();
   initNav();
   initAuth();
   initBilling();

@@ -1,5 +1,7 @@
-// Explore tab: location search, result cards, reviews modal, and
-// the "where are you?" prompt used when a recommendation card asks for barbers.
+// Explore tab: location search, result cards with a call / map / website
+// link, the reviews modal, and the "where are you?" prompt used when a
+// recommendation card asks for barbers. Booking happens with the shop
+// directly; LineUp does not take appointments.
 import { byId, html, delegate, setFieldError, clearFieldError, errorNotice } from '../dom.js';
 import { icon } from '../icons.js';
 import { api, ApiError } from '../api.js';
@@ -9,7 +11,6 @@ import { showSkeleton, skeletonCards, skeletonRows, clearBusy } from '../ui/skel
 import { navigate, onTabShow } from '../nav.js';
 import { initials, plural, money } from '../format.js';
 import { UI, debug } from '../env.js';
-import { openBooking } from './booking.js';
 
 const els = {};
 let results = [];
@@ -55,15 +56,16 @@ function barberCard(barber, index) {
           ${reviews ? html`<span class="meta-item">${plural(reviews, 'review')}</span>` : ''}
           ${price ? html`<span class="meta-item">From <span class="meta-strong">${price}</span></span>` : ''}
           ${hours ? html`<span class="meta-item">${icon('clock')}${hours}</span>` : ''}
-          ${barber.phone ? html`<span class="meta-item">${icon('phone')}${barber.phone}</span>` : ''}
+          ${barber.phone ? html`<a class="meta-item link-quiet" href="tel:${String(barber.phone).replace(/[^+\d]/g, '')}">${icon('phone')}${barber.phone}</a>` : ''}
         </div>
         ${specialties.length ? html`<div class="chip-row mt-3">${specialties.map((item) => html`<span class="chip-neutral">${item}</span>`)}</div>` : ''}
         <div class="card-footer">
-          <button type="button" class="btn-primary btn-sm" data-action="book" data-index="${index}">Book</button>
+          ${barber.bookingUrl || barber.booking_url
+            ? html`<a class="btn-primary btn-sm" href="${barber.bookingUrl || barber.booking_url}" target="_blank" rel="noopener noreferrer">${icon('external', { size: 'sm' })}Book on their site</a>`
+            : (barber.website ? html`<a class="btn-primary btn-sm" href="${barber.website}" target="_blank" rel="noopener noreferrer">${icon('external', { size: 'sm' })}Website</a>` : '')}
           <button type="button" class="btn-secondary btn-sm" data-action="reviews" data-index="${index}">Reviews</button>
           ${barber.google_maps_url ? html`<a class="btn-ghost btn-sm" href="${barber.google_maps_url}" target="_blank" rel="noopener noreferrer">${icon('map-pin', { size: 'sm' })}Map</a>` : ''}
-          ${barber.website ? html`<a class="btn-ghost btn-sm" href="${barber.website}" target="_blank" rel="noopener noreferrer">${icon('external', { size: 'sm' })}Website</a>` : ''}
-          ${barber.bookingUrl || barber.booking_url ? html`<a class="btn-ghost btn-sm" href="${barber.bookingUrl || barber.booking_url}" target="_blank" rel="noopener noreferrer">${icon('external', { size: 'sm' })}Book on their site</a>` : ''}
+          ${(barber.bookingUrl || barber.booking_url) && barber.website ? html`<a class="btn-ghost btn-sm" href="${barber.website}" target="_blank" rel="noopener noreferrer">${icon('external', { size: 'sm' })}Website</a>` : ''}
         </div>
       </div>
     </article>`;
@@ -190,7 +192,6 @@ export function initBarbers() {
     reviewsSubtitle: byId('reviews-modal-subtitle'),
     reviewsSummary: byId('reviews-summary'),
     reviewsList: byId('reviews-list'),
-    reviewsBook: byId('reviews-book'),
   });
   els.input.value = getIdentity().lastLocation || '';
   els.input.placeholder = `30308 or ${UI.defaultLocation}`;
@@ -211,19 +212,11 @@ export function initBarbers() {
     const barber = results[Number(button.dataset.index)] || null;
     if (button.dataset.action === 'focus-search') { els.input.focus(); return; }
     if (!barber) return;
-    if (button.dataset.action === 'book') openBooking(barber);
-    else if (button.dataset.action === 'reviews') openReviews(barber);
+    if (button.dataset.action === 'reviews') openReviews(barber);
   });
   els.list.addEventListener('error', (event) => {
     if (event.target instanceof HTMLImageElement) event.target.closest('.split-media')?.classList.add('is-broken');
   }, true);
-  els.reviewsBook.addEventListener('click', () => {
-    if (!reviewsBarber) return;
-    const barber = reviewsBarber;
-    closeModal('reviews-modal');
-    openBooking(barber);
-  });
-
   onTabShow('barbers', () => {
     if (searched) return;
     const location = getIdentity().lastLocation;

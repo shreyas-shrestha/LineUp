@@ -4,7 +4,7 @@
 // shows once instead of per request. Auth/billing outcomes are broadcast as
 // DOM events so the modules that own the UI for them can react:
 //   lineup:unauthorized       401 with a token -> session cleared (auth.js redirects)
-//   lineup:payment-required   402 {error: insufficient_credits | pro_required, ...}
+//   lineup:payment-required   402 {error: insufficient_credits, ...}
 //   lineup:credits            any response carrying a `billing` block (metered routes)
 import { API_URL, debug } from './env.js';
 import { getToken, clearSession } from './session.js';
@@ -73,10 +73,7 @@ function friendlyMessage(status, data) {
     const needed = Number(data.needed) || 1;
     return `This needs ${needed} credit${needed === 1 ? '' : 's'} and you have ${Number(data.credits) || 0}.`;
   }
-  if (status === 402 && code === 'pro_required') return 'This is part of Barber Pro.';
   if (status === 401) return 'Your session has ended. Sign in again to continue.';
-  if (status === 403 && code === 'onboarding_required') return 'Choose how you use LineUp to continue.';
-  if (status === 409 && code === 'already_onboarded') return 'Your role is already set.';
   if (status === 503 && code === 'stripe_not_configured') return 'Payments are not set up on this server yet.';
   if (status === 429) {
     const retry = Number(data && data.retry_after) || 0;
@@ -154,8 +151,6 @@ async function perform(url, { method, body, timeout, signal, bearer, retried = f
       emit('lineup:unauthorized', { url });
     } else if (status === 402 && data) {
       emit('lineup:payment-required', { ...data, code: data.code || data.error });
-    } else if (status === 403 && data && data.code === 'onboarding_required') {
-      emit('lineup:onboarding-required', {});
     }
     throw new ApiError(message, { status, data });
   }
@@ -174,7 +169,6 @@ export const api = {
   // auth
   me: (token) => request('/auth/me', { dedupe: false, token }),
   devLogin: (email, name) => post('/auth/dev-login', { email, name }, { auth: false }),
-  onboarding: (data) => post('/auth/onboarding', data),
 
   // billing
   pricing: () => request('/billing/pricing', { auth: false }),
@@ -183,50 +177,12 @@ export const api = {
   checkout: (body) => post('/billing/checkout', body),
   portal: () => post('/billing/portal'),
   devGrant: (credits = 10) => post('/billing/dev-grant', { credits }),
-  devActivatePro: (active = true) => post('/billing/dev-activate-pro', { active }),
 
   // paid actions
   analyze: (base64) => post('/analyze', { image: base64 }, { timeout: 60000 }),
   tryOn: (base64, styleDescription) => post('/virtual-tryon', { userPhoto: base64, styleDescription }, { timeout: 120000 }),
-  aiInsights: (styles = []) => request('/ai-insights', { query: { styles: styles.join(',') } }),
 
   // barbers
   barbers: (location, styles = []) => request('/barbers', { query: { location, styles: styles.join(',') }, timeout: 25000 }),
   reviews: (barberId) => request(`/barbers/${enc(barberId)}/reviews`),
-  barberProfile: (barberId) => request(`/barbers/${enc(barberId)}/profile`, { dedupe: false }),
-  saveBarberProfile: (barberId, data) => request(`/barbers/${enc(barberId)}/profile`, { method: 'PUT', body: data }),
-  availability: (barberId) => request(`/barbers/${enc(barberId)}/availability`),
-  saveAvailability: (barberId, data) => request(`/barbers/${enc(barberId)}/availability`, { method: 'PUT', body: data }),
-  availableSlots: (barberId, date) => request(`/barbers/${enc(barberId)}/available-slots`, { query: { date } }),
-  services: (barberId) => request(`/barbers/${enc(barberId)}/services`),
-  addService: (barberId, service) => post(`/barbers/${enc(barberId)}/services`, service),
-  deleteService: (barberId, serviceId) => request(`/barbers/${enc(barberId)}/services`, { method: 'DELETE', query: { service_id: serviceId } }),
-  clients: (barberId) => request(`/barbers/${enc(barberId)}/clients`, { dedupe: false }),
-  clientHistory: (barberId, clientId) => request(`/barbers/${enc(barberId)}/clients/${enc(clientId)}/history`),
-
-  // appointments (the signed-in user is implied by the token)
-  appointments: (type) => request('/appointments', { query: { type }, dedupe: false }),
-  createAppointment: (data) => post('/appointments', data),
-  acceptAppointment: (id) => post(`/appointments/${enc(id)}/accept`),
-  rejectAppointment: (id, reason) => post(`/appointments/${enc(id)}/reject`, { reason }),
-  rescheduleAppointment: (id, { date, time, reason }) => post(`/appointments/${enc(id)}/reschedule`, { date, time, reason }),
-  cancelAppointment: (id, reason) => post(`/appointments/${enc(id)}/cancel`, { reason }),
-  addAppointmentNote: (id, note) => post(`/appointments/${enc(id)}/notes`, { note, type: 'general' }),
-
-  // community (author comes from the token)
-  posts: () => request('/social', { dedupe: false }),
-  createPost: (data) => post('/social', data, { timeout: 45000 }),
-  likePost: (postId) => post(`/social/${enc(postId)}/like`),
-  comments: (postId) => request(`/social/${enc(postId)}/comments`, { dedupe: false }),
-  addComment: (postId, { text }) => post(`/social/${enc(postId)}/comments`, { text }),
-  sharePost: (postId) => post(`/social/${enc(postId)}/share`),
-  follow: (userId) => post(`/users/${enc(userId)}/follow`),
-  unfollow: (userId) => post(`/users/${enc(userId)}/unfollow`),
-  following: () => request('/users/me/following', { dedupe: false }),
-
-  // barber content
-  portfolio: (barberId) => request(`/portfolio/${enc(barberId)}`, { dedupe: false }),
-  addPortfolio: (barberId, data) => post(`/portfolio/${enc(barberId)}`, data, { timeout: 45000 }),
-  packages: (barberId) => request('/subscription-packages', { query: { barber_id: barberId }, dedupe: false }),
-  createPackage: (data) => post('/subscription-packages', data),
 };

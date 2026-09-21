@@ -72,8 +72,8 @@ def test_seed_policy_from_config():
     assert make_app(seed_mock_data=False).extensions["lineup"].store.social_posts.count() == 0
 
 
-def test_create_store_falls_back_to_memory_on_bad_credentials():
-    store = create_store(AppConfig(firebase_credentials="not json"))
+def test_create_store_falls_back_to_memory_on_bad_credentials_outside_production():
+    store = create_store(AppConfig(env="development", firebase_credentials="not json"))
     assert store.kind == "memory"
 
 

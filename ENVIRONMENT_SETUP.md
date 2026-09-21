@@ -8,8 +8,15 @@ set the values in the service's environment (see `render.yaml`).
 
 Every variable is optional for local development. With nothing set, the API
 starts with in-memory storage, developer sign-in and mock fallbacks for every
-integration. Production needs `FIREBASE_CREDENTIALS` (auth) and the Stripe
-variables (payments); see "Production" below.
+integration. Production needs `FIREBASE_CREDENTIALS` (storage and auth; the
+service refuses to boot without it) and the Stripe variables (payments); see
+"Production" below.
+
+This is the consumer launch: `LINEUP_BARBER_SIDE` is off, so the API serves
+sign-in, credits, analysis, previews and barbershop search only. Barber
+accounts, bookings, portfolios, packages and the community feed are not
+registered (404) until the flag is on, and the shipped frontend has no UI for
+them either.
 
 ## Local development
 
@@ -18,10 +25,10 @@ cp .env.example .env     # then edit; .env is git-ignored
 ```
 
 Use `FLASK_ENV=development` locally: it enables the debug server, seeds demo
-content (barbers, posts, appointments) and the two dev accounts
-(`client@lineup.dev`, `barber@lineup.dev`) into the in-memory store, and turns
-on `POST /auth/dev-login`. Set `LINEUP_DEV_SECRET` to any string so dev tokens
-survive restarts. Restart the API after backend changes.
+content and the dev account `client@lineup.dev` into the in-memory store, and
+turns on `POST /auth/dev-login` (any email creates a client account with 3
+credits). Set `LINEUP_DEV_SECRET` to any string so dev tokens survive
+restarts. Restart the API after backend changes.
 
 ## Checklist
 
@@ -32,12 +39,13 @@ survive restarts. Restart the API after backend changes.
 | `GEMINI_API_KEY` | Photo analysis, image moderation, haircut matching (`/analyze`, `/social` moderation) | Fixed mock analysis; responses carry `"mock": true` and a `reason` |
 | `GOOGLE_PLACES_API_KEY` | Real barbershop search, reviews and photos (`/barbers`, `/places/photo`) | Sample barbershops with `"mock": true` |
 | `REPLICATE_API_TOKEN` | Virtual try-on image generation (`/virtual-tryon`) | A labelled preview of the uploaded photo (`"mode": "preview"`) |
-| `FIREBASE_CREDENTIALS` | Firestore storage and Firebase ID-token verification (service-account JSON as a single line) | In-memory store, data lost on restart; auth mode `dev` (development/testing) or `disabled` (production: protected routes return 503) |
+| `FIREBASE_CREDENTIALS` | Firestore storage and Firebase ID-token verification (service-account JSON as a single line) | Development/testing: in-memory store (data lost on restart) and auth mode `dev`. Production: the API refuses to start unless `LINEUP_ALLOW_MEMORY_STORE=true`, and then auth is `disabled` (protected routes return 503) |
 | `FIREBASE_WEB_CONFIG` | Browser sign-in with Google / email (public web-app config JSON, served by `GET /config`) | The sign-in page shows only the developer sign-in (dev mode) or "sign-in unavailable" |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Uploading community post images to Cloudinary (all three required) | Images are stored inline as base64 |
 | `STRIPE_SECRET_KEY` | Stripe Checkout and the billing portal (`/billing/checkout`, `/billing/portal`) | 503 `stripe_not_configured`; only the 3 signup credits (plus dev grants locally) |
 | `STRIPE_WEBHOOK_SECRET` | Signature verification for `POST /billing/webhook` | The webhook returns 503; purchases are never credited |
-| `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PLUS`, `STRIPE_PRICE_STUDIO`, `STRIPE_PRICE_BARBER_PRO` | Stripe price ids for the three credit packs (one-time) and Barber Pro (monthly) | That pack or plan is reported `purchasable: false`; checkout returns 503 `price_not_configured` |
+| `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PLUS`, `STRIPE_PRICE_STUDIO` | Stripe price ids for the three credit packs (one-time) | That pack is reported `purchasable: false`; checkout returns 503 `price_not_configured` |
+| `STRIPE_PRICE_BARBER_PRO` | Barber Pro (monthly); read only with `LINEUP_BARBER_SIDE=true` | Pro is `purchasable: false` |
 
 Tuning for the integrations: `GEMINI_MODEL` (default `gemini-2.0-flash`),
 `LINEUP_GEMINI_DAILY_LIMIT` (50), `LINEUP_PLACES_DAILY_LIMIT` (1700, counted in Google API calls: one search costs up to 17),
@@ -64,6 +72,8 @@ Credit costs, pack sizes and prices are not environment variables; they live in
 
 | Variable | Default | Notes |
 |---|---|---|
+| `LINEUP_BARBER_SIDE` | `false` | `true` registers the barber-side API (shop management, bookings, portfolios/packages, community feed) and lets `/auth/onboarding` create barber accounts. The shipped frontend does not use it. |
+| `LINEUP_ALLOW_MEMORY_STORE` | `false` | `true` lets production start without Firestore (throwaway demos only; every purchase is lost on restart). |
 | `FLASK_ENV` | `production` | `development` (debug + seed + dev login), `testing` (pytest), or `production`. `ENV` is read as a fallback. |
 | `PORT` | `5000` | Port for `python app.py`; Render sets it |
 | `LOG_LEVEL` | `INFO` | `DEBUG` also logs every request |
@@ -105,15 +115,15 @@ accounts) into `FIREBASE_CREDENTIALS`; copy the web app config (Project
 settings, General) into `FIREBASE_WEB_CONFIG`; add the frontend hostname to
 Authentication's authorized domains.
 
-Stripe (dashboard steps): create the three one-time prices and the monthly
-Barber Pro price and put the ids in `STRIPE_PRICE_*`; copy the secret key into
+Stripe (dashboard steps): create the three one-time prices (Starter 10
+credits $4.99, Plus 30 $9.99, Studio 100 $24.99) and put the ids in
+`STRIPE_PRICE_STARTER`, `_PLUS`, `_STUDIO`; copy the secret key into
 `STRIPE_SECRET_KEY`; add a webhook endpoint `https://<backend-host>/billing/webhook`
-for `checkout.session.completed`, `invoice.paid`,
-`customer.subscription.updated`, `customer.subscription.deleted` and put its
-signing secret in `STRIPE_WEBHOOK_SECRET`; enable the customer portal. Use test
-mode keys and prices until the flow is verified. Locally,
-`stripe listen --forward-to localhost:5000/billing/webhook` prints a
-`whsec_...` to use as `STRIPE_WEBHOOK_SECRET`.
+for `checkout.session.completed` (the subscription events are only relevant
+with the barber side on) and put its signing secret in `STRIPE_WEBHOOK_SECRET`;
+enable the customer portal. Use test mode keys and prices until the flow is
+verified. Locally, `stripe listen --forward-to localhost:5000/billing/webhook`
+prints a `whsec_...` to use as `STRIPE_WEBHOOK_SECRET`.
 
 `render.yaml` sets `FLASK_ENV=production`, `LOG_FORMAT=json`,
 `LINEUP_TRUST_PROXY=true`, `LINEUP_PUBLIC_URL`, `LINEUP_ALLOWED_ORIGINS` and
@@ -124,9 +134,10 @@ are entered in the dashboard. After deploying, confirm with:
 curl https://<backend-host>/health
 ```
 
-`auth_mode` must be `firebase`, `storage` should be `firestore`, and
-`integrations.stripe` true. `GET /config` shows `auth.firebase` (the public
-web config) and `billing.stripe`.
+`auth_mode` must be `firebase`, `storage` must be `firestore` (the service
+does not start otherwise), and `integrations.stripe` true. `GET /config`
+shows `auth.firebase` (the public web config), `billing.stripe` and
+`consumerOnly: true`.
 
 ## Frontend
 

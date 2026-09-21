@@ -61,9 +61,10 @@ def create_app(config: Optional[AppConfig] = None, **overrides: Any) -> Flask:
 
     _register_request_logging(app, cfg)
     logger.info(
-        "LineUp backend %s ready (env=%s, storage=%s, gemini=%s, places=%s, replicate=%s, images=%s)",
+        "LineUp backend %s ready (env=%s, mode=%s, storage=%s, gemini=%s, places=%s, replicate=%s, images=%s)",
         __version__,
         cfg.env,
+        "two-sided" if cfg.barber_side else "consumer-only",
         services.store.kind,
         services.gemini.available,
         services.places.available,

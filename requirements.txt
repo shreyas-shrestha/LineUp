@@ -1,4 +1,4 @@
-# LineUp backend - production dependencies (Python 3.11 on Render, 3.12 locally)
+# LineUp backend - production dependencies (Python 3.12 on Render and locally; 3.14 also installs)
 
 # Web framework
 Flask==2.3.3
@@ -19,7 +19,7 @@ PyJWT==2.8.0
 stripe==15.6.1
 
 # Image processing and HTTP
-Pillow==10.1.0
+Pillow==12.3.0
 requests==2.31.0
 
 # Local .env loading

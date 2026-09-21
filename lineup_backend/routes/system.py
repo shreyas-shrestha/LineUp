@@ -42,26 +42,25 @@ def require_ops_access() -> None:
 @bp.get("/")
 @limiter.limit(rate("health"))
 def index():
-    return jsonify(
-        {
-            "service": "LineUp API",
-            "status": "running",
-            "version": __version__,
-            "endpoints": {
-                "health": "/health",
-                "config": "/config",
-                "auth": "/auth/me, /auth/onboarding (POST), /auth/dev-login (POST, dev only)",
-                "billing": "/billing/pricing, /billing/me, /billing/usage, /billing/checkout (POST), /billing/portal (POST), /billing/webhook (POST)",
-                "analyze": "/analyze (POST)",
-                "virtual_tryon": "/virtual-tryon (POST)",
-                "barbers": "/barbers?location=City (GET)",
+    endpoints = {
+        "health": "/health",
+        "config": "/config",
+        "auth": "/auth/me, /auth/onboarding (POST), /auth/dev-login (POST, dev only)",
+        "billing": "/billing/pricing, /billing/me, /billing/usage, /billing/checkout (POST), /billing/portal (POST), /billing/webhook (POST)",
+        "analyze": "/analyze (POST)",
+        "virtual_tryon": "/virtual-tryon (POST)",
+        "barbers": "/barbers?location=City (GET)",
+        "metrics": "/metrics",
+    }
+    if services().config.barber_side:
+        endpoints.update(
+            {
                 "social": "/social (GET/POST)",
                 "appointments": "/appointments (GET/POST)",
                 "portfolio": "/portfolio (GET/POST)",
-                "metrics": "/metrics",
-            },
-        }
-    )
+            }
+        )
+    return jsonify({"service": "LineUp API", "status": "running", "version": __version__, "endpoints": endpoints})
 
 
 @bp.get("/health")
@@ -122,6 +121,7 @@ def config():
             "hasFirebase": svc.store.kind == "firestore",
             "hasStripe": svc.stripe.available,
             "backendVersion": __version__,
+            "consumerOnly": svc.config.consumer_only,
             "auth": svc.auth.public_config(),
             "billing": {
                 "stripe": svc.stripe.available,
@@ -135,6 +135,7 @@ def config():
                 "virtualTryOn": svc.tryon.available,
                 "imageStorage": svc.images.configured,
                 "contentModeration": svc.gemini.available,
+                "barberSide": svc.config.barber_side,
             },
             "rateLimits": {
                 "places_api_remaining": svc.places_quota.remaining,

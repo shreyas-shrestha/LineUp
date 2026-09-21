@@ -7,10 +7,14 @@
 # current production hosts). The frontend's API base URL lives in config.js
 # (API_URL) and must point at the backend service.
 #
-# Production requires FIREBASE_CREDENTIALS (without it auth is "disabled" and
-# every protected route answers 503) and the Stripe variables for payments.
-# Also add the frontend host to Firebase's authorized domains and point the
-# Stripe webhook endpoint at https://<backend-host>/billing/webhook.
+# Production requires FIREBASE_CREDENTIALS: the backend refuses to start on the
+# in-memory store (bought credits would vanish on the next deploy) and without
+# it auth is "disabled" anyway. Set the Stripe variables for payments. Also add
+# the frontend host to Firebase's authorized domains and point the Stripe
+# webhook endpoint at https://<backend-host>/billing/webhook.
+#
+# This is the consumer launch: LINEUP_BARBER_SIDE stays false, so barber
+# accounts, bookings, portfolios and the community feed are not served.
 
 services:
   # ---------------------------------------------------------------- Backend API
@@ -35,6 +39,9 @@ services:
         value: json
       - key: LINEUP_TRUST_PROXY
         value: "true"
+      # Consumer-only API surface (see lineup_backend/routes/__init__.py).
+      - key: LINEUP_BARBER_SIDE
+        value: "false"
       # Public base URL of this service (used in /places/photo links).
       - key: LINEUP_PUBLIC_URL
         value: https://lineup-fjpn.onrender.com
@@ -63,12 +70,13 @@ services:
         sync: false
       # Firebase: service-account JSON (Firestore + ID-token verification) and
       # the public web-app config JSON served to the browser by /config.
+      # FIREBASE_CREDENTIALS is required: the service will not boot without it.
       - key: FIREBASE_CREDENTIALS
         sync: false
       - key: FIREBASE_WEB_CONFIG
         sync: false
-      # Stripe: secret key, webhook signing secret and the four price ids
-      # (three one-time credit packs, one monthly Barber Pro subscription).
+      # Stripe: secret key, webhook signing secret and the three credit-pack
+      # price ids. STRIPE_PRICE_BARBER_PRO is only read with LINEUP_BARBER_SIDE=true.
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET

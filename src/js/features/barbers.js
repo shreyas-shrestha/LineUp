@@ -31,57 +31,6 @@ let requestSeq = 0;
 let searched = false;
 let reviewsBarber = null;
 
-function describeQuery(location, count, mock, rankedFor) {
-  const where = location ? ` near ${location}` : '';
-  const summary = rankedFor && rankedFor.summary;
-  const need = summary
-    ? html`<p class="ranked-for">${icon('zap', { size: 'sm' })}<span><strong>Ranked for you.</strong> ${summary}.</span></p>`
-    : html`<p class="ranked-for is-empty">${icon('info', { size: 'sm' })}<span>These are ranked by rating. <button type="button" class="link-inline" data-tab="ai">Analyze a photo</button> and we'll rank them for your cut and hair.</span></p>`;
-  return html`<span>${plural(count, 'barbershop')}${where}.${mock ? html` <span class="chip-neutral ml-1">Sample data</span>` : ''}</span>${need}`;
-}
-
-// A price the card can stand behind: what reviewers paid, or Google's tier.
-// The old "$55 for everyone" came from defaulting a tier Google never sent.
-function priceLabel(barber) {
-  if (barber.avgCost != null && barber.avgCost !== '') {
-    const from = barber.price_source === 'reviews' ? 'per reviews' : (barber.price_source === 'sample' ? 'sample' : '');
-    return html`<span class="meta-item">About <span class="meta-strong">${money(barber.avgCost)}</span>${from ? html`<span class="price-hint">${from}</span>` : ''}</span>`;
-  }
-  if (barber.price_tier) return html`<span class="meta-item"><span class="meta-strong">${barber.price_tier}</span><span class="price-hint">on Google</span></span>`;
-  return '';
-}
-
-const LEVEL_LABEL = { strong: 'Strong match', good: 'Good match', some: 'Some match' };
-
-// The badge only claims a match when the data shows one. A top card with no
-// evidence for the need is "top rated", and the why-list says why.
-function matchBadge(match, index, rankedFor) {
-  const evidence = Boolean(rankedFor && match && match.evidence);
-  if (index === 0) {
-    if (evidence) {
-      const what = match.top_style || (rankedFor.styles && rankedFor.styles[0]) || 'you';
-      return html`<span class="best-badge">${icon('zap', { size: 'sm' })}Best match for your ${what}</span>`;
-    }
-    return html`<span class="best-badge is-rating">${icon('star', { size: 'sm' })}Top rated nearby</span>`;
-  }
-  if (!rankedFor || !match) return '';
-  if (match.level) {
-    const label = LEVEL_LABEL[match.level] || 'Match';
-    return html`<span class="chip-neutral chip-match is-${match.level}">${label}${match.top_style ? html` · ${match.top_style}` : ''}</span>`;
-  }
-  return html`<span class="chip-neutral chip-match">Ranked on rating</span>`;
-}
-
-function whyBlock(match, rankedFor) {
-  const reasons = match && Array.isArray(match.reasons) ? match.reasons.filter(Boolean).slice(0, 3) : [];
-  if (!reasons.length) return '';
-  return html`
-    <div class="why">
-      <p class="why-title">${rankedFor ? "Why it's ranked for you" : 'Why it ranks here'}</p>
-      <ul class="why-list">${reasons.map((reason) => html`<li class="${/^No reviews mention/.test(reason) ? 'is-gap' : ''}">${icon(/^No reviews mention/.test(reason) ? 'info' : 'check', { size: 'sm' })}<span>${reason}</span></li>`)}</ul>
-    </div>`;
-}
-
 // Google Places returns `hours` as `weekday_text` (seven "Monday: 9:00 AM - 8:00 PM"
 // strings); the sample data returns one string. A card has room for today's line.
 function todaysHours(hours) {
@@ -92,42 +41,86 @@ function todaysHours(hours) {
   return line ? line.slice(weekday.length + 1).trim() : '';
 }
 
+function describeQuery(location, count, mock, rankedFor) {
+  const where = location ? ` near ${location}` : '';
+  const summary = rankedFor && rankedFor.summary;
+  const need = summary
+    ? html`<p class="ranked-for">${icon('zap', { size: 'sm' })}<span>Ranked for you <span class="ranked-for-dash">—</span> ${summary.charAt(0).toLowerCase() + summary.slice(1)}.</span></p>`
+    : html`<p class="ranked-for is-empty">Ranked by rating. <button type="button" class="link-inline" data-tab="ai">Analyze a photo</button> to rank them for your cut and hair.</p>`;
+  return html`<span>${plural(count, 'barbershop')}${where}.${mock ? html` <span class="chip-neutral ml-1">Sample data</span>` : ''}</span>${need}`;
+}
+
+// A price the card can stand behind: what reviewers paid, or Google's tier.
+function priceText(barber) {
+  if (barber.avgCost != null && barber.avgCost !== '') return `About ${money(barber.avgCost)}`;
+  if (barber.price_tier) return barber.price_tier;
+  return '';
+}
+
+const LEVEL_LABEL = { strong: 'Strong match', good: 'Good match', some: 'Some match' };
+
+// The flag on the photo only claims a match when the data shows one.
+function mediaFlag(match, index, rankedFor) {
+  if (index !== 0) return '';
+  const evidence = Boolean(rankedFor && match && match.evidence);
+  if (evidence) {
+    const what = match.top_style || (rankedFor.styles && rankedFor.styles[0]) || 'you';
+    return html`<span class="shop-flag">${icon('zap', { size: 'sm' })}Best match · ${what}</span>`;
+  }
+  return html`<span class="shop-flag is-quiet">${icon('star', { size: 'sm' })}Top rated nearby</span>`;
+}
+
+function matchLine(match, rankedFor) {
+  if (!rankedFor || !match) return '';
+  if (match.level) return html`<p class="shop-match">${LEVEL_LABEL[match.level] || 'Match'}${match.top_style ? ` for ${match.top_style}` : ''}</p>`;
+  return '';
+}
+
+function whyList(match, rankedFor) {
+  const reasons = match && Array.isArray(match.reasons) ? match.reasons.filter(Boolean).slice(0, 3) : [];
+  if (!reasons.length) return '';
+  return html`
+    <div class="shop-why">
+      <p class="shop-why-label">${rankedFor ? "Why it's ranked for you" : 'Why it ranks here'}</p>
+      <ul class="shop-why-list">${reasons.map((reason) => html`<li class="${/^No reviews mention/.test(reason) ? 'is-gap' : ''}">${reason}</li>`)}</ul>
+    </div>`;
+}
+
 function barberCard(barber, index, rankedFor) {
   const rating = Number(barber.rating) || 0;
   const reviews = Number(barber.user_ratings_total) || 0;
-  const specialties = Array.isArray(barber.specialties) ? barber.specialties.slice(0, 5) : [];
   const hours = todaysHours(barber.hours);
   const match = barber.match || null;
-  const best = index === 0;
+  const meta = [reviews ? plural(reviews, 'review') : '', priceText(barber), hours].filter(Boolean);
+  const primary = barber.bookingUrl || barber.booking_url || '';
+  const website = barber.website || '';
+  const tel = barber.phone ? `tel:${String(barber.phone).replace(/[^+\d]/g, '')}` : '';
   return html`
-    <article class="card split-card ${best ? 'is-best' : ''}" data-index="${index}">
-      <div class="split-media">
-        <span class="rank-badge" aria-label="Rank ${index + 1}">${index + 1}</span>
+    <article class="card shop-card ${index === 0 ? 'is-best' : ''}" data-index="${index}" style="--i:${index}">
+      <div class="shop-media">
         ${barber.photo
-          ? html`<img src="${barber.photo}" alt="${barber.name}" loading="lazy" width="400" height="300">`
-          : icon('scissors', { size: 'lg' })}
+          ? html`<img src="${barber.photo}" alt="" loading="lazy" width="400" height="300">`
+          : html`<span class="shop-media-empty">${icon('scissors', { size: 'lg' })}</span>`}
+        <span class="shop-rank" aria-label="Rank ${index + 1}">${index + 1}</span>
+        ${rating ? html`<span class="shop-rating">${icon('star', { size: 'sm' })}${rating.toFixed(1)}</span>` : ''}
+        ${mediaFlag(match, index, rankedFor)}
       </div>
-      <div class="min-w-0">
-        ${matchBadge(match, index, rankedFor)}
-        <div class="card-header">
-          <div class="min-w-0"><h3 class="card-title">${barber.name}</h3><p class="card-text">${barber.address || 'Address not listed'}</p></div>
-          ${rating ? html`<span class="chip-accent">${icon('star')}${rating.toFixed(1)}</span>` : ''}
-        </div>
-        <div class="meta">
-          ${reviews ? html`<span class="meta-item">${plural(reviews, 'review')}</span>` : ''}
-          ${priceLabel(barber)}
-          ${hours ? html`<span class="meta-item">${icon('clock')}${hours}</span>` : ''}
-          ${barber.phone ? html`<a class="meta-item link-quiet" href="tel:${String(barber.phone).replace(/[^+\d]/g, '')}">${icon('phone')}${barber.phone}</a>` : ''}
-        </div>
-        ${whyBlock(match, rankedFor)}
-        ${specialties.length ? html`<div class="chip-row mt-3">${specialties.map((item) => html`<span class="chip-neutral">${item}</span>`)}</div>` : ''}
-        <div class="card-footer">
-          ${barber.bookingUrl || barber.booking_url
-            ? html`<a class="btn-primary btn-sm" href="${barber.bookingUrl || barber.booking_url}" target="_blank" rel="noopener noreferrer">${icon('external', { size: 'sm' })}Book on their site</a>`
-            : (barber.website ? html`<a class="btn-primary btn-sm" href="${barber.website}" target="_blank" rel="noopener noreferrer">${icon('external', { size: 'sm' })}Website</a>` : '')}
-          <button type="button" class="btn-secondary btn-sm" data-action="reviews" data-index="${index}">Reviews</button>
-          ${barber.google_maps_url ? html`<a class="btn-ghost btn-sm" href="${barber.google_maps_url}" target="_blank" rel="noopener noreferrer">${icon('map-pin', { size: 'sm' })}Map</a>` : ''}
-          ${(barber.bookingUrl || barber.booking_url) && barber.website ? html`<a class="btn-ghost btn-sm" href="${barber.website}" target="_blank" rel="noopener noreferrer">${icon('external', { size: 'sm' })}Website</a>` : ''}
+      <div class="shop-body">
+        <h3 class="shop-name">${barber.name}</h3>
+        <p class="shop-address">${barber.address || 'Address not listed'}</p>
+        ${meta.length ? html`<p class="shop-meta">${meta.map((item, i) => html`${i ? html`<span class="shop-dot" aria-hidden="true">·</span>` : ''}<span>${item}</span>`)}</p>` : ''}
+        ${matchLine(match, rankedFor)}
+        ${whyList(match, rankedFor)}
+        <div class="shop-actions">
+          ${primary
+            ? html`<a class="btn-primary btn-sm" href="${primary}" target="_blank" rel="noopener noreferrer">Book</a>`
+            : (website ? html`<a class="btn-primary btn-sm" href="${website}" target="_blank" rel="noopener noreferrer">Website</a>` : '')}
+          <span class="shop-links">
+            <button type="button" class="shop-link" data-action="reviews" data-index="${index}">Reviews</button>
+            ${barber.google_maps_url ? html`<a class="shop-link" href="${barber.google_maps_url}" target="_blank" rel="noopener noreferrer">Map</a>` : ''}
+            ${tel ? html`<a class="shop-link" href="${tel}" title="${barber.phone}">Call</a>` : ''}
+            ${primary && website ? html`<a class="shop-link" href="${website}" target="_blank" rel="noopener noreferrer">Website</a>` : ''}
+          </span>
         </div>
       </div>
     </article>`;
@@ -282,7 +275,7 @@ export function initBarbers() {
     if (button.dataset.action === 'reviews') openReviews(barber);
   });
   els.list.addEventListener('error', (event) => {
-    if (event.target instanceof HTMLImageElement) event.target.closest('.split-media')?.classList.add('is-broken');
+    if (event.target instanceof HTMLImageElement) event.target.closest('.shop-media')?.classList.add('is-broken');
   }, true);
   onTabShow('barbers', () => {
     if (searched) return;

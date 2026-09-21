@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 DEFAULT_ALLOWED_ORIGINS: List[str] = [
     "https://lineupai.onrender.com",
@@ -289,16 +289,35 @@ class AppConfig:
 
     def firebase_web(self) -> Optional[Dict[str, Any]]:
         """Parsed FIREBASE_WEB_CONFIG (public keys only), or None."""
+        return self._firebase_web()[0]
+
+    def firebase_web_status(self) -> str:
+        """Why :meth:`firebase_web` is empty, for logs and /health.
+
+        A bad value looks exactly like "not configured" on the sign-in page,
+        so the reason is named rather than swallowed: ``ok``, ``missing``,
+        ``invalid_json`` (usually a JavaScript object literal pasted straight
+        out of the Firebase console, with unquoted keys), ``not_an_object``
+        or ``no_api_key``.
+        """
+        return self._firebase_web()[1]
+
+    def _firebase_web(self) -> Tuple[Optional[Dict[str, Any]], str]:
         if not self.firebase_web_config:
-            return None
+            return None, "missing"
         try:
             data = json.loads(self.firebase_web_config)
         except ValueError:
-            return None
+            return None, "invalid_json"
         if not isinstance(data, dict):
-            return None
+            return None, "not_an_object"
         allowed = ("apiKey", "authDomain", "projectId", "appId", "storageBucket", "messagingSenderId", "measurementId")
-        return {key: data[key] for key in allowed if isinstance(data.get(key), str)}
+        parsed = {key: data[key] for key in allowed if isinstance(data.get(key), str)}
+        # The browser cannot initialise Firebase without apiKey, so a config
+        # missing it is no more usable than no config at all.
+        if not parsed.get("apiKey"):
+            return None, "no_api_key"
+        return parsed, "ok"
 
     def configured_integrations(self) -> Dict[str, bool]:
         """Which integrations have credentials (not whether they initialised)."""

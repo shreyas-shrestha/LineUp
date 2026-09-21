@@ -167,3 +167,56 @@ def test_create_app_fails_loudly_in_production_without_firestore():
     overrides = {**BASE_OVERRIDES, "env": "production", "allow_memory_store": False}
     with pytest.raises(PersistentStoreRequired):
         create_app(**overrides)
+
+
+# --- FIREBASE_WEB_CONFIG diagnosis ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "value, status",
+    [
+        (None, "missing"),
+        ("", "missing"),
+        # What the Firebase console actually shows you: a JS object literal.
+        ('const firebaseConfig = {apiKey: "k", projectId: "p"};', "invalid_json"),
+        ('{apiKey: "k"}', "invalid_json"),
+        ('["not", "an", "object"]', "not_an_object"),
+        ('{"projectId": "p", "appId": "a"}', "no_api_key"),
+        ('{"apiKey": 5, "projectId": "p"}', "no_api_key"),
+        ('{"apiKey": "k", "projectId": "p", "extra": "dropped"}', "ok"),
+    ],
+)
+def test_firebase_web_status_names_the_problem(value, status):
+    cfg = AppConfig(env="testing", firebase_web_config=value)
+    assert cfg.firebase_web_status() == status
+    assert (cfg.firebase_web() is not None) == (status == "ok")
+
+
+def test_health_reports_the_web_config_status():
+    app = make_app(firebase_web_config='{"apiKey": "k", "projectId": "p"}')
+    assert app.test_client().get("/health").get_json()["firebase_web_config"] == "ok"
+    app = make_app(firebase_web_config="{bad json}")
+    assert app.test_client().get("/health").get_json()["firebase_web_config"] == "invalid_json"
+
+
+def test_a_bad_web_config_is_logged_not_swallowed(caplog):
+    """The sign-in page cannot tell a bad paste from no config, so the log must."""
+    import logging
+
+    from lineup_backend.services.auth import AuthService
+    from lineup_backend.services.billing import Ledger
+    from lineup_backend.storage import MemoryStore
+
+    cfg = AppConfig(env="production", firebase_web_config="{bad json}")
+    store = MemoryStore()
+    # A verifier makes the mode "firebase" without reaching firebase_admin.
+    with caplog.at_level(logging.ERROR, logger="lineup_backend.services.auth"):
+        service = AuthService(cfg, store, Ledger(store, cfg), verify_id_token=lambda token: {})
+    assert service.mode == "firebase"
+    assert any("FIREBASE_WEB_CONFIG is invalid_json" in r.getMessage() for r in caplog.records)
+
+    caplog.clear()
+    good = AppConfig(env="production", firebase_web_config='{"apiKey": "k"}')
+    with caplog.at_level(logging.ERROR, logger="lineup_backend.services.auth"):
+        AuthService(good, store, Ledger(store, good), verify_id_token=lambda token: {})
+    assert not caplog.records

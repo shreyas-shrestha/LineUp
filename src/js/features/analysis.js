@@ -203,6 +203,15 @@ function restore() {
     photo = { dataUrl: savedImage, base64: savedImage.split(',')[1] };
   }
   const saved = getSavedAnalysis();
+  // A saved sample is the same fixed example every time, so restoring one is
+  // worth nothing and costs a lot: the page looks like it just analysed the
+  // photo and produced a sample, which reads as "my key is not working" long
+  // after the key is working. Drop it and offer Analyze again; the photo stays.
+  if (saved && saved.mock) {
+    saveAnalysis(null);
+    showPreview();
+    return;
+  }
   if (saved && saved.analysis && photo) {
     result = normalize(saved);
     result.reason = saved.reason || '';

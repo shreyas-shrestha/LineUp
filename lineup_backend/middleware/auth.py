@@ -13,6 +13,7 @@ Ownership helpers raise 403 when the token's uid does not match the resource.
 
 from __future__ import annotations
 
+import logging
 from functools import wraps
 from typing import Any, Callable, Dict, Optional
 
@@ -20,6 +21,8 @@ from flask import current_app, g, request
 
 from lineup_backend.middleware.error_handler import ApiError
 from lineup_backend.services.auth import AuthError
+
+logger = logging.getLogger(__name__)
 
 _RESOLVED = "_lineup_auth_resolved"
 
@@ -49,6 +52,13 @@ def _resolve() -> None:
         user, _created = svc.auth.get_or_create_user(principal)
     except AuthError as exc:
         g.auth_error = exc
+        return
+    except Exception:  # noqa: BLE001 - e.g. Firestore quota; not the caller's fault
+        # Recorded instead of raised: the limiter's key function resolves first
+        # and swallows exceptions, which used to leave g.user None and turn a
+        # store outage into a 401 that signed people out.
+        logger.exception("Could not load the signed-in user")
+        g.auth_error = AuthError("We could not load your account. Try again in a moment.", 503, "account_unavailable")
         return
     g.principal = principal
     g.user = user

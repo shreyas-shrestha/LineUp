@@ -108,7 +108,10 @@ class FirestoreCollection(Collection):
         return True
 
     def count(self) -> int:
-        return sum(1 for _ in self._ref.stream())
+        # Server-side aggregation: billed as one read per 1000 docs instead of
+        # streaming (and paying for) every document.
+        results = self._ref.count().get()
+        return int(results[0][0].value)
 
     def clear(self) -> None:
         for snap in self._ref.stream():

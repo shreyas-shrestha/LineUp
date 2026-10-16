@@ -11,7 +11,7 @@ def test_index_lists_endpoints(client):
     assert "/auth/me" in data["endpoints"]["auth"]
 
 
-def test_health_reports_integrations_and_counts(client):
+def test_health_reports_integrations(client):
     response = client.get("/health")
     assert response.status_code == 200
     data = response.get_json()
@@ -29,8 +29,20 @@ def test_health_reports_integrations_and_counts(client):
     }
     assert data["auth_mode"] == "dev"
     assert data["gemini_configured"] is False
-    assert data["data_counts"]["social_posts"] == 2
-    assert data["data_counts"]["appointments"] == 1
+    assert "data_counts" not in data
+
+
+def test_health_does_not_read_the_store(app, monkeypatch):
+    # Render polls /health every few seconds; any store read there is paid for
+    # on every poll (this exhausted the Firestore read quota in production).
+    store = app.extensions["lineup"].store
+
+    def no_reads(*args, **kwargs):
+        raise AssertionError("/health touched the store")
+
+    monkeypatch.setattr(store, "collection", no_reads)
+    monkeypatch.setattr(store, "counts", no_reads)
+    assert app.test_client().get("/health").status_code == 200
 
 
 def test_config_exposes_flags_only(client):

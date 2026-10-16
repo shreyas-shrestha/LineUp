@@ -69,7 +69,8 @@ def health():
     svc = services()
     cfg = svc.config
     svc.places_cache.prune()
-    counts = svc.store.counts()
+    # No store reads here: Render polls this every few seconds, and counting
+    # Firestore collections on each poll used up the daily read quota.
     return jsonify(
         {
             "status": "healthy",
@@ -100,11 +101,6 @@ def health():
                 "places_api_calls_today": svc.places_quota.used,
                 "gemini_api_calls_today": svc.gemini_quota.used,
                 "daily_reset": svc.places_quota.reset_date.isoformat(),
-            },
-            "data_counts": {
-                "social_posts": counts["social_posts"],
-                "appointments": counts["appointments"],
-                "barber_portfolios": counts["barber_portfolios"],
             },
         }
     )

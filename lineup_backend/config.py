@@ -120,7 +120,7 @@ class AppConfig:
 
     # Gemini (analysis, moderation, haircut matching)
     gemini_api_key: Optional[str] = None
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-3.6-flash"
     gemini_daily_limit: int = 50
 
     # Google Places (barber search, reviews, photos)
@@ -181,7 +181,7 @@ class AppConfig:
             ratelimit_storage_uri=_env("RATELIMIT_STORAGE_URI", "memory://"),
             rate_limits=rate_limits,
             gemini_api_key=_env("GEMINI_API_KEY"),
-            gemini_model=_env("GEMINI_MODEL", "gemini-2.0-flash"),
+            gemini_model=_env("GEMINI_MODEL", "gemini-3.6-flash"),
             gemini_daily_limit=_env_int("LINEUP_GEMINI_DAILY_LIMIT", 50),
             google_places_api_key=_env("GOOGLE_PLACES_API_KEY"),
             places_daily_limit=_env_int("LINEUP_PLACES_DAILY_LIMIT", 1700),

@@ -47,7 +47,7 @@ restarts. Restart the API after backend changes.
 | `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PLUS`, `STRIPE_PRICE_STUDIO` | Stripe price ids for the three credit packs (one-time) | That pack is reported `purchasable: false`; checkout returns 503 `price_not_configured` |
 | `STRIPE_PRICE_BARBER_PRO` | Barber Pro (monthly); read only with `LINEUP_BARBER_SIDE=true` | Pro is `purchasable: false` |
 
-Tuning for the integrations: `GEMINI_MODEL` (default `gemini-2.0-flash`),
+Tuning for the integrations: `GEMINI_MODEL` (default `gemini-3.6-flash`),
 `LINEUP_GEMINI_DAILY_LIMIT` (50), `LINEUP_PLACES_DAILY_LIMIT` (1700, counted in Google API calls: one search costs up to 17),
 `LINEUP_PLACES_CACHE_TTL` (3600 s), `LINEUP_PLACES_CACHE_MAX` (50),
 `LINEUP_SEED_MOCK_DATA` (`true`/`false`; default seeds only in development

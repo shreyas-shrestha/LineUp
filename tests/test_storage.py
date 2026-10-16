@@ -168,15 +168,34 @@ class _Query:
         field, value = (flt.field_path, flt.value) if flt is not None else (args[0], args[2])
         return _Query(self._collection, self._filters + ((field, value),))
 
+    def count(self):
+        return _CountQuery(self)
+
     def stream(self):
+        self._collection.streams += 1
         for doc_id, data in list(self._collection.docs.items()):
             if all(data.get(f) == v for f, v in self._filters):
                 yield _Snapshot(doc_id, data, _DocRef(self._collection, doc_id))
 
 
+class _AggregationResult:
+    def __init__(self, value):
+        self.value = value
+
+
+class _CountQuery:
+    def __init__(self, query: _Query):
+        self._query = query
+
+    def get(self):
+        docs = self._query._collection.docs.values()
+        return [[_AggregationResult(sum(1 for d in docs if all(d.get(f) == v for f, v in self._query._filters)))]]
+
+
 class _Collection(_Query):
     def __init__(self):
         self.docs: Dict[str, Dict[str, Any]] = {}
+        self.streams = 0
         super().__init__(self)
         self._counter = 0
 
@@ -240,3 +259,12 @@ def test_firestore_modify_runs_in_a_transaction():
     assert client.transactions[-1].ops == ["set"]
     assert users.modify("u1", lambda cur: None)["credits"] == 1
     assert users.modify("ghost", lambda cur: None) is None
+
+
+def test_firestore_count_uses_aggregation_not_a_full_scan():
+    client = _Client()
+    store = FirestoreStore(client=client, transactional=_fake_transactional)
+    for i in range(3):
+        store.appointments.create({"n": i})
+    assert store.appointments.count() == 3
+    assert client.collection("appointments").streams == 0

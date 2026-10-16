@@ -191,7 +191,7 @@ checklist. Locally, `.env` is loaded by `app.py`.
 | `MAX_CONTENT_LENGTH` | `12582912` | Body limit in bytes; larger requests get a JSON 413. |
 | `RATELIMIT_ENABLED`, `RATELIMIT_STORAGE_URI` | `true`, `memory://` | Use `redis://...` with more than one worker or instance. |
 | `LINEUP_RATE_{GLOBAL,HEALTH,READ,WRITE,ENGAGEMENT,SOCIAL_WRITE,AI,TRYON,PLACES,OPS,AUTH,BILLING,WEBHOOK}` | see `.env.example` | Per-group limits in Flask-Limiter syntax. |
-| `GEMINI_MODEL`, `LINEUP_GEMINI_DAILY_LIMIT` | `gemini-2.0-flash`, `50` | Model and server-wide daily call cap before falling back to mock. |
+| `GEMINI_MODEL`, `LINEUP_GEMINI_DAILY_LIMIT` | `gemini-3.6-flash`, `50` | Model and server-wide daily call cap before falling back to mock. |
 | `LINEUP_PLACES_DAILY_LIMIT`, `LINEUP_PLACES_CACHE_TTL`, `LINEUP_PLACES_CACHE_MAX` | `1700`, `3600`, `50` | Server-wide daily cap on Google Places API calls (one search costs up to 17: geocode + nearby + one details call per shop) and the per-location cache. |
 | `LINEUP_SEED_MOCK_DATA` | auto | Force demo seeding on or off (default: only in development without Firestore). |
 

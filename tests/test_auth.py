@@ -1,6 +1,7 @@
 import time
 
 import jwt
+import pytest
 
 from lineup_backend.pricing import FREE_SIGNUP_CREDITS
 from lineup_backend.services.auth import DEV_AUDIENCE, DEV_ISSUER, dev_uid_for
@@ -223,3 +224,20 @@ def test_public_reads_stay_public(client):
         "/ai-insights",
     ):
         assert client.get(path).status_code == 200, path
+
+
+@pytest.mark.parametrize("ratelimit_enabled", [False, True])
+def test_store_failure_while_loading_user_is_503_not_401(monkeypatch, ratelimit_enabled):
+    # The limiter's key function resolves the user first and swallows errors;
+    # a store outage (Firestore quota) must not read as "signed out".
+    app = make_app(ratelimit_enabled=ratelimit_enabled)
+    authed = login(app.test_client(), "client@lineup.dev")
+    users = app.extensions["lineup"].store.users
+
+    def quota_exceeded(*args, **kwargs):
+        raise RuntimeError("429 Quota exceeded")
+
+    monkeypatch.setattr(type(users), "get", quota_exceeded)
+    response = authed.get("/auth/me")
+    assert response.status_code == 503
+    assert response.get_json()["code"] == "account_unavailable"
